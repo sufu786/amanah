@@ -1,0 +1,124 @@
+{
+  "note": "Synthetic reports written for this project. No patient data, no PHI, safe to keep in a public repository. These are a smoke test, not a validation set: they check that the extractor's failure modes behave, not that it performs well. Real metrics require a labelled corpus under LABELLING.md.",
+  "prompt_version": "0.1",
+  "cases": [
+
+    {
+      "id": "clean-normal",
+      "why": "C2. Most reports look like this. A model that dislikes empty output will invent something here, and that is the failure mode that makes the system net-harmful.",
+      "language": "en",
+      "report": "EXAMINATION: CHEST X-RAY PA AND LATERAL\nDATE OF STUDY: 2026-03-14\n\nCOMPARISON: None available.\n\nFINDINGS: The lungs are clear. No focal consolidation, pleural effusion or pneumothorax. Cardiomediastinal silhouette is within normal limits. Osseous structures are unremarkable.\n\nIMPRESSION: Normal chest radiograph.",
+      "expect": {
+        "recommendation_count": 0,
+        "no_recommendation_found": true,
+        "date_found": "2026-03-14"
+      }
+    },
+
+    {
+      "id": "nodule-with-interval",
+      "why": "The straightforward case. Should extract one recommendation with a 6 month interval and a valid span.",
+      "language": "en",
+      "report": "EXAMINATION: CT CHEST WITHOUT CONTRAST\nDATE OF STUDY: 2026-03-14\n\nFINDINGS: There is an 8 mm solid nodule in the right upper lobe. No mediastinal or hilar lymphadenopathy. No pleural effusion.\n\nIMPRESSION: 8 mm right upper lobe pulmonary nodule. Recommend CT follow-up in 6 months.",
+      "expect": {
+        "recommendation_count": 1,
+        "finding": "pulmonary_nodule",
+        "action": "imaging",
+        "interval": { "value": 6, "unit": "month" },
+        "date_found": "2026-03-14"
+      }
+    },
+
+    {
+      "id": "guideline-reference-no-interval",
+      "why": "Rule 3 and R6. The model knows Fleischner intervals and will want to supply one. It must return interval null. A guideline default applied here would be an unattributable due date.",
+      "language": "en",
+      "report": "EXAMINATION: CT CHEST\nDATE OF STUDY: 2026-02-02\n\nIMPRESSION: 5 mm solid nodule in the left lower lobe. Follow-up as per Fleischner criteria.",
+      "expect": {
+        "recommendation_count": 1,
+        "interval": null,
+        "comment": "interval MUST be null. Any populated interval here is a rule 3 violation and should also be caught by the interval_verbatim check."
+      }
+    },
+
+    {
+      "id": "finding-no-recommendation",
+      "why": "C1 boundary and the hardest case. A significant finding is described and nothing is recommended. Clinically a reader wants to act; the extractor must not. This is the single most likely place for the system to invent an obligation.",
+      "language": "en",
+      "report": "EXAMINATION: CT ABDOMEN AND PELVIS WITH CONTRAST\nDATE OF STUDY: 2026-01-20\n\nFINDINGS: A 2.1 cm hypodense lesion is noted in the right hepatic lobe, unchanged in size and appearance from the prior study of 2024. Kidneys, spleen, pancreas and adrenal glands are unremarkable.\n\nIMPRESSION: Stable 2.1 cm right hepatic lesion, unchanged since 2024.",
+      "expect": {
+        "recommendation_count": 0,
+        "no_recommendation_found": true
+      }
+    },
+
+    {
+      "id": "conditional",
+      "why": "Conditional follow-up must be flagged, not converted into an unconditional due date.",
+      "language": "en",
+      "report": "EXAMINATION: ULTRASOUND ABDOMEN\nDATE OF STUDY: 2026-04-05\n\nIMPRESSION: No acute abnormality identified. Consider repeat ultrasound in 3 months if symptoms persist.",
+      "expect": {
+        "recommendation_count": 1,
+        "conditional": true,
+        "interval": { "value": 3, "unit": "month" }
+      }
+    },
+
+    {
+      "id": "negated",
+      "why": "An explicit statement that follow-up is not required is evidence, not absence. It supports the not_indicated terminal state and must be captured rather than discarded.",
+      "language": "en",
+      "report": "EXAMINATION: CT CHEST\nDATE OF STUDY: 2026-05-11\n\nIMPRESSION: 3 mm subpleural nodule, benign appearance. No further imaging follow-up is required.",
+      "expect": {
+        "recommendation_count": 1,
+        "negated": true
+      }
+    },
+
+    {
+      "id": "multiple-recommendations",
+      "why": "Two distinct recommended actions in one report must produce two instances, not one merged instance.",
+      "language": "en",
+      "report": "EXAMINATION: CT CHEST WITH CONTRAST\nDATE OF STUDY: 2026-06-18\n\nIMPRESSION: 1.4 cm right upper lobe mass, suspicious. Recommend PET-CT and referral to the respiratory multidisciplinary team.",
+      "expect": {
+        "recommendation_count": 2,
+        "comment": "One imaging action and one referral action."
+      }
+    },
+
+    {
+      "id": "already-scheduled",
+      "why": "Follow-up already arranged must not generate a duplicate obligation.",
+      "language": "en",
+      "report": "EXAMINATION: CT ABDOMEN\nDATE OF STUDY: 2026-06-30\n\nIMPRESSION: 1.8 cm left adrenal nodule with indeterminate features. The patient is already booked for adrenal protocol MRI next month.",
+      "expect": {
+        "recommendation_count": 1,
+        "already_scheduled": true
+      }
+    },
+
+    {
+      "id": "no-date",
+      "why": "A report with no date must yield date_found null, never today's date. Every due date is derived from this field, so a silently substituted date produces a silently wrong obligation.",
+      "language": "en",
+      "report": "IMPRESSION: 7 mm nodule in the left upper lobe. Recommend interval CT in 12 months.",
+      "expect": {
+        "recommendation_count": 1,
+        "date_found": null,
+        "interval": { "value": 12, "unit": "month" }
+      }
+    },
+
+    {
+      "id": "boilerplate-only",
+      "why": "Generic closing boilerplate naming no specific test is not a recommendation. Treating it as one would generate obligations on a large share of all reports.",
+      "language": "en",
+      "report": "EXAMINATION: CHEST X-RAY\nDATE OF STUDY: 2026-07-02\n\nIMPRESSION: Low lung volumes. No focal consolidation. Clinical correlation is advised.",
+      "expect": {
+        "recommendation_count": 0,
+        "no_recommendation_found": true
+      }
+    }
+
+  ]
+}
