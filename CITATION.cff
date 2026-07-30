@@ -1,24 +1,20 @@
 cff-version: 1.2.0
-message: "If you use this specification or reference it, please cite it as below."
-title: "The Portable Clinical Obligation: a patient-held, condition-agnostic registry for closing diagnostic follow-up loops worldwide"
+message: "If you use this work, please cite the paper listed under preferred-citation."
+title: "Amanah: reference implementation and specification of the Portable Clinical Obligation"
 abstract: >-
-  Across every health system studied, a substantial fraction of correctly-made diagnoses and
-  correctly-written follow-up recommendations are never acted on. The detection succeeded; the
-  linkage failed. This work specifies a portable clinical obligation — a patient-owned,
-  institution-independent, condition-agnostic record of a recommended follow-up, closable only on
-  evidence — together with a free, open-source registry that creates, tracks, escalates and closes
-  such obligations from any source, including a photograph of a paper report, in any country,
-  without institutional integration and without making any diagnostic claim.
+  Amanah is a free, open-source registry for portable clinical obligations: patient-held records of
+  a clinician-recommended follow-up, tracked until evidence shows it happened. It detects no disease
+  and makes no diagnostic claim. It carries detections that have already been made through to the
+  treatment that should have followed. This repository holds the Portable Clinical Obligation
+  specification, the concept note, and the naming policy.
 type: software
-version: 0.1.0
+version: 1.1.0
 date-released: 2026-07-30
-license: CC-BY-4.0
+license: AGPL-3.0-or-later
 repository-code: "https://github.com/sufu786/amanah"
-url: "https://github.com/sufu786/amanah"
+url: "https://sufu786.github.io/amanah/"
+doi: "10.5281/zenodo.21708214"   # software concept DOI, always resolves to the latest release
 
-# VERIFY THIS BEFORE PUBLISHING — name order is assumed, not confirmed.
-# If "Dedrani" is not your family name, swap the two fields below.
-# Whatever you choose must match your ORCID record exactly.
 authors:
   - family-names: "Dedrani"
     given-names: "Mohamedsarfaraz Mohamadfiroz"
@@ -37,12 +33,27 @@ keywords:
   - patient safety
   - open source
 
-doi: "10.5281/zenodo.21706768"   # concept DOI — always resolves to the latest version
-
 identifiers:
   - type: doi
-    value: "10.5281/zenodo.21706768"
-    description: "Concept DOI — all versions of this work"
+    value: "10.5281/zenodo.21708214"
+    description: "Software concept DOI, all releases"
   - type: doi
-    value: "10.5281/zenodo.21706769"
-    description: "Version DOI — v1.0, 30 July 2026"
+    value: "10.5281/zenodo.21708215"
+    description: "Software version DOI, v1.1.0"
+
+# The paper is the citable work. Cite this rather than the software unless you
+# specifically mean the code.
+preferred-citation:
+  type: article
+  title: "The Portable Clinical Obligation: a patient-held, condition-agnostic registry for closing diagnostic follow-up loops worldwide"
+  year: 2026
+  month: 7
+  doi: "10.5281/zenodo.21706768"
+  url: "https://doi.org/10.5281/zenodo.21706768"
+  publisher:
+    name: "Zenodo"
+  authors:
+    - family-names: "Dedrani"
+      given-names: "Mohamedsarfaraz Mohamadfiroz"
+      orcid: "https://orcid.org/0009-0004-7645-7151"
+      affiliation: "Independent Researcher"

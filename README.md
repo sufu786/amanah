@@ -119,10 +119,14 @@ See [`CITATION.cff`](CITATION.cff).
 > condition-agnostic registry for closing diagnostic follow-up loops worldwide.* Zenodo.
 > https://doi.org/10.5281/zenodo.21706768
 
-- **Concept DOI** (always resolves to the latest version, cite this one):
-  [10.5281/zenodo.21706768](https://doi.org/10.5281/zenodo.21706768)
-- **Version DOI** (v1.0, 30 July 2026):
-  [10.5281/zenodo.21706769](https://doi.org/10.5281/zenodo.21706769)
+Two DOIs exist, for two different things:
+
+| What | DOI | Cite when |
+|---|---|---|
+| **Paper** (concept note and specification) | [10.5281/zenodo.21706768](https://doi.org/10.5281/zenodo.21706768) | You are citing the ideas. **This is usually the one you want.** |
+| **Software** (tagged releases of this repository) | [10.5281/zenodo.21708214](https://doi.org/10.5281/zenodo.21708214) | You specifically mean the code. |
+
+Both are concept DOIs and always resolve to the latest version.
 
 ## Contributing
 
