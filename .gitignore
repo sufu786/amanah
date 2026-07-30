@@ -7,6 +7,12 @@
 *.jpeg
 *.png
 !docs/**/*.png
+
+# The generated document PDFs are deliberately NOT committed. They are build
+# artifacts, regenerable from the Markdown, and archived with a DOI on Zenodo,
+# which is their canonical home. Uncomment to ship them in the repo as well.
+# !CONCEPT_NOTE.pdf
+# !OBLIGATION_SPEC.pdf
 data/
 corpus/
 mimic/
