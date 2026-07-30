@@ -71,14 +71,14 @@ including typographical errors. Do not tidy. Spans are offsets into the extracte
 round-trip: `text[start:end]` has to equal the verbatim string, or the label is invalid.
 
 **`interval`**: only when stated in the report.
-- "in 6 months" → `{value: 6, unit: month}`
-- "6-12 months" → interval `null`, `interval_verbatim: "6-12 months"`. Ranges are not silently
+- "in 6 months" -> `{value: 6, unit: month}`
+- "6-12 months" -> interval `null`, `interval_verbatim: "6-12 months"`. Ranges are not silently
   collapsed to either endpoint; the downstream guideline layer decides, versioned and attributed.
-- "as per Fleischner" → interval `null`. The extractor must never supply a guideline default (R6).
-- "annually" → `{value: 1, unit: year}`
+- "as per Fleischner" -> interval `null`. The extractor must never supply a guideline default (R6).
+- "annually" -> `{value: 1, unit: year}`
 
 **`date_found`**: the report's own date. If several dates appear (study date, dictation date, sign-off
-date), take the **study date**. If none is determinable, `null` — never today's date.
+date), take the **study date**. If none is determinable, `null`, never today's date.
 
 **`anatomy`**: only when the report is specific. "nodule in the lung" is `null`, not
 `lung.unspecified`. An invented location corrupts identity resolution across serial studies, which
