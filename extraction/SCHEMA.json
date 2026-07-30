@@ -1,0 +1,201 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/sufu786/amanah/extraction/SCHEMA.json",
+  "title": "Amanah extraction output v0.1",
+  "description": "Structured output produced by the extraction step from a single clinical report. This is NOT an obligation. It is a proposal for one, pending patient verification (constraint C3). The extractor never interprets a finding (C1) and never asserts absence of disease (C2).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["document", "recommendations", "extraction"],
+
+  "properties": {
+
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["date_found", "language"],
+      "properties": {
+        "date_found": {
+          "type": ["string", "null"],
+          "description": "The report's own date in ISO 8601, taken from the document text. NEVER the ingestion date. Null if no date appears in the document, which forces the interface to ask the patient for it, because every due date depends on it.",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "date_span": {
+          "$ref": "#/$defs/span",
+          "description": "Character offsets of the text the date was read from."
+        },
+        "language": {
+          "type": "string",
+          "description": "BCP 47 tag of the report language as detected.",
+          "minLength": 2
+        },
+        "modality_of_document": {
+          "type": ["string", "null"],
+          "description": "Verbatim modality of the report itself if stated, e.g. 'CT CHEST WITHOUT CONTRAST'. Not inferred."
+        }
+      }
+    },
+
+    "recommendations": {
+      "type": "array",
+      "description": "Zero or more follow-up recommendations found in the report. An empty array means none were FOUND. It must never be presented to a user as meaning none EXIST (C2).",
+      "items": { "$ref": "#/$defs/recommendation" }
+    },
+
+    "extraction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "language_validated", "no_recommendation_found"],
+      "properties": {
+        "model": {
+          "type": "string",
+          "description": "Model identifier and version, e.g. 'qwen2.5:7b-instruct-q4_K_M'. Required for the permanent audit trail (C4)."
+        },
+        "language_validated": {
+          "type": "boolean",
+          "description": "Whether extraction performance has been measured for this language. False does not block operation; it changes the interface (C3)."
+        },
+        "no_recommendation_found": {
+          "type": "boolean",
+          "description": "True when the extractor found no follow-up recommendation. Distinct from an error. Exists so the absence is recorded explicitly rather than inferred from an empty array."
+        },
+        "unparseable": {
+          "type": "boolean",
+          "default": false,
+          "description": "True when the document could not be read at all, e.g. illegible photograph. Must be surfaced to the user as a failure, never as a clean result."
+        }
+      }
+    }
+  },
+
+  "$defs": {
+
+    "span": {
+      "type": "array",
+      "description": "Character offset [start, end) into the extracted document text. Required for the patient-verification screen (C3), which highlights the source sentence.",
+      "items": { "type": "integer", "minimum": 0 },
+      "minItems": 2,
+      "maxItems": 2
+    },
+
+    "recommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["finding", "action", "confidence", "recommendation_verbatim", "recommendation_span"],
+      "properties": {
+
+        "finding_verbatim": {
+          "type": ["string", "null"],
+          "description": "The finding exactly as written in the report. Copied, never paraphrased (R5). Null when a recommendation is made without a stated finding."
+        },
+        "finding_span": { "$ref": "#/$defs/span" },
+
+        "recommendation_verbatim": {
+          "type": "string",
+          "description": "The recommendation exactly as written. Copied, never paraphrased. This is the string a clinician will be shown, so any alteration is a safety defect.",
+          "minLength": 1
+        },
+        "recommendation_span": { "$ref": "#/$defs/span" },
+
+        "finding": {
+          "type": "string",
+          "description": "Controlled category from section 7 of OBLIGATION_SPEC.md. Use 'other' rather than forcing a poor fit; 'other' is tracked but generates no guideline-derived interval.",
+          "enum": [
+            "pulmonary_nodule", "hepatic_lesion", "renal_mass", "adrenal_nodule",
+            "thyroid_nodule", "pancreatic_cyst", "adnexal_mass", "aortic_aneurysm",
+            "vertebral_fracture", "coronary_calcium",
+            "iron_deficiency_anaemia", "haematuria_microscopic", "psa_elevated",
+            "thrombocytosis", "hypercalcaemia", "lft_abnormal_persistent",
+            "fit_positive", "mammography_recall", "cervical_screen_abnormal",
+            "aaa_screen_positive",
+            "tb_confirmed", "tb_presumptive", "hbv_chronic", "hcv_positive",
+            "hiv_positive", "syphilis_positive",
+            "hcc_surveillance", "lynch_surveillance", "barretts_surveillance",
+            "post_treatment_surveillance",
+            "other"
+          ]
+        },
+
+        "anatomy": {
+          "type": ["string", "null"],
+          "description": "Dotted normalised location, e.g. 'lung.right.upper_lobe'. Null when the report is not specific. Never guessed: a wrong anatomy corrupts identity resolution (section 6 of the spec) and can silently discharge a real obligation."
+        },
+        "laterality": {
+          "type": ["string", "null"],
+          "enum": ["left", "right", "bilateral", null]
+        },
+
+        "measurement": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["value", "unit"],
+          "properties": {
+            "value": { "type": "number", "exclusiveMinimum": 0 },
+            "unit": { "type": "string", "enum": ["mm", "cm"] }
+          }
+        },
+
+        "action": {
+          "type": "string",
+          "description": "What kind of thing was recommended.",
+          "enum": [
+            "imaging", "laboratory", "referral", "treatment_initiation",
+            "procedure", "specialist_review", "unclear"
+          ]
+        },
+        "modality": {
+          "type": ["string", "null"],
+          "description": "Verbatim modality or test named in the recommendation, e.g. 'CT', 'ultrasound', 'sputum culture'. Null if not stated."
+        },
+
+        "interval": {
+          "type": ["object", "null"],
+          "description": "The stated follow-up interval. Null when the report recommends follow-up without saying when. Null is a legitimate and common answer and MUST NOT be filled in from a guideline by the extractor; guideline defaults are applied downstream, versioned and attributed (R6).",
+          "additionalProperties": false,
+          "required": ["value", "unit"],
+          "properties": {
+            "value": { "type": "number", "exclusiveMinimum": 0 },
+            "unit": { "type": "string", "enum": ["day", "week", "month", "year"] }
+          }
+        },
+        "interval_verbatim": {
+          "type": ["string", "null"],
+          "description": "The interval as written, e.g. '6 months', '6-12 months', 'at 3 and 12 months'. Retained because ranges and multi-point schedules lose information when normalised."
+        },
+
+        "urgency_verbatim": {
+          "type": ["string", "null"],
+          "description": "Urgency language present in the SOURCE only, e.g. 'urgent', 'within 48 hours'. Never added by the extractor. If the report says nothing, this is null and the interface adds no urgency of its own."
+        },
+
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Extractor confidence that a real follow-up recommendation was stated here. Surfaced, never hidden (R7). Below threshold routes to review rather than silent acceptance or silent discard (C6)."
+        },
+
+        "conditional": {
+          "type": "boolean",
+          "default": false,
+          "description": "True when follow-up is contingent, e.g. 'if symptoms persist' or 'if clinically indicated'. Conditional recommendations must be flagged rather than converted into unconditional due dates."
+        },
+        "condition_verbatim": {
+          "type": ["string", "null"],
+          "description": "The condition as written, when conditional is true."
+        },
+
+        "already_scheduled": {
+          "type": "boolean",
+          "default": false,
+          "description": "True when the report itself states the follow-up is already arranged. Prevents duplicate obligations for work already booked."
+        },
+
+        "negated": {
+          "type": "boolean",
+          "default": false,
+          "description": "True when the report explicitly states follow-up is NOT required, e.g. 'no further imaging necessary'. Captured rather than discarded, because it is evidence for the not_indicated terminal state."
+        }
+      }
+    }
+  }
+}
