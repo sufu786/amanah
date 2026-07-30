@@ -108,6 +108,8 @@ Design disclosure. No implementation yet.
 - Specification and documents: **CC BY 4.0**.
 - The specification is vendor-neutral by design. Anyone may implement it without adopting the
   Amanah name.
+- The **name** is governed separately: see [`TRADEMARK.md`](TRADEMARK.md). Fork the code freely and
+  rename; implement the specification freely and call it whatever you like.
 
 ## Citation
 
