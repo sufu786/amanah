@@ -13,8 +13,8 @@ type: software
 version: 0.1.0
 date-released: 2026-07-30
 license: CC-BY-4.0
-repository-code: "<add GitHub URL>"
-url: "<add project URL>"
+repository-code: "https://github.com/sufu786/amanah"
+url: "https://github.com/sufu786/amanah"
 
 # VERIFY THIS BEFORE PUBLISHING — name order is assumed, not confirmed.
 # If "Dedrani" is not your family name, swap the two fields below.
