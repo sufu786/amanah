@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Amanah — nothing found should be lost</title>
+<meta name="description" content="A free, open-source registry for portable clinical obligations: patient-held records of a recommended follow-up, tracked until evidence shows it happened.">
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-alt: #f6f7f8;
+    --ink: #16191d;
+    --ink-soft: #4a5159;
+    --line: #e0e3e7;
+    --accent: #0f5f6b;
+    --accent-soft: #e6f1f2;
+    --warn: #8a4b12;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121417;
+      --bg-alt: #191d21;
+      --ink: #e8eaec;
+      --ink-soft: #a2abb3;
+      --line: #2b3138;
+      --accent: #5fc3d1;
+      --accent-soft: #14262a;
+      --warn: #d9a15f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 17px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 22px; }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; }
+  a:hover { border-bottom-color: currentColor; }
+
+  header { padding: 72px 0 48px; border-bottom: 1px solid var(--line); }
+  .mark { font-size: 13px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-soft); }
+  h1 { font-size: clamp(30px, 6vw, 44px); line-height: 1.15; margin: 14px 0 10px; letter-spacing: -.02em; }
+  .tagline { font-size: clamp(18px, 3.4vw, 21px); color: var(--ink-soft); margin: 0 0 24px; }
+  .etym {
+    font-size: 15px; color: var(--ink-soft); border-left: 3px solid var(--line);
+    padding: 4px 0 4px 14px; margin: 0 0 26px;
+  }
+  .badges { display: flex; flex-wrap: wrap; gap: 10px; }
+  .badge {
+    font-size: 13.5px; padding: 6px 12px; border: 1px solid var(--line);
+    border-radius: 999px; color: var(--ink-soft); background: var(--bg-alt);
+  }
+  .badge:hover { border-color: var(--accent); color: var(--accent); }
+
+  section { padding: 46px 0; border-bottom: 1px solid var(--line); }
+  h2 { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); margin: 0 0 20px; font-weight: 600; }
+  h3 { font-size: 19px; margin: 28px 0 8px; }
+  p { margin: 0 0 16px; }
+  .lead { font-size: 19px; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin: 0 0 22px; }
+  .stat { background: var(--bg); padding: 18px 18px 20px; }
+  .stat b { display: block; font-size: 26px; line-height: 1.2; letter-spacing: -.02em; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat span { display: block; font-size: 14.5px; color: var(--ink-soft); margin-top: 6px; }
+
+  .callout { background: var(--accent-soft); border-radius: 8px; padding: 18px 20px; font-size: 18px; }
+  .callout strong { color: var(--ink); }
+
+  ol.props { list-style: none; counter-reset: p; padding: 0; margin: 0; }
+  ol.props li { counter-increment: p; position: relative; padding: 12px 0 12px 42px; border-bottom: 1px solid var(--line); font-size: 16px; }
+  ol.props li:last-child { border-bottom: 0; }
+  ol.props li::before {
+    content: counter(p); position: absolute; left: 0; top: 12px;
+    width: 26px; height: 26px; border-radius: 50%; background: var(--bg-alt);
+    border: 1px solid var(--line); color: var(--ink-soft);
+    font-size: 13px; display: grid; place-items: center; font-variant-numeric: tabular-nums;
+  }
+  ol.props b { color: var(--ink); }
+
+  pre {
+    background: var(--bg-alt); border: 1px solid var(--line); border-radius: 8px;
+    padding: 16px 18px; overflow-x: auto; font-family: var(--mono);
+    font-size: 13px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 16px;
+  }
+  pre b { color: var(--ink); font-weight: 600; }
+
+  ul.rules { list-style: none; padding: 0; margin: 0; }
+  ul.rules li { padding: 9px 0 9px 24px; position: relative; border-bottom: 1px solid var(--line); font-size: 16px; }
+  ul.rules li:last-child { border-bottom: 0; }
+  ul.rules li::before { content: ""; position: absolute; left: 4px; top: 19px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+  ul.rules b { color: var(--ink); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { text-align: left; padding: 10px 12px 10px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--ink-soft); font-weight: 600; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
+  td:first-child { width: 74px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; }
+  .btn {
+    display: inline-block; padding: 11px 18px; border-radius: 7px; font-size: 15.5px;
+    border: 1px solid var(--accent); color: var(--accent); background: transparent;
+  }
+  .btn:hover { background: var(--accent); color: var(--bg); border-bottom-color: var(--accent); }
+  .btn.solid { background: var(--accent); color: var(--bg); }
+  .btn.solid:hover { opacity: .88; }
+
+  footer { padding: 40px 0 64px; font-size: 14.5px; color: var(--ink-soft); }
+  footer p { margin: 0 0 10px; }
+  .disclaimer { font-size: 13.5px; padding-top: 16px; border-top: 1px solid var(--line); margin-top: 22px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="mark">Amanah</div>
+    <h1>Nothing found should be lost.</h1>
+    <p class="tagline">A free, open-source registry for follow-up that was recommended and never happened.</p>
+    <p class="etym">
+      <em>Amanah</em> (Arabic <span lang="ar" dir="rtl">أمانة</span>): a trust. Something entrusted to
+      your keeping that you are duty-bound to discharge and return.
+    </p>
+    <div class="badges">
+      <a class="badge" href="https://doi.org/10.5281/zenodo.21706768">DOI 10.5281/zenodo.21706768</a>
+      <a class="badge" href="https://github.com/sufu786/amanah">GitHub</a>
+      <span class="badge">AGPL-3.0 &amp; CC BY 4.0</span>
+      <span class="badge">Design disclosure</span>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2>The problem</h2>
+    <p class="lead">
+      The people this is built for are not those whose disease was missed. They are those whose
+      disease was found, written down, and then lost.
+    </p>
+    <p>
+      A clinician writes <em>"8 mm right upper lobe nodule, recommend CT follow-up in 6 months."</em>
+      A sputum sample returns positive for tuberculosis. A cervical screen returns HPV-positive.
+      In each case the diagnostic act succeeded. In a large and measurable fraction of cases,
+      nothing happens next.
+    </p>
+
+    <div class="stats">
+      <div class="stat">
+        <b>28-77%</b>
+        <span>Reported completion of recommended follow-up on actionable incidental radiology findings</span>
+      </div>
+      <div class="stat">
+        <b>13-20%</b>
+        <span>People with confirmed tuberculosis who never start treatment in high-burden settings</span>
+      </div>
+      <div class="stat">
+        <b>69.7%</b>
+        <span>Of deaths among those lost after TB diagnosis occurred within 30 days</span>
+      </div>
+      <div class="stat">
+        <b>97.7% / 49.3%</b>
+        <span>Hepatitis B treatment initiation with active linkage, versus routine primary care</span>
+      </div>
+    </div>
+
+    <div class="callout">
+      Detection succeeded in every one of those cases. <strong>Linkage failed.</strong>
+      Linkage is a software problem.
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>What does not exist</h2>
+    <p>
+      Institution-side follow-up tracking is mature and commercial. Extraction of follow-up
+      recommendations from reports is published research. Patient-side record aggregation exists and
+      is open source. No system anywhere is simultaneously all six of these.
+    </p>
+    <ol class="props">
+      <li><b>Patient-held.</b> The obligation survives a change of institution, country or insurer.</li>
+      <li><b>Condition-agnostic.</b> Radiology, labs, screening and infectious disease in one ledger.</li>
+      <li><b>Source-agnostic.</b> A photograph of a paper report is enough. No integration required.</li>
+      <li><b>Global.</b> Multilingual, degrading gracefully where no locale support exists.</li>
+      <li><b>Free and open source.</b></li>
+      <li><b>Non-interpretive by design.</b> Makes no diagnostic claim, so it is not a medical device.</li>
+    </ol>
+    <p style="margin-top:20px">
+      Properties 1, 3 and 6 taken together are what remove the integration, procurement and
+      regulatory gates that confine every mature implementation to wealthy health systems.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>The primitive</h2>
+    <p>
+      Health data standards model <em>records</em>. None of them models an outstanding duty owed to a
+      patient: a thing that is open, has an owner, has a due date, and can only be closed by evidence.
+    </p>
+<pre><b>Obligation := {</b>
+  finding             what was found, verbatim from the source document
+  recommended_action  what was recommended, verbatim
+  due_date            derived from the stated interval and the source date
+  source_evidence     the document, page, and quoted sentence
+  closure_evidence    what would prove this is discharged, and what actually did
+  owner               exactly one accountable party at any time
+  state               explicit, with no implicit or time-based transitions
+<b>}</b></pre>
+    <p>
+      The specification is deliberately vendor-neutral. Anyone may implement it without adopting the
+      Amanah name.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Safety constraints</h2>
+    <p>These are load-bearing. Each one addresses a specific way this system could harm someone.</p>
+    <ul class="rules">
+      <li><b>Never interpret.</b> "Your report recommends a follow-up scan", never what it might mean.</li>
+      <li><b>Never imply an all-clear.</b> No extraction result is ever reported as reassurance.</li>
+      <li><b>The patient validates.</b> Extracted fields are shown beside the highlighted source sentence for confirmation.</li>
+      <li><b>Closure requires evidence.</b> Elapsed time never closes an obligation. That is the failure being fixed.</li>
+      <li><b>Lost to follow-up is never counted as a closure.</b></li>
+      <li><b>Minimal retention.</b> Process, emit the obligation, discard the source document.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Status</h2>
+    <p>Design disclosure. No implementation yet.</p>
+    <table>
+      <thead><tr><th>Phase</th><th>Deliverable</th></tr></thead>
+      <tbody>
+        <tr><td>0</td><td>Specification, public repository, DOI</td></tr>
+        <tr><td>1</td><td>Extractor validated on a public corpus</td></tr>
+        <tr><td>2</td><td>Upload a report, patient verification, reminders, prepared summary</td></tr>
+        <tr><td>3</td><td>Locale packs</td></tr>
+        <tr><td>4</td><td>Patient record connect (US Cures Act APIs, NHS App)</td></tr>
+        <tr><td>5</td><td>TB and hepatitis B linkage deployment with a national programme partner</td></tr>
+        <tr><td>6</td><td>Institution-side registry deployment</td></tr>
+      </tbody>
+    </table>
+    <h3>Contributing</h3>
+    <p>
+      The most valuable contribution is a <b>locale pack</b>: language, guideline variants, and
+      health-system signposting for your country.
+    </p>
+    <div class="cta">
+      <a class="btn solid" href="https://github.com/sufu786/amanah">Repository</a>
+      <a class="btn" href="https://doi.org/10.5281/zenodo.21706768">Read the concept note</a>
+      <a class="btn" href="https://github.com/sufu786/amanah/blob/main/OBLIGATION_SPEC.md">Specification</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>
+      Dedrani Mohamedsarfaraz Mohamadfiroz, Independent Researcher
+      &middot; <a href="https://orcid.org/0009-0004-7645-7151">ORCID 0009-0004-7645-7151</a>
+    </p>
+    <p>
+      Cite as: <em>The Portable Clinical Obligation: a patient-held, condition-agnostic registry for
+      closing diagnostic follow-up loops worldwide.</em> Zenodo, 2026.
+      <a href="https://doi.org/10.5281/zenodo.21706768">10.5281/zenodo.21706768</a>
+    </p>
+    <p>Reference implementation AGPL-3.0. Specification and documents CC BY 4.0.</p>
+    <p class="disclaimer">
+      This project is a design disclosure, published to establish prior art and to prevent enclosure
+      of the described system by patent. It describes intended architecture and is not a report of
+      clinical results. It detects no disease and makes no diagnostic claim. No claim of clinical
+      efficacy is made.
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>
