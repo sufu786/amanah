@@ -1,0 +1,36 @@
+Creative Commons Attribution 4.0 International (CC BY 4.0)
+
+Copyright (c) 2026 Dedrani Mohamedsarfaraz Mohamadfiroz
+
+This licence applies to the documentation and specification in this repository:
+
+  - CONCEPT_NOTE.md
+  - OBLIGATION_SPEC.md
+  - README.md
+  - PUBLISH.md
+
+You are free to:
+
+  Share  — copy and redistribute the material in any medium or format
+  Adapt  — remix, transform, and build upon the material for any purpose,
+           including commercially
+
+Under the following terms:
+
+  Attribution — You must give appropriate credit, provide a link to the licence,
+  and indicate if changes were made. You may do so in any reasonable manner, but
+  not in any way that suggests the licensor endorses you or your use.
+
+No additional restrictions — You may not apply legal terms or technological
+measures that legally restrict others from doing anything the licence permits.
+
+Full legal code: https://creativecommons.org/licenses/by/4.0/legalcode
+Human-readable summary: https://creativecommons.org/licenses/by/4.0/
+
+---
+
+The reference implementation (source code) is licensed separately under
+AGPL-3.0. See LICENSE.
+
+The specification is vendor-neutral by design: any party may implement it
+without adopting the "Amanah" name or mark.

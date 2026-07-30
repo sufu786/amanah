@@ -1,0 +1,30 @@
+# Never commit clinical source material to this repository.
+# The system is designed to operate without retaining source documents (constraint C5).
+# The repository must reflect that.
+*.dcm
+*.pdf
+*.jpg
+*.jpeg
+*.png
+!docs/**/*.png
+data/
+corpus/
+mimic/
+phi/
+
+# Secrets
+.env
+.env.*
+*.key
+*.pem
+
+# Tooling
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
