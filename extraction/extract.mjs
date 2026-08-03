@@ -14,13 +14,19 @@
 //      the model's rule-following.
 //
 // Usage:
-//   node extract.mjs --file report.txt [--model qwen2.5:3b-instruct-q4_K_M] [--lang en]
+//   node extract.mjs --file report.txt [--model qwen2.5:7b-instruct-q4_K_M] [--lang en]
 //   node extract.mjs --text "..." --json
 
 import { readFileSync } from 'node:fs';
 
 export const PROMPT_VERSION = '0.1';
-const DEFAULT_MODEL = 'qwen2.5:3b-instruct-q4_K_M';
+
+// The 7B is the model selected in extraction/RESULTS.md: zero false positives and zero
+// fabrications on 50 real reports, against 2 false positives and 6 fabrication rejections for
+// the 3B. The 3B remains the iteration model (pass --model), but it must not be the default a
+// user gets by running this file, because the way it is worse is the way that matters: it
+// invents obligations that were never recommended.
+const DEFAULT_MODEL = 'qwen2.5:7b-instruct-q4_K_M';
 const OLLAMA = process.env.OLLAMA_HOST || 'http://127.0.0.1:11434';
 
 const FINDING_CATEGORIES = [
