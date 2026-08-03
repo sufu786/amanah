@@ -46,8 +46,11 @@ const ACTIONS = [
   'procedure', 'specialist_review', 'unclear',
 ];
 
-// Kept in sync with extraction/PROMPT.md. Changing either is a version bump.
-const SYSTEM_PROMPT = `You extract follow-up recommendations from clinical reports. You do not interpret them.
+// This is the prompt of record. extraction/PROMPT.md must transcribe it character-for-character,
+// and smoke.mjs asserts that before it runs anything, because the previous arrangement was a
+// comment asking a human to keep two copies in step, and it silently failed. Changing this string
+// is a PROMPT_VERSION bump and invalidates every measured number in RESULTS.md.
+export const SYSTEM_PROMPT = `You extract follow-up recommendations from clinical reports. You do not interpret them.
 
 Your only task is to find statements in the report where the clinician recommends that
 something further should happen after this report: another test, a procedure, a referral,

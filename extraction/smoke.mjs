@@ -5,15 +5,35 @@
 // This is a smoke test. It does not measure performance; that requires a labelled corpus under
 // LABELLING.md. It answers a narrower question: do the safety-critical failure modes behave?
 //
-//   node smoke.mjs [--model qwen2.5:3b-instruct-q4_K_M]
+//   node smoke.mjs                                   runs the 7B, the model of record
+//   node smoke.mjs --model qwen2.5:3b-instruct-q4_K_M  the faster iteration model
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { extract } from './extract.mjs';
+import { extract, SYSTEM_PROMPT } from './extract.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const suite = JSON.parse(readFileSync(join(here, 'fixtures', 'smoke.json'), 'utf8'));
+
+// PROMPT.md is the published record of what was measured. If it does not match the prompt that
+// actually runs, every number in RESULTS.md is attributed to a prompt nobody can read. That drift
+// has happened once already, undetected, because the only thing guarding it was a comment.
+// Checked before any model call so it fails in a second and without Ollama running.
+{
+  const doc = readFileSync(join(here, 'PROMPT.md'), 'utf8');
+  const block = doc.match(/## System prompt\s*\n+```\n([\s\S]*?)\n```/);
+  if (!block) {
+    console.error('PROMPT.md: no fenced system-prompt block found under "## System prompt"');
+    process.exit(2);
+  }
+  if (block[1].trim() !== SYSTEM_PROMPT.trim()) {
+    console.error('PROMPT.md is out of sync with SYSTEM_PROMPT in extract.mjs.');
+    console.error('Transcribe the code prompt into PROMPT.md, or bump PROMPT_VERSION and');
+    console.error('re-measure. Do not edit one without deciding about the other.');
+    process.exit(2);
+  }
+}
 
 const args = process.argv.slice(2);
 const mi = args.indexOf('--model');
