@@ -29,7 +29,9 @@ export const PROMPT_VERSION = '0.1';
 const DEFAULT_MODEL = 'qwen2.5:7b-instruct-q4_K_M';
 const OLLAMA = process.env.OLLAMA_HOST || 'http://127.0.0.1:11434';
 
-const FINDING_CATEGORIES = [
+// Exported so the labelling harness validates against these lists rather than keeping its own
+// copy. Three copies of a controlled vocabulary is how the PROMPT.md drift happened.
+export const FINDING_CATEGORIES = [
   'pulmonary_nodule', 'hepatic_lesion', 'renal_mass', 'adrenal_nodule', 'thyroid_nodule',
   'pancreatic_cyst', 'adnexal_mass', 'aortic_aneurysm', 'vertebral_fracture', 'coronary_calcium',
   'iron_deficiency_anaemia', 'haematuria_microscopic', 'psa_elevated', 'thrombocytosis',
@@ -41,7 +43,7 @@ const FINDING_CATEGORIES = [
   'other',
 ];
 
-const ACTIONS = [
+export const ACTIONS = [
   'imaging', 'laboratory', 'referral', 'treatment_initiation',
   'procedure', 'specialist_review', 'unclear',
 ];

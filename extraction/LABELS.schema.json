@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/sufu786/amanah/extraction/LABELS.schema.json",
+  "title": "Amanah gold-standard label set v0.1",
+  "description": "One labeller's output over one corpus, produced under LABELLING.md v0.1. This is the ground truth against which extraction is measured, so it is deliberately a separate artefact from SCHEMA.json: a label is what a human decided, not what a model returned. Labels carry no confidence, because a labeller who is unsure resolves it under section 5 of the protocol rather than recording a probability.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["corpus", "labeller", "protocol_version", "labels"],
+
+  "properties": {
+
+    "corpus": {
+      "type": "string",
+      "description": "Identifier of the corpus file these labels apply to. Must match the corpus file's own 'corpus' field, so labels cannot be scored against the wrong text."
+    },
+
+    "labeller": {
+      "type": "string",
+      "description": "Opaque labeller identifier, e.g. 'A'. Never a name. Section 5 requires two independent labellers, and agreement is reported before resolution, so labeller identity must survive in the record."
+    },
+
+    "protocol_version": {
+      "type": "string",
+      "description": "Version of LABELLING.md the labeller worked under. A protocol change invalidates agreement figures in the same way a prompt change invalidates extraction metrics.",
+      "const": "0.1"
+    },
+
+    "resolved": {
+      "type": "boolean",
+      "default": false,
+      "description": "True when this set is the post-resolution gold standard produced under section 5.2, rather than one labeller's independent pass. Only a resolved set may be used as ground truth by score.mjs; agreement.mjs refuses to compare two resolved sets, because agreement is meaningless after resolution."
+    },
+
+    "labels": {
+      "type": "array",
+      "description": "One entry per report. Every report in the corpus must appear, including reports with no recommendation. A missing report is an incomplete label set, not an empty one, and the two must never be confused.",
+      "items": { "$ref": "#/$defs/reportLabel" }
+    }
+  },
+
+  "$defs": {
+
+    "span": {
+      "type": "array",
+      "description": "Character offset [start, end) into the report text. Section 4 requires round-trip: text.slice(start, end) must equal the verbatim string exactly, or the label is invalid and is rejected by labels.mjs.",
+      "items": { "type": "integer", "minimum": 0 },
+      "minItems": 2,
+      "maxItems": 2
+    },
+
+    "reportLabel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["report_id", "recommendations"],
+      "properties": {
+
+        "report_id": {
+          "type": "string",
+          "description": "Must exist in the corpus file."
+        },
+
+        "text_sha256": {
+          "type": ["string", "null"],
+          "description": "SHA-256 of the report text as labelled. Binds spans to exact characters: if the corpus text is later normalised, whitespace-fixed or re-extracted, every offset silently moves and the labels become wrong while still looking valid. Checked on load.",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+
+        "date_found": {
+          "type": ["string", "null"],
+          "description": "The report's own date. Section 4: where several dates appear, take the study date. Null where none is determinable, never today's date.",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+
+        "recommendations": {
+          "type": "array",
+          "description": "Zero or more recommendation instances. An empty array is a positive assertion that this report contains no follow-up recommendation, and such reports are how the false-positive rate is measured. Section 1 targets at least 60% of the set.",
+          "items": { "$ref": "#/$defs/recommendationLabel" }
+        },
+
+        "note": {
+          "type": ["string", "null"],
+          "description": "Labeller's note on a judgement call. Where a note records a decision not covered by the protocol, it should also be appended to section 7 as a precedent."
+        }
+      }
+    },
+
+    "recommendationLabel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recommendation_verbatim", "recommendation_span", "finding", "action"
+      ],
+      "properties": {
+
+        "recommendation_verbatim": {
+          "type": "string",
+          "description": "Copied exactly as printed, including typographical errors. Section 4: do not tidy.",
+          "minLength": 1
+        },
+        "recommendation_span": { "$ref": "#/$defs/span" },
+
+        "finding_verbatim": { "type": ["string", "null"] },
+        "finding_span": {
+          "oneOf": [{ "$ref": "#/$defs/span" }, { "type": "null" }]
+        },
+
+        "finding": {
+          "type": "string",
+          "description": "Controlled category. The enum is not repeated here: labels.mjs validates against FINDING_CATEGORIES exported by extract.mjs, so the vocabulary has one definition rather than three."
+        },
+
+        "action": {
+          "type": "string",
+          "description": "Validated against ACTIONS exported by extract.mjs."
+        },
+
+        "anatomy": {
+          "type": ["string", "null"],
+          "description": "Only where the report is specific. Section 4: 'nodule in the lung' is null, not lung.unspecified."
+        },
+
+        "modality": { "type": ["string", "null"] },
+
+        "interval": {
+          "type": ["object", "null"],
+          "description": "Only when stated. Section 4: a range such as '6-12 months' is null with the range kept in interval_verbatim, and a guideline reference such as 'as per Fleischner' is null.",
+          "additionalProperties": false,
+          "required": ["value", "unit"],
+          "properties": {
+            "value": { "type": "number", "exclusiveMinimum": 0 },
+            "unit": { "type": "string", "enum": ["day", "week", "month", "year"] }
+          }
+        },
+        "interval_verbatim": { "type": ["string", "null"] },
+
+        "conditional": { "type": "boolean", "default": false },
+        "negated": {
+          "type": "boolean",
+          "default": false,
+          "description": "Section 4: 'No further imaging required' is a labelled instance with negated true, not an empty set. It is evidence for the not_indicated terminal state."
+        },
+        "already_scheduled": { "type": "boolean", "default": false }
+      }
+    }
+  }
+}

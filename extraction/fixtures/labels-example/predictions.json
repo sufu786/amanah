@@ -1,0 +1,143 @@
+{
+  "corpus": "labels-example",
+  "model": "qwen2.5:7b-instruct-q4_K_M",
+  "prompt_version": "0.1",
+  "note": "Hand-written, not a model run. Reproduces the defects recorded in RESULTS.md so the harness is exercised on failures as well as successes.",
+  "predictions": [
+    {
+      "report_id": "ex-clean",
+      "output": {
+        "document": {
+          "date_found": null,
+          "date_span": null,
+          "language": "en",
+          "modality_of_document": null
+        },
+        "recommendations": [],
+        "extraction": {
+          "model": "qwen2.5:7b-instruct-q4_K_M",
+          "prompt_version": "0.1",
+          "language_validated": false,
+          "no_recommendation_found": true,
+          "unparseable": false
+        },
+        "rejected": [],
+        "elapsed_ms": 10700
+      }
+    },
+    {
+      "report_id": "ex-nodule",
+      "output": {
+        "document": {
+          "date_found": "2026-03-14",
+          "date_span": null,
+          "language": "en",
+          "modality_of_document": null
+        },
+        "recommendations": [
+          {
+            "finding_verbatim": null,
+            "finding_span": null,
+            "recommendation_verbatim": "Recommend CT follow-up in 6 months.",
+            "recommendation_span": [
+              194,
+              229
+            ],
+            "anatomy": null,
+            "laterality": null,
+            "measurement": null,
+            "modality": "CT",
+            "interval": {
+              "value": 6,
+              "unit": "month"
+            },
+            "interval_verbatim": "in 6 months",
+            "urgency_verbatim": null,
+            "conditional": false,
+            "condition_verbatim": null,
+            "already_scheduled": false,
+            "negated": false,
+            "finding": "pulmonary_nodule",
+            "action": "imaging",
+            "confidence": 0.93
+          }
+        ],
+        "extraction": {
+          "model": "qwen2.5:7b-instruct-q4_K_M",
+          "prompt_version": "0.1",
+          "language_validated": false,
+          "no_recommendation_found": false,
+          "unparseable": false
+        },
+        "rejected": [],
+        "elapsed_ms": 10700
+      }
+    },
+    {
+      "report_id": "ex-two-actions",
+      "output": {
+        "document": {
+          "date_found": null,
+          "date_span": null,
+          "language": "en",
+          "modality_of_document": null
+        },
+        "recommendations": [
+          {
+            "finding_verbatim": null,
+            "finding_span": null,
+            "recommendation_verbatim": "Recommend PET-CT and referral to the respiratory MDT.",
+            "recommendation_span": [
+              113,
+              166
+            ],
+            "anatomy": null,
+            "laterality": null,
+            "measurement": null,
+            "modality": "PET-CT",
+            "interval": null,
+            "interval_verbatim": null,
+            "urgency_verbatim": null,
+            "conditional": false,
+            "condition_verbatim": null,
+            "already_scheduled": false,
+            "negated": false,
+            "finding": "pulmonary_nodule",
+            "action": "imaging",
+            "confidence": 0.88
+          }
+        ],
+        "extraction": {
+          "model": "qwen2.5:7b-instruct-q4_K_M",
+          "prompt_version": "0.1",
+          "language_validated": false,
+          "no_recommendation_found": false,
+          "unparseable": false
+        },
+        "rejected": [],
+        "elapsed_ms": 10700
+      }
+    },
+    {
+      "report_id": "ex-negated",
+      "output": {
+        "document": {
+          "date_found": null,
+          "date_span": null,
+          "language": "en",
+          "modality_of_document": null
+        },
+        "recommendations": [],
+        "extraction": {
+          "model": "qwen2.5:7b-instruct-q4_K_M",
+          "prompt_version": "0.1",
+          "language_validated": false,
+          "no_recommendation_found": true,
+          "unparseable": false
+        },
+        "rejected": [],
+        "elapsed_ms": 10700
+      }
+    }
+  ]
+}

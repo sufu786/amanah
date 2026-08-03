@@ -1,0 +1,26 @@
+{
+  "corpus": "labels-example",
+  "note": "Four reports that exercise the harness, not a corpus. Section 1 of LABELLING.md requires at least 60% no-recommendation reports in a real labelled set; this is far below that and must never be scored as though it were one.",
+  "reports": [
+    {
+      "id": "ex-clean",
+      "language": "en",
+      "text": "CHEST X-RAY\n\nCOMPARISON: None.\n\nFINDINGS: The lungs are clear. Heart size and pulmonary vascularity are within normal limits. No pleural effusion or pneumothorax.\n\nIMPRESSION: Normal chest radiograph."
+    },
+    {
+      "id": "ex-nodule",
+      "language": "en",
+      "text": "CT CHEST WITHOUT CONTRAST\n\nDate of study: 2026-03-14\n\nFINDINGS: There is an 8 mm solid nodule in the right upper lobe. No mediastinal lymphadenopathy.\n\nIMPRESSION: 8 mm right upper lobe nodule. Recommend CT follow-up in 6 months."
+    },
+    {
+      "id": "ex-two-actions",
+      "language": "en",
+      "text": "CT CHEST\n\nFINDINGS: 2.4 cm spiculated mass in the left lower lobe.\n\nIMPRESSION: Spiculated left lower lobe mass. Recommend PET-CT and referral to the respiratory MDT."
+    },
+    {
+      "id": "ex-negated",
+      "language": "en",
+      "text": "CT ABDOMEN\n\nFINDINGS: 6 mm simple cyst in the right lobe of the liver, with imaging features of a benign cyst.\n\nIMPRESSION: Benign hepatic cyst. No further imaging is required."
+    }
+  ]
+}

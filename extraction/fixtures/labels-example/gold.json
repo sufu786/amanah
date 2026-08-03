@@ -1,0 +1,122 @@
+{
+  "corpus": "labels-example",
+  "labeller": "resolved",
+  "protocol_version": "0.1",
+  "resolved": true,
+  "labels": [
+    {
+      "report_id": "ex-clean",
+      "text_sha256": "1339b118e35d5662d5835a0222c235987c708f47270df543ba90ba302f152085",
+      "date_found": null,
+      "recommendations": []
+    },
+    {
+      "report_id": "ex-nodule",
+      "text_sha256": "14ce58513a9b09f03a77903448e1c84350ecd3047bf798a95137946d6e309131",
+      "date_found": "2026-03-14",
+      "recommendations": [
+        {
+          "recommendation_verbatim": "Recommend CT follow-up in 6 months.",
+          "recommendation_span": [
+            194,
+            229
+          ],
+          "finding_verbatim": "8 mm right upper lobe nodule",
+          "finding_span": [
+            164,
+            192
+          ],
+          "anatomy": "lung.right.upper_lobe",
+          "modality": "CT",
+          "interval": {
+            "value": 6,
+            "unit": "month"
+          },
+          "interval_verbatim": "in 6 months",
+          "conditional": false,
+          "negated": false,
+          "already_scheduled": false,
+          "finding": "pulmonary_nodule",
+          "action": "imaging"
+        }
+      ]
+    },
+    {
+      "report_id": "ex-two-actions",
+      "text_sha256": "1e54c0bf27897b440ba42f332d4c199ad7822ec19447a29c56f540c418f57268",
+      "date_found": null,
+      "recommendations": [
+        {
+          "recommendation_verbatim": "Recommend PET-CT",
+          "recommendation_span": [
+            113,
+            129
+          ],
+          "finding_verbatim": "2.4 cm spiculated mass in the left lower lobe",
+          "finding_span": [
+            20,
+            65
+          ],
+          "anatomy": "lung.left.lower_lobe",
+          "modality": "PET-CT",
+          "interval": null,
+          "interval_verbatim": null,
+          "conditional": false,
+          "negated": false,
+          "already_scheduled": false,
+          "finding": "pulmonary_nodule",
+          "action": "imaging"
+        },
+        {
+          "recommendation_verbatim": "referral to the respiratory MDT",
+          "recommendation_span": [
+            134,
+            165
+          ],
+          "finding_verbatim": "2.4 cm spiculated mass in the left lower lobe",
+          "finding_span": [
+            20,
+            65
+          ],
+          "anatomy": "lung.left.lower_lobe",
+          "modality": null,
+          "interval": null,
+          "interval_verbatim": null,
+          "conditional": false,
+          "negated": false,
+          "already_scheduled": false,
+          "finding": "pulmonary_nodule",
+          "action": "referral"
+        }
+      ]
+    },
+    {
+      "report_id": "ex-negated",
+      "text_sha256": "4f241ddfd650222742d310d3ebfcfd415af9b4925166e6fb0b50abfde3031d9d",
+      "date_found": null,
+      "recommendations": [
+        {
+          "recommendation_verbatim": "No further imaging is required.",
+          "recommendation_span": [
+            145,
+            176
+          ],
+          "finding_verbatim": "6 mm simple cyst in the right lobe of the liver",
+          "finding_span": [
+            22,
+            69
+          ],
+          "anatomy": null,
+          "modality": null,
+          "interval": null,
+          "interval_verbatim": null,
+          "conditional": false,
+          "negated": true,
+          "already_scheduled": false,
+          "finding": "hepatic_lesion",
+          "action": "imaging"
+        }
+      ]
+    }
+  ]
+}

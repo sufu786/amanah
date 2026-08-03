@@ -126,3 +126,73 @@ combined figure.
 Judgement calls, appended as they arise. Each entry: the text, the decision, the reason.
 
 *(none yet)*
+
+---
+
+## 8. The harness
+
+The tools that implement sections 4 to 6. They exist before the corpus does, so that the first
+labelled report is scored by machinery nobody could tune after seeing the results.
+
+| File | What it does |
+|---|---|
+| `LABELS.schema.json` | The label file format. A label is what a human decided, so it carries no confidence field. |
+| `labels.mjs` | Loading, validation, instance matching, Cohen's kappa. Shared, so agreement and scoring cannot use different rules. |
+| `agreement.mjs` | Section 5. Two labellers against each other, before resolution. |
+| `score.mjs` | Section 6. Extractor against the resolved gold standard. |
+| `fixtures/labels-example/` | Four reports, two labellers who disagree, a resolution, and a hand-written prediction set reproducing the defects in `RESULTS.md`. Exercises the harness on failures, not only successes. It is **not** a corpus: it violates the 60% rule in section 1 by design. |
+
+```
+node agreement.mjs --corpus reports.json --a labeller-a.json --b labeller-b.json
+node score.mjs --corpus reports.json --gold gold.json --predictions predictions.json
+```
+
+Both take `--json`.
+
+### Validation is refusal, not warning
+
+A label set that does not load cannot be scored. `labels.mjs` rejects, rather than repairs:
+
+- **A span that does not round-trip.** `text.slice(start, end)` must equal the verbatim string. This
+  is the most dangerous defect available here, because it points at the wrong sentence while looking
+  entirely well-formed, and the C3 verification screen would show the patient that wrong sentence.
+- **A `text_sha256` that does not match the corpus.** If the text is re-extracted or whitespace-fixed
+  after labelling, every offset moves silently. There is no safe automatic repair; the answer is to
+  relabel or restore the text.
+- **A corpus report with no label entry.** A report with no recommendation is labelled `[]`. Leaving
+  it out removes it from the false-positive denominator, which is the headline figure.
+- **Scoring against an unresolved labeller pass.** That measures agreement with one person, and it
+  skips the kappa gate.
+
+### How an extracted recommendation is counted as matching a labelled one
+
+By character overlap of the recommendation span, one-to-one, greedily, largest overlap first. This
+rule determines every number in section 6, so it is stated here rather than left in the code.
+
+- **Any overlap counts.** Both parties quote the same sentence; a threshold would mostly measure
+  where a quote begins.
+- **One-to-one.** A single extraction spanning two labelled instances matches one and leaves the
+  other a miss. That is intended. The merged-recommendation defect loses a real obligation, and the
+  metric must show a loss rather than absorb it. `score.mjs` also counts these separately, as
+  *swallowed by a merged prediction*.
+- **Ties broken by index**, so the same inputs give the same pairing on every run.
+
+### Two figures that are reported but easy to misread
+
+**Interval accuracy** is reported twice: over all matched instances, and over only those where the
+gold label states an interval. The first is inflated by agreement on `null`, which is the common
+case and the easy one. Read the second.
+
+**Span validity** is reported exactly and whitespace-normalised. The protocol requires exact.
+`extract.mjs` locates quotes whitespace-insensitively, so the two can differ, and reporting only the
+lenient figure would hide a real defect in the verification screen.
+
+### Gates
+
+`agreement.mjs` exits non-zero below kappa 0.75, per section 5.4. Undefined kappa does not pass:
+where both labellers put every report in one class, chance agreement is total and the statistic does
+not exist. It is reported as undefined rather than as a number, because the usual cause is a corpus
+with no positives, which is a corpus problem and not an agreement result.
+
+`score.mjs` reports no F1, and will not pool a language below 200 labelled reports into a combined
+figure. Languages excluded from the pooled figure are named in the output.
