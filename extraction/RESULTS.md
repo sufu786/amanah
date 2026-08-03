@@ -133,8 +133,11 @@ reports containing real recommendations.
 
 ## Statistical honesty
 
-Zero errors in 50 is consistent with a true rate anywhere up to roughly 7%. This is a pilot. It
-rules out a badly broken extractor; it does not establish a safe one.
+Zero errors in 50 is consistent with a true rate anywhere up to about 6%. The exact 95% upper bound
+is 5.8%; the rule of three, 3/n, gives 6% and is the figure worth carrying around. Reaching an upper
+bound near 1% takes roughly 300 clean reports, which is where the sizes in `CORPUS.md` come from.
+
+This is a pilot. It rules out a badly broken extractor; it does not establish a safe one.
 
 ## Next
 
