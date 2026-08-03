@@ -88,17 +88,34 @@ These are load-bearing.
 
 ## Status
 
-Design disclosure. No implementation yet.
+Specification published. Extraction work under way. **No part of the registry itself is built**:
+there is no obligation object, no state machine, no closure path and no reminders. Nothing here is
+fit for clinical use by anyone.
 
-| Phase | Deliverable |
-|---|---|
-| 0 | Specification, public repository, DOI |
-| 1 | Extractor validated on a public corpus |
-| 2 | Upload-a-report path, patient verification, reminders, prepared summary |
-| 3 | Locale packs |
-| 4 | Patient FHIR connect (US Cures Act APIs, NHS App) |
-| 5 | TB and hepatitis B linkage deployment with a national programme partner |
-| 6 | Institution-side registry deployment |
+| Phase | Deliverable | Status |
+|---|---|---|
+| 0 | Specification, public repository, DOI | Complete |
+| 1 | Extractor validated on a public corpus | Under way, see below |
+| 2 | Upload-a-report path, patient verification, reminders, prepared summary | Not started |
+| 3 | Locale packs | Not started |
+| 4 | Patient FHIR connect (US Cures Act APIs, NHS App) | Not started |
+| 5 | TB and hepatitis B linkage deployment with a national programme partner | Not started |
+| 6 | Institution-side registry deployment | Not started |
+
+### Phase 1 in detail
+
+Built: an output schema, a versioned prompt, a runner that rejects any quote it cannot locate
+character-for-character in the source document, a ten-case smoke suite, and a gold-standard
+labelling protocol written before any model was run. A 50-report pilot on the Open-i chest X-ray
+collection selected `qwen2.5:7b`, on zero false positives and zero fabrications. See
+[`extraction/RESULTS.md`](extraction/RESULTS.md).
+
+Not done, which is why this phase is nowhere near complete: **no corpus has been labelled.** The
+pilot corpus turned out to contain no follow-up recommendations at all, so recall, interval accuracy
+and category accuracy are entirely unmeasured, and three known extraction defects are documented and
+unfixed. *Validated* in the phase title means measured against hand labels under
+[`extraction/LABELLING.md`](extraction/LABELLING.md). That has not happened, and no number published
+so far should be read as though it had.
 
 ## Licensing
 
@@ -136,5 +153,6 @@ health-system signposting for your country. See section 10 of the specification.
 ---
 
 *This repository is a design disclosure, published to establish prior art and to prevent enclosure
-of the described system by patent. It describes intended architecture and is not a report of
-clinical results. No claim of clinical efficacy is made.*
+of the described system by patent. It describes intended architecture, together with early
+extraction code and pilot measurements on public research data, and is not a report of clinical
+results. No claim of clinical efficacy is made.*

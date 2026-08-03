@@ -237,19 +237,28 @@
 <section>
   <div class="wrap">
     <h2>Status</h2>
-    <p>Design disclosure. No implementation yet.</p>
+    <p>
+      Specification published. Extraction work under way. <b>No part of the registry itself is
+      built:</b> there is no obligation object, no state machine, no closure path and no reminders.
+      Nothing here is fit for clinical use by anyone.
+    </p>
     <table>
-      <thead><tr><th>Phase</th><th>Deliverable</th></tr></thead>
+      <thead><tr><th>Phase</th><th>Deliverable</th><th>Status</th></tr></thead>
       <tbody>
-        <tr><td>0</td><td>Specification, public repository, DOI</td></tr>
-        <tr><td>1</td><td>Extractor validated on a public corpus</td></tr>
-        <tr><td>2</td><td>Upload a report, patient verification, reminders, prepared summary</td></tr>
-        <tr><td>3</td><td>Locale packs</td></tr>
-        <tr><td>4</td><td>Patient record connect (US Cures Act APIs, NHS App)</td></tr>
-        <tr><td>5</td><td>TB and hepatitis B linkage deployment with a national programme partner</td></tr>
-        <tr><td>6</td><td>Institution-side registry deployment</td></tr>
+        <tr><td>0</td><td>Specification, public repository, DOI</td><td>Complete</td></tr>
+        <tr><td>1</td><td>Extractor validated on a public corpus</td><td>Under way</td></tr>
+        <tr><td>2</td><td>Upload a report, patient verification, reminders, prepared summary</td><td>Not started</td></tr>
+        <tr><td>3</td><td>Locale packs</td><td>Not started</td></tr>
+        <tr><td>4</td><td>Patient record connect (US Cures Act APIs, NHS App)</td><td>Not started</td></tr>
+        <tr><td>5</td><td>TB and hepatitis B linkage deployment with a national programme partner</td><td>Not started</td></tr>
+        <tr><td>6</td><td>Institution-side registry deployment</td><td>Not started</td></tr>
       </tbody>
     </table>
+    <p>
+      Phase 1 has an extractor, a versioned prompt, a schema, a smoke suite and a labelling protocol
+      written before any model ran. It does not yet have a labelled corpus, so recall is unmeasured
+      and the phase is not close to complete.
+    </p>
     <h3>Contributing</h3>
     <p>
       The most valuable contribution is a <b>locale pack</b>: language, guideline variants, and
@@ -277,7 +286,8 @@
     <p>Reference implementation AGPL-3.0. Specification and documents CC BY 4.0.</p>
     <p class="disclaimer">
       This project is a design disclosure, published to establish prior art and to prevent enclosure
-      of the described system by patent. It describes intended architecture and is not a report of
+      of the described system by patent. It describes intended architecture, together with early
+      extraction code and pilot measurements on public research data, and is not a report of
       clinical results. It detects no disease and makes no diagnostic claim. No claim of clinical
       efficacy is made.
     </p>
