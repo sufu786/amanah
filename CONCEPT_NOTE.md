@@ -124,7 +124,7 @@ inside a document, it does not.
 
 ## 3. Prior art
 
-This section is deliberately complete. The contribution claimed in §5 is narrow and is stated
+This section is deliberately complete. The contribution claimed in section 5 is narrow and is stated
 relative to what follows.
 
 **Institution-side commercial systems (mature).** Nuance mPower Clinical Analytics and PowerScribe
@@ -219,7 +219,7 @@ The full data model and state machine are specified in `OBLIGATION_SPEC.md`.
 2. **Extract.** Structured fields from narrative text. This is the single probabilistic component.
    It emits a confidence score.
 3. **Patient verification.** The extracted fields are displayed beside the highlighted source
-   sentence, and confirmed or corrected by the patient. See §7.
+   sentence, and confirmed or corrected by the patient. See section 7.
 4. **Obligation ledger.** Append-only, with an explicit state machine and a single named owner at
    all times.
 5. **Reminder and escalation ladder.** L0 created, L1 approaching, L2 overdue, L3 significantly
@@ -315,7 +315,7 @@ international and unambiguous, and are validatable against public English-langua
 The first *mission* deployment should be tuberculosis and hepatitis B linkage to care, for four
 reasons:
 
-- the gap is large and measured (§2.2, §2.3);
+- the gap is large and measured (sections 2.2 and 2.3);
 - mortality following the gap is high and fast, at 17.1% mortality with 69.7% of those deaths
   within 30 days [9];
 - active linkage demonstrably closes it, at 97.7% versus 49.3% [11];
