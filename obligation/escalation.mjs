@@ -1,24 +1,14 @@
 // The escalation ladder. Section 8 of OBLIGATION_SPEC.md.
 //
 // This works out which rung an obligation is on. It does not act, and it does not change state.
-// That separation is the whole design, and it is worth saying why.
 //
-// A THIRD PLACE THE SPECIFICATION PULLS AGAINST ITSELF
+// Exhausting the ladder at L4 reports exhaustion and names who should act. Somebody records the
+// transition with their name against it, so that an obligation ending as lost_to_followup carries
+// a record of which person accepted that outcome.
 //
-// Section 8 says of L4: "Final escalation; on exhaustion, becomes lost_to_followup". Read plainly,
-// that is a state change caused by the passage of time. R1 says there are no implicit state
-// transitions and every transition is an event with an actor and a timestamp. R2 says elapsed time
-// never closes an obligation, and while lost_to_followup is explicitly not a closure, it is still
-// a terminal state, and drifting into a terminal state unattended is the same failure wearing a
-// different label.
-//
-// So this module reports that the ladder is exhausted and names who should act. Somebody records
-// the transition, with their name against it. If an obligation ends as lost_to_followup, the
-// history says which person accepted that, which is the entire point of an audit trail.
-//
-// The alternative reading, where a scheduler quietly moves obligations to a terminal state on a
-// timer, would mean the system's own worst outcome is the one thing that happens without anyone
-// deciding it. That cannot be what was meant. The wording in section 8 should be tightened.
+// Specification v0.2 said of L4 "on exhaustion, becomes lost_to_followup", which read as a state
+// change caused by elapsed time and contradicted R1. This module refused to implement it that way,
+// and v0.3 corrects the wording to say a named actor records it. See section 12.1 C.
 //
 // Intervals are configurable per locale pack. The ladder structure is not (section 8).
 

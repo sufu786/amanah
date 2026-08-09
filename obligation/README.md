@@ -42,15 +42,18 @@ Passing does not mean the system is safe. It means this module does not violate 
 conditions the specification was able to state mechanically. The interesting failures in a
 follow-up registry are social and operational, and no test suite reaches them.
 
-## Where the specification pulls against itself
+## What implementing this found in the specification
 
-Three places, found by writing this against it. They are recorded in section 12.1 of
-`OBLIGATION_SPEC.md`, not here, because they are findings about the specification rather than notes
-about this code, and any independent implementer will meet the same three.
+Four places where v0.2 contradicted itself. Three are corrected in specification v0.3, and the
+fourth is a real design question left open. The reasoning for all four is in section 12.1 of
+OBLIGATION_SPEC.md, not here, because they are findings about the specification rather than notes
+about this code.
 
-In short: `not_indicated` is drawn both as an edge and as a state, `reopened` has no edge, and L4
-asks elapsed time to make a state change that R1 forbids. This implementation took the conservative
-reading of each. None should be treated as settled until the specification is corrected.
+The one still open is what the system does when a terminal decision was a mistake. Supersession
+does not cover it, since that needs a later document date and a wrongly declined obligation has no
+new document behind it. This implementation has no reopen path, which means today a mistaken
+terminal decision has no recorded remedy at all. That is the honest state and it should not stay
+that way.
 
 ## The prepared summary
 
@@ -85,9 +88,9 @@ contributors (section 10).
 `escalation.mjs`. Section 8. It works out which rung an obligation is on and who should act. It
 does not act, and it does not change state.
 
-Exhaustion at L4 is reported, never performed. Section 12.1 C of the specification explains why:
-asking elapsed time to move an obligation into a terminal state is what R1 forbids. A person
-records it, and the history then says who accepted that outcome.
+Exhaustion at L4 is reported, never performed. A person records it, and the history then says who
+accepted that outcome. Specification v0.2 said the obligation becomes lost_to_followup by itself;
+this module refused to implement that and v0.3 corrects the wording.
 
 An obligation with no due date stays at L0 and keeps reminding, rather than being dropped because
 the rungs cannot be computed. Silently ceasing to remind is the failure this system exists to fix.

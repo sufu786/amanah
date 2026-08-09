@@ -67,16 +67,14 @@ const PROGRESSION = {
 /**
  * Which transitions are legal from a given state.
  *
- * NOTE ON A SPEC AMBIGUITY, resolved conservatively and flagged rather than hidden.
- * The section 3 diagram draws an arrow into `resolved` labelled not_indicated, while also listing
- * not_indicated as a terminal exit in its own right. Those readings conflict, and the text
- * immediately below the diagram is the tiebreaker: "there is no edge from any state to resolved
- * that does not pass through recorded evidence."
+ * `resolved` is reachable only from `completed`, and not_indicated is its own terminal state
+ * requiring a documented reason and an actor. Terminal exits are available from every non-terminal
+ * state, because restricting them would strand obligations: a patient may decline before verifying,
+ * and a patient may die at any point.
  *
- * So `resolved` is reachable only from `completed`, and not_indicated is its own terminal state
- * requiring a documented reason and an actor. The conservative reading is the one where an
- * obligation cannot reach the success state without evidence, which is the invariant the whole
- * specification exists to protect. See obligation/README.md.
+ * Both of those were ambiguous in specification v0.2 and are settled in v0.3, sections 12.1 A and
+ * D. This implementation took the conservative reading first and the specification was corrected to
+ * match, rather than the other way round.
  */
 export function permittedTransitions(state) {
   if (TERMINAL_STATES.includes(state)) return [];

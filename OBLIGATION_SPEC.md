@@ -1,9 +1,20 @@
-# Portable Clinical Obligation, specification v0.2
+# Portable Clinical Obligation, specification v0.3
 
 **Status:** draft for public comment
 **Licence:** CC BY 4.0
-**Date:** 2026-07-30
+**Date:** 2026-08-07
 **Concept DOI:** [10.5281/zenodo.21706768](https://doi.org/10.5281/zenodo.21706768)
+
+**Changes since v0.2.** Three places where v0.2 contradicted itself, all found by writing a
+reference implementation against it, are corrected: `not_indicated` is a terminal state and not a
+route to `resolved`, terminal exits are available from every non-terminal state, and exhausting the
+escalation ladder is recorded by a named actor rather than happening by itself. A fourth, what the
+system does when a terminal decision was a mistake, is stated as an open design question in section
+12.1 B rather than answered in a hurry. Section 12.1 has the reasoning for all four.
+
+**The object format is unchanged.** The `schema` string stays `cor.obligation/0.2`, because nothing
+about the object itself moved. A document revision is not a data format revision, and bumping the
+format string would invalidate stored obligations for no reason.
 
 Companion to `CONCEPT_NOTE.md`. This document specifies the data object, its state machine, closure
 rules and escalation ladder. It is deliberately transport-agnostic: the object can be carried in
@@ -111,36 +122,52 @@ These constrain every decision below.
 ## 3. State machine
 
 ```
+   the live path
+   -------------
                       +---------------+
                       |    created    |   extraction complete, not yet confirmed
                       +-------+-------+
                               |  verify (patient or clinician confirms fields)
                       +-------v-------+
-          +-----------| acknowledged  |-----------+
-          |           +-------+-------+           |
-          |                   |  schedule         |
-          |           +-------v-------+           |
-          |           |   scheduled   |           |
-          |           +-------+-------+           |
-          |                   |  evidence of completion
-          |           +-------v-------+           |
-          |           |   completed   |           |
-          |           +-------+-------+           |
-          |                   |  outcome recorded |
-          |           +-------v-------+           |
-          |           |   resolved    |<----------+
-          |           +---------------+   not_indicated
-          |
-          |  terminal exits, each requiring a reason and an actor
-          +--> declined           patient declined, documented
-          +--> not_indicated      clinician documented follow-up unnecessary
-          +--> superseded         replaced by a later obligation on the same finding (section 6)
-          +--> lost_to_followup   escalation ladder exhausted; NOT a closure (section 4.3)
-          +--> deceased
+                      | acknowledged  |
+                      +-------+-------+
+                              |  schedule
+                      +-------v-------+
+                      |   scheduled   |
+                      +-------+-------+
+                              |  evidence of completion (section 4.1)
+                      +-------v-------+
+                      |   completed   |
+                      +-------+-------+
+                              |  outcome recorded
+                      +-------v-------+
+                      |   resolved    |
+                      +---------------+
+
+   terminal exits, available from ANY non-terminal state above,
+   each requiring a documented reason and an actor
+   ------------------------------------------------------------
+          --> declined           patient declined, documented
+          --> not_indicated      clinician documented follow-up unnecessary
+          --> superseded         replaced by a later obligation on the same finding (section 6)
+          --> lost_to_followup   escalation ladder exhausted; NOT a closure (section 4.3)
+          --> deceased
 ```
 
 **Permitted transitions only.** Any transition not drawn above is rejected. In particular there is
 no edge from any state to `resolved` that does not pass through recorded evidence.
+
+**`not_indicated` is a terminal state, not a route to `resolved`.** The v0.2 diagram drew it both
+ways. Corrected in v0.3; see section 12.1 A. It is still counted as a closure in metrics, so
+nothing is lost by the change except the ambiguity, and keeping it distinct preserves the record of
+*why* an obligation closed.
+
+**Terminal exits are available from every non-terminal state**, which the v0.2 diagram left to be
+inferred from where a line was drawn. A patient may decline before verifying; a finding may be
+superseded while its obligation is still in `created`; a patient may die at any point. Restricting
+the exits to one state would strand obligations with no lawful way out, which is a worse failure
+than the ambiguity it would remove. Stated in words here because the art cannot express it without
+becoming unreadable.
 
 **From `created` to `acknowledged`** requires verification of the extracted fields (R7, C3). An
 obligation may sit in `created` indefinitely. It still generates reminders, but the prepared summary
@@ -262,9 +289,15 @@ verbatim from the report, or be absent.
 | L1 | 30 days before `due_date` | Reminder, prepared summary re-issued | Owner |
 | L2 | `due_date` reached | Reminder, ownership confirmation requested | Owner and registered clinician |
 | L3 | `due_date` plus 30 days | Escalation, appears on coordinator worklist (institutional deployments) | Coordinator |
-| L4 | `due_date` plus 90 days | Final escalation; on exhaustion, becomes `lost_to_followup` | Service lead |
+| L4 | `due_date` plus 90 days | Final escalation. On exhaustion, a named actor records `lost_to_followup` | Service lead |
 
 Intervals are configurable per locale pack. The ladder structure is not.
+
+**No rung moves an obligation by itself.** The ladder reports which rung an obligation is on and
+who should act. Exhausting it at L4 does not transition anything: a named actor records
+`lost_to_followup`, and the history then says who accepted that outcome. R1 admits no implicit
+transitions, and an obligation drifting into a terminal state unattended is the failure this
+specification exists to prevent, wearing a different name. Corrected in v0.3; see section 12.1 C.
 
 **Channel policy.** SMS is a first-class channel rather than a fallback. It is the only channel
 reliably present six months later, after an app has been uninstalled or a phone replaced. Push and
@@ -342,42 +375,67 @@ An implementation conforms to this specification if all of the following hold.
 
 ### 12.1 Contradictions found by implementing this specification
 
-These three are different in kind from the questions below. They are places where this document
-disagrees with itself, found by writing the reference implementation against it in August 2026. Any
-independent implementer will meet the same three, so they are recorded here rather than left in one
-implementation's notes. Each is followed by the reading the reference implementation took, which is
-the conservative one in every case, and none of them should be treated as settled until this
-document is corrected.
+Four places where v0.2 disagreed with itself, found by writing the reference implementation against
+it in August 2026. Three are corrected in v0.3. One is a real design question and stays open.
 
-**A. `not_indicated` is drawn both as an edge and as a state.** The diagram in section 3 shows an
-arrow into `resolved` labelled `not_indicated`, and also lists `not_indicated` among the terminal
-exits. Those readings conflict.
+They are recorded rather than quietly fixed because an independent implementer meets the same
+places, and a specification that silently changes underneath its readers is worse than one that
+shows its working.
 
-The sentence below the diagram is the tiebreaker: there is no edge from any state to `resolved`
-that does not pass through recorded evidence. So the reference implementation makes `resolved`
-reachable only from `completed`, and treats `not_indicated` as its own terminal state requiring a
-documented reason and an actor. This preserves the invariant that the success state cannot be
-reached without evidence, which is the point of the whole state machine. The diagram should be
-redrawn either way.
+**A. `not_indicated` was drawn both as an edge and as a state. RESOLVED in v0.3.** The section 3
+diagram showed an arrow into `resolved` labelled `not_indicated`, and also listed `not_indicated`
+among the terminal exits.
 
-**B. `reopened` has no edge.** Section 5 lists `reopened` in the history event vocabulary. Section 3
-draws no reopen transition and states that only the drawn transitions are permitted. The reference
-implementation gives terminal states no exits at all.
+Resolved in favour of the terminal state, and the arrow is gone. The sentence below the diagram was
+already the tiebreaker: no edge reaches `resolved` without passing through recorded evidence. It is
+still counted as a closure, so no metric changes, and keeping it distinct preserves the record of
+why an obligation closed rather than flattening every ending into one state.
 
-If reopening is intended, section 3 needs the edge and the conditions under which it is allowed,
-and section 4 needs to say what happens to a `closure` record that is no longer final. If it is not
-intended, `reopened` should come out of section 5.
+**D. Terminal exits were drawn from one state and needed from all of them. RESOLVED in v0.3.** The
+v0.2 diagram drew the exit line beside `acknowledged`, which read as though only an acknowledged
+obligation could be declined or superseded. The reference implementation allowed the exits from
+every non-terminal state, because the alternative strands obligations: a patient may decline before
+verifying, a finding may be superseded while its obligation is still in `created`, and a patient may
+die at any point.
 
-**C. L4 asks time to make a state change, which R1 forbids.** Section 8 says of L4: on exhaustion,
-becomes `lost_to_followup`. Read plainly that is a transition caused by elapsed time. R1 says every
-transition is an event with an actor and a timestamp, and R2 says elapsed time never closes an
-obligation. `lost_to_followup` is explicitly not a closure, but it is terminal, and an obligation
-drifting into a terminal state unattended is the same failure under a different name.
+Section 3 now says this in words rather than leaving it to where a line was drawn.
 
-The reference implementation has the ladder report that it is exhausted and name who should act. A
-person records the transition, and the history then says who accepted that outcome. The alternative
-would make the system's worst outcome the one thing that happens without anyone deciding it. The
-wording in section 8 should be tightened to say who records it.
+**C. L4 asked elapsed time to make a state change, which R1 forbids. RESOLVED in v0.3.** Section 8
+said of L4: on exhaustion, becomes `lost_to_followup`. Read plainly that is a transition caused by
+the passage of time. R1 admits no implicit transitions.
+
+The wording now says a named actor records it. The history then shows who accepted that outcome,
+which is the point of keeping one. The alternative would make the system's worst outcome the only
+thing that happens without anyone deciding it.
+
+**B. `reopened` has no edge, and the question underneath it is open.** Section 5 lists `reopened` in
+the history event vocabulary. Section 3 draws no reopen transition and says only drawn transitions
+are permitted. The reference implementation gives terminal states no exits.
+
+This one is not a drafting slip. It is the unanswered question of what the system does when a person
+gets a terminal decision wrong, which is not a rare event. Supersession in section 6 does not cover
+it, because supersession requires a later `document_date` and a mistaken `declined` has no new
+document behind it. Section 5 already lists a `corrected` event, but sections 3 and 4 never say what
+a correction does to a terminal state or to a `closure` record that someone's name is against.
+
+Two ways out, both defensible:
+
+| | Add a reopen edge | Terminal means terminal |
+|---|---|---|
+| What happens | A documented reopen returns an obligation to `acknowledged` and voids the closure | A mistake produces a new obligation linked to the old one, and the old one stays as it was |
+| History | The closure record has to be marked void, so history stops being purely additive | Append-only survives untouched. Nobody's recorded decision is ever rewritten |
+| Audit | One object holds the whole story, including the error | The story spans two objects and the link between them must be followed |
+| Cost | Section 3 needs the edge and its conditions; section 4 needs void-closure semantics; every metric needs to decide whether a reopened obligation was ever closed | Section 6 needs a correction relationship that does not require a later document date |
+| Risk | A reopen path is a path to undo an inconvenient closure. It would want restricting to the actor who recorded it, or to a moderator | A reader who follows only the first object sees a closure and stops, missing that it was overturned |
+
+The reference implementation takes the second, by having no reopen at all, but it has not
+implemented the correction relationship that would complete it. So today a mistaken terminal
+decision has no recorded remedy in either direction, which is the honest state of affairs and should
+not stay that way.
+
+Deciding this needs a view on which is worse: a history that can be edited, or a truth that is split
+across two records. That is a judgement about how this system will be audited after something goes
+wrong, and it is deliberately left to the next revision rather than settled in a hurry here.
 
 ### 12.2 Design questions still open
 
