@@ -11,7 +11,8 @@
   "scripts": {
     "build": "node build-pdf.mjs ../CONCEPT_NOTE.md ../OBLIGATION_SPEC.md",
     "verify": "node verify-pdf.mjs ../CONCEPT_NOTE.pdf ../OBLIGATION_SPEC.pdf",
-    "pdf": "npm run build && npm run verify"
+    "pdf": "npm run build && npm run verify",
+    "prose": "node check-prose.mjs"
   },
   "dependencies": {
     "markdown-it": "15.0.0",

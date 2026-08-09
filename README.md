@@ -88,19 +88,35 @@ These are load-bearing.
 
 ## Status
 
-Specification published. Extraction work under way. **No part of the registry itself is built**:
-there is no obligation object, no state machine, no closure path and no reminders. Nothing here is
-fit for clinical use by anyone.
+Specification published. The registry core is built and tested. The extractor exists but has never
+been measured against a labelled corpus, so **its accuracy is unknown**, and there is no interface,
+no storage and no deployment. Nothing here is fit for clinical use by anyone.
 
 | Phase | Deliverable | Status |
 |---|---|---|
 | 0 | Specification, public repository, DOI | Complete |
 | 1 | Extractor validated on a public corpus | Under way, see below |
-| 2 | Upload-a-report path, patient verification, reminders, prepared summary | Not started |
-| 3 | Locale packs | Not started |
+| 2 | Upload-a-report path, patient verification, reminders, prepared summary | Partly built, see below |
+| 3 | Locale packs | Mechanism built, only English exists |
 | 4 | Patient FHIR connect (US Cures Act APIs, NHS App) | Not started |
 | 5 | TB and hepatitis B linkage deployment with a national programme partner | Not started |
 | 6 | Institution-side registry deployment | Not started |
+
+### What is built
+
+The obligation itself: the object, the state machine with permitted transitions only, closure that
+requires evidence of a declared type, the append-only history, finding identity across serial
+studies, the prepared summary, and the escalation ladder. 77 tests cover the seven conformance
+conditions in section 11 of the specification. No dependencies.
+
+Writing this found three places where the specification contradicts itself. They are recorded in
+section 12.1 of [`OBLIGATION_SPEC.md`](OBLIGATION_SPEC.md) so that anyone implementing it
+independently meets them with the reasoning already done.
+
+### What is not
+
+No upload path, no scheduler, no delivery, no interface, no storage. An obligation is a value in
+memory. The ladder works out which rung an obligation is on; nothing sends anything to anybody.
 
 ### Phase 1 in detail
 

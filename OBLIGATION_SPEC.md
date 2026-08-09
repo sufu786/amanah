@@ -340,6 +340,47 @@ An implementation conforms to this specification if all of the following hold.
 
 ## 12. Open questions
 
+### 12.1 Contradictions found by implementing this specification
+
+These three are different in kind from the questions below. They are places where this document
+disagrees with itself, found by writing the reference implementation against it in August 2026. Any
+independent implementer will meet the same three, so they are recorded here rather than left in one
+implementation's notes. Each is followed by the reading the reference implementation took, which is
+the conservative one in every case, and none of them should be treated as settled until this
+document is corrected.
+
+**A. `not_indicated` is drawn both as an edge and as a state.** The diagram in section 3 shows an
+arrow into `resolved` labelled `not_indicated`, and also lists `not_indicated` among the terminal
+exits. Those readings conflict.
+
+The sentence below the diagram is the tiebreaker: there is no edge from any state to `resolved`
+that does not pass through recorded evidence. So the reference implementation makes `resolved`
+reachable only from `completed`, and treats `not_indicated` as its own terminal state requiring a
+documented reason and an actor. This preserves the invariant that the success state cannot be
+reached without evidence, which is the point of the whole state machine. The diagram should be
+redrawn either way.
+
+**B. `reopened` has no edge.** Section 5 lists `reopened` in the history event vocabulary. Section 3
+draws no reopen transition and states that only the drawn transitions are permitted. The reference
+implementation gives terminal states no exits at all.
+
+If reopening is intended, section 3 needs the edge and the conditions under which it is allowed,
+and section 4 needs to say what happens to a `closure` record that is no longer final. If it is not
+intended, `reopened` should come out of section 5.
+
+**C. L4 asks time to make a state change, which R1 forbids.** Section 8 says of L4: on exhaustion,
+becomes `lost_to_followup`. Read plainly that is a transition caused by elapsed time. R1 says every
+transition is an event with an actor and a timestamp, and R2 says elapsed time never closes an
+obligation. `lost_to_followup` is explicitly not a closure, but it is terminal, and an obligation
+drifting into a terminal state unattended is the same failure under a different name.
+
+The reference implementation has the ladder report that it is exhausted and name who should act. A
+person records the transition, and the history then says who accepted that outcome. The alternative
+would make the system's worst outcome the one thing that happens without anyone deciding it. The
+wording in section 8 should be tightened to say who records it.
+
+### 12.2 Design questions still open
+
 - Mapping to FHIR `Task`, `ServiceRequest`, or a custom profile. The fit is imperfect in all three,
   because FHIR models requests and records rather than owed duties.
 - Multi-party ownership, where a patient and a coordinator both legitimately hold an obligation.

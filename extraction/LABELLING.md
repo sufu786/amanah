@@ -92,15 +92,44 @@ supports the `not_indicated` terminal state.
 
 ## 5. Labeller procedure
 
-1. Two labellers work independently on the same reports. No discussion during labelling.
-2. Disagreements are recorded, then resolved by discussion; if unresolved, a third labeller decides.
-3. **Report inter-annotator agreement before resolution, always.** Cohen's kappa on the binary
-   question "does this report contain at least one recommendation", plus exact-match agreement on
-   interval and finding category.
+Amended 2026-08-07. The first version required two labellers on every report. That is the right
+design and the wrong budget: a second labeller on a MIMIC corpus must hold their own PhysioNet
+credential, because the data use agreement is per person and reports cannot be handed to anyone who
+has not signed it. Recruiting one therefore means finding a clinically literate person willing to
+complete CITI training, wait out credentialing, and then work unpaid for hours. Double-labelling a
+subset is what most annotation projects actually do, and it measures the same thing.
+
+1. Every report is labelled independently by one labeller.
+2. A random subset of at least 100 reports is labelled independently by a second labeller who has
+   not seen the first labels. The subset is drawn by seed, and the seed is recorded before
+   labelling starts.
+3. **Report inter-annotator agreement on that subset before resolution, always.** Cohen's kappa on
+   the binary question "does this report contain at least one recommendation", plus exact-match
+   agreement on interval and finding category.
 4. If kappa on the binary question is below 0.75, the protocol is too ambiguous. Fix the protocol
    and relabel. Do not proceed to model evaluation on a set the humans cannot agree about.
-5. Every judgement call not covered here gets appended to section 7 as a precedent, with the
-   report ID.
+5. Disagreements are recorded, then resolved by discussion; if unresolved, a third labeller decides.
+6. Every judgement call not covered here gets appended to section 7 as a precedent, with the
+   report ID. **Each new precedent is then applied back across the single-labelled remainder.** This
+   is what makes a subset protect the whole corpus rather than only the sample: an ambiguity found
+   in 100 reports is an ambiguity that was present in all 500.
+
+### 5a. Where no second credentialed labeller can be found
+
+This is a real possibility for an independent researcher, and pretending otherwise would produce a
+protocol nobody follows.
+
+There is no honest single-labeller version of an agreement statistic, so none is invented. Instead:
+
+- Labels are one person's judgement, and `RESULTS.md` says so in those words, in the results
+  themselves rather than in a protocol footnote.
+- A subset of at least 100 reports is relabelled blind by the same person after at least two weeks.
+  This is reported as **intra-rater consistency** and is never called inter-annotator agreement. It
+  measures whether one person applies the protocol the same way twice, which is worth knowing and
+  is not the same question.
+- Section 7 precedents become mandatory rather than optional, since they are the only external
+  record of how judgement calls were made.
+- All labels are published, so the calls can be checked by anyone who disagrees.
 
 ## 6. Metrics, and how they are reported
 

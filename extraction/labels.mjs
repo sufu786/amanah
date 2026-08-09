@@ -61,7 +61,7 @@ export function loadCorpus(path) {
  * Every error is collected before throwing. A labeller fixing thirty spans one exception at a time
  * is a labeller who stops labelling.
  */
-export function loadLabelSet(path, corpusData) {
+export function loadLabelSet(path, corpusData, { partial = false } = {}) {
   const raw = readJson(path);
   const errs = [];
   const push = (msg) => errs.push(`${path}: ${msg}`);
@@ -139,12 +139,19 @@ export function loadLabelSet(path, corpusData) {
 
   // Section 1: reports with no recommendation are not optional. A set that silently omits them
   // measures nothing about false positives, which is the headline figure.
+  //
+  // Section 5 as amended allows a second labeller to cover only an agreement subset, so a partial
+  // set is legitimate for that labeller and only that labeller. It is never legitimate for the
+  // gold standard, which has to cover the corpus it is scored against. `partial` is opt-in for
+  // that reason: the caller has to say which case it is, rather than the loader guessing from
+  // whether anything happens to be missing.
   const missing = [...corpusData.reports.keys()]
     .filter((id) => !labels.has(id) && !rejectedIds.has(id));
-  if (missing.length) {
+  if (missing.length && !partial) {
     push(`${missing.length} corpus report(s) unlabelled: ${missing.slice(0, 5).join(', ')}`
       + `${missing.length > 5 ? ', ...' : ''}. A report with no recommendation is labelled with `
-      + `an empty array, not left out.`);
+      + `an empty array, not left out. If this is a second labeller covering only the agreement `
+      + `subset (section 5), load it with {partial: true}.`);
   }
 
   if (errs.length) throw new Error(`invalid label set\n  ${errs.join('\n  ')}`);

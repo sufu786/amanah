@@ -1,8 +1,8 @@
 # The obligation
 
-Sections 2 to 6 of `OBLIGATION_SPEC.md`, implemented. This is the primitive the specification is
-about: everything in `extraction/` produces a *proposal* for one of these, and until now nothing
-could hold one.
+Sections 2 to 6 and 8 to 10 of `OBLIGATION_SPEC.md`, implemented. This is the primitive the
+specification is about: everything in `extraction/` produces a proposal for one of these, and until
+this existed nothing could hold one.
 
 ```
 node --test obligation/*.test.mjs
@@ -44,26 +44,13 @@ follow-up registry are social and operational, and no test suite reaches them.
 
 ## Where the specification pulls against itself
 
-Three places, found by implementing it. Two are here, the third is under the escalation ladder
-below. None is resolved silently: each is written down so the specification can be corrected in
-whichever direction the author intends.
+Three places, found by writing this against it. They are recorded in section 12.1 of
+`OBLIGATION_SPEC.md`, not here, because they are findings about the specification rather than notes
+about this code, and any independent implementer will meet the same three.
 
-The state diagram in section 3 draws an arrow into `resolved` labelled `not_indicated`, while also
-listing `not_indicated` as a terminal exit in its own right. Those two readings conflict.
-
-The text immediately below the diagram is the tiebreaker: *"there is no edge from any state to
-`resolved` that does not pass through recorded evidence."* So this implementation makes `resolved`
-reachable only from `completed`, and treats `not_indicated` as its own terminal state requiring a
-documented reason and an actor.
-
-That is the conservative reading, and it is the one where an obligation cannot reach the success
-state without evidence, which is the invariant the whole specification exists to protect. It is
-recorded here rather than resolved silently, because the diagram should be corrected in whichever
-direction the author intends.
-
-A second, smaller one: `reopened` appears in the section 5 event vocabulary, but no reopen edge is
-drawn in section 3, and section 3 says permitted transitions only. Terminal states here have no
-exits. If reopening is meant to exist, the diagram needs an edge and the conditions for it.
+In short: `not_indicated` is drawn both as an edge and as a state, `reopened` has no edge, and L4
+asks elapsed time to make a state change that R1 forbids. This implementation took the conservative
+reading of each. None should be treated as settled until the specification is corrected.
 
 ## The prepared summary
 
@@ -98,19 +85,9 @@ contributors (section 10).
 `escalation.mjs`. Section 8. It works out which rung an obligation is on and who should act. It
 does not act, and it does not change state.
 
-**A third place the specification pulls against itself.** Section 8 says of L4: "Final escalation;
-on exhaustion, becomes `lost_to_followup`". Read plainly that is a state change caused by the
-passage of time. R1 says there are no implicit state transitions. R2 says elapsed time never closes
-an obligation, and while `lost_to_followup` is explicitly not a closure, it is still terminal, and
-drifting into a terminal state unattended is the same failure wearing a different label.
-
-So the ladder reports exhaustion and names who should act. Somebody records the transition with
-their name against it. If an obligation ends as `lost_to_followup`, the history says which person
-accepted that, which is the entire point of keeping one.
-
-The alternative reading, where a scheduler quietly moves obligations to a terminal state on a
-timer, would make the system's own worst outcome the one thing that happens without anyone
-deciding it. The wording in section 8 should be tightened.
+Exhaustion at L4 is reported, never performed. Section 12.1 C of the specification explains why:
+asking elapsed time to move an obligation into a terminal state is what R1 forbids. A person
+records it, and the history then says who accepted that outcome.
 
 An obligation with no due date stays at L0 and keeps reminding, rather than being dropped because
 the rungs cannot be computed. Silently ceasing to remind is the failure this system exists to fix.

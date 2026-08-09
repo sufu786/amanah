@@ -17,7 +17,9 @@ import {
 const KAPPA_GATE = 0.75;
 
 export function agreement(corpusData, setA, setB) {
-  const ids = [...corpusData.reports.keys()];
+  // Section 5 as amended: the second labeller may cover a subset. Agreement is computed over the
+  // reports both actually labelled, and the count is reported so a shrinking subset is visible.
+  const ids = [...corpusData.reports.keys()].filter((id) => setA.labels.has(id) && setB.labels.has(id));
 
   const binA = ids.map((id) => setA.labels.get(id).recommendations.length > 0);
   const binB = ids.map((id) => setB.labels.get(id).recommendations.length > 0);
@@ -99,6 +101,8 @@ export function agreement(corpusData, setA, setB) {
 
   return {
     reports: ids.length,
+    corpus_reports: corpusData.reports.size,
+    agreement_subset: ids.length,
     labellers: [setA.labeller, setB.labeller],
     binary_kappa: kappa,
     per_language: perLanguage,
@@ -145,7 +149,7 @@ const load = (fn) => {
 
 const corpusData = load(() => loadCorpus(corpusPath));
 const setA = load(() => loadLabelSet(aPath, corpusData));
-const setB = load(() => loadLabelSet(bPath, corpusData));
+const setB = load(() => loadLabelSet(bPath, corpusData, { partial: true }));
 
 if (setA.labeller === setB.labeller) {
   console.error(`both files are labelled "${setA.labeller}". Section 5 requires two independent labellers.`);
@@ -165,8 +169,17 @@ if (args.includes('--json')) {
   console.log(JSON.stringify(result, null, 2));
 } else {
   const k = result.binary_kappa;
-  console.log(`corpus ${corpusData.corpus}  ${result.reports} reports  `
+  // The subset size is printed against the corpus size, always. A kappa computed on 40 reports out
+  // of 500 is a different claim from one computed on all 500, and the difference must not be
+  // something a reader has to go looking for.
+  const coverage = result.agreement_subset === result.corpus_reports
+    ? `${result.corpus_reports} reports, both labellers covered all of them`
+    : `${result.agreement_subset} of ${result.corpus_reports} reports labelled by both`;
+  console.log(`corpus ${corpusData.corpus}  ${coverage}  `
     + `labellers ${result.labellers.join(' vs ')}`);
+  if (result.agreement_subset < 100) {
+    console.log(`  note: section 5 asks for at least 100 reports in the agreement subset`);
+  }
   console.log();
   console.log('Binary question: does this report contain at least one recommendation?');
   console.log(`  observed agreement  ${pct(k.po * k.n, k.n)}`);
