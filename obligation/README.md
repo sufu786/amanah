@@ -115,8 +115,68 @@ deciding it. The wording in section 8 should be tightened.
 An obligation with no due date stays at L0 and keeps reminding, rather than being dropped because
 the rungs cannot be computed. Silently ceasing to remind is the failure this system exists to fix.
 
+## From an extraction to an obligation
+
+`from-extraction.mjs`. The seam that had never been joined. `extraction/` produces structured
+fields; this turns them into proposals, and a separate call turns an accepted proposal into an
+obligation.
+
+The two-step shape is the constraint rather than a convenience. C3 makes the patient the validator:
+fields are shown beside the highlighted source sentence and confirmed before anything becomes real.
+So a proposal carries the character span, and `acceptProposal` takes an actor.
+
+**Nothing is dropped.** C6 says below-threshold extractions enter a review queue and are never
+silently accepted or silently dropped. Every recommendation the extractor returned leaves in
+exactly one bucket, and the count is asserted:
+
+| Bucket | Why |
+|---|---|
+| proposals | above threshold, ready for the patient to confirm |
+| review_queue | below threshold (C6) |
+| blocked | no document date, and every due date derives from one |
+| not_indicated_evidence | the report says follow-up is not needed. Evidence, not a duty. |
+
+The threshold is a required argument with no default. It depends on measured performance for the
+model and language in use, and this repository has not measured recall for any language yet, so
+any number written here would be inventing evidence.
+
+A conditional recommendation is flagged and cannot be accepted as it stands: converting it into an
+unconditional due date invents a duty the report made contingent. An empty result carries the C2
+wording, in the concept note's own words, and an unreadable document is reported as a failure to
+read rather than a finding that there was nothing there.
+
+## Locale packs
+
+`locale.mjs`. Section 10. The README calls these the most valuable contribution anyone can make,
+which means they arrive from people this project has never met, in languages nobody here reads.
+That decides the design: a pack is untrusted input.
+
+Every user-facing string in a pack is the system speaking, so it goes through the same check as the
+English copy. A contributor cannot introduce interpretation, risk language or added urgency through
+a translation, and neither can a well-meaning maintainer. Signposting is checked too.
+
+`resolvePack` never fails. It matches the exact locale, falls back to the nearest language, and
+finally to English with a flag set. Section 10 makes this mandatory: no user is ever blocked
+pending support for their country. Under full fallback a patient still gets a printable page, and
+the two lines that matter most on it are verbatim quotes from their own report, which they do read.
+
+Signposting is omitted rather than guessed when there is no pack for the country. A wrong address
+for a TB clinic is worse than no address: it sends someone on a journey they may not be able to
+afford twice.
+
+A pack that fails validation is never served. It degrades to the fallback instead.
+
 ## Not built yet
 
-Locale packs (section 10), and the scheduler that would drive the ladder. The scheduler is the one
-component that legitimately reads a clock. When it is written it belongs outside these modules, and
-it must produce `reminded` and `escalated` events through `record()` rather than move state itself.
+**The scheduler.** It is the one component that legitimately reads a clock. When it is written it
+belongs outside these modules, and it must produce `reminded` and `escalated` events through
+`record()` rather than move state itself. Everything here is a pure function of an obligation and
+an injected `now`, so a scheduler is the only place the clock needs to enter the system.
+
+**Storage.** Deliberately absent. The specification is transport-agnostic and these modules commit
+to no database, no wire format and no framework. An obligation is a value.
+
+**C4, the permanent miss-rate audit.** A continuously sampled, manually reviewed stream estimating
+how often extraction misses a real recommendation. The concept note calls it a permanent operating
+requirement rather than a one-off validation activity. It cannot be built before there is a
+labelled corpus, and it is not something code alone discharges.
