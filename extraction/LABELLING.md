@@ -92,44 +92,63 @@ supports the `not_indicated` terminal state.
 
 ## 5. Labeller procedure
 
-Amended 2026-08-07. The first version required two labellers on every report. That is the right
-design and the wrong budget: a second labeller on a MIMIC corpus must hold their own PhysioNet
-credential, because the data use agreement is per person and reports cannot be handed to anyone who
-has not signed it. Recruiting one therefore means finding a clinically literate person willing to
-complete CITI training, wait out credentialing, and then work unpaid for hours. Double-labelling a
-subset is what most annotation projects actually do, and it measures the same thing.
+**Decided 2026-08-07: one labeller.** The first version of this protocol required two on every
+report, which is the right design and the wrong budget for an independent researcher. A second
+labeller on a MIMIC corpus must hold their own PhysioNet credential, because the data use agreement
+is per person and reports cannot be handed to anyone who has not signed it. Recruiting one means
+finding a clinically literate person willing to complete CITI training, wait out credentialing, and
+then work unpaid for many hours.
 
-1. Every report is labelled independently by one labeller.
-2. A random subset of at least 100 reports is labelled independently by a second labeller who has
-   not seen the first labels. The subset is drawn by seed, and the seed is recorded before
-   labelling starts.
-3. **Report inter-annotator agreement on that subset before resolution, always.** Cohen's kappa on
+So 5a is the plan. 5b stays in the protocol because a volunteer may appear, and if one does the
+work should not have to be redesigned to accept them.
+
+The cost of this decision is real and is not hidden: **no agreement between people will be
+measured, so nothing here demonstrates that a second reader would have labelled the same way.** That
+sentence travels with every number produced from these labels. See section 5c.
+
+### 5a. One labeller, the operating plan
+
+There is no honest single-labeller version of an agreement statistic, so none is invented.
+
+1. Every report is labelled by one labeller, working to this protocol.
+2. A subset of at least 100 reports is relabelled blind by the same person after at least two weeks,
+   with the first labels not consulted. This is reported as **intra-rater consistency** and is never
+   called inter-annotator agreement. It measures whether one person applies the protocol the same
+   way twice. That is worth knowing, and it is a different question from whether the protocol is
+   unambiguous to somebody else.
+3. Section 7 precedents are mandatory rather than optional. With one labeller they are the only
+   external record of how judgement calls were made, and they are what a reader disagreeing with a
+   call has to work from.
+4. Every precedent is applied back across all reports labelled before it was written down.
+5. All labels are published.
+
+### 5b. Two labellers, if one becomes available
+
+Applies only if a second credentialed labeller volunteers. The corpus does not need relabelling to
+adopt this; the subset can be drawn from work already done.
+
+1. A random subset of at least 100 reports is labelled independently by the second labeller, who
+   has not seen the first labels. The subset is drawn by seed, and the seed is recorded first.
+2. **Report inter-annotator agreement on that subset before resolution, always.** Cohen's kappa on
    the binary question "does this report contain at least one recommendation", plus exact-match
    agreement on interval and finding category.
-4. If kappa on the binary question is below 0.75, the protocol is too ambiguous. Fix the protocol
+3. If kappa on the binary question is below 0.75, the protocol is too ambiguous. Fix the protocol
    and relabel. Do not proceed to model evaluation on a set the humans cannot agree about.
-5. Disagreements are recorded, then resolved by discussion; if unresolved, a third labeller decides.
-6. Every judgement call not covered here gets appended to section 7 as a precedent, with the
-   report ID. **Each new precedent is then applied back across the single-labelled remainder.** This
-   is what makes a subset protect the whole corpus rather than only the sample: an ambiguity found
-   in 100 reports is an ambiguity that was present in all 500.
+4. Disagreements are recorded, then resolved by discussion; if unresolved, a third labeller decides.
+5. Each resolution becomes a precedent in section 7 and is applied back across the single-labelled
+   remainder. This is what makes a subset protect the whole corpus rather than only the sample: an
+   ambiguity found in 100 reports was present in all 500.
 
-### 5a. Where no second credentialed labeller can be found
+### 5c. How the labels were made travels with the metrics
 
-This is a real possibility for an independent researcher, and pretending otherwise would produce a
-protocol nobody follows.
+A metric is not independent of the ground truth it was scored against, in the same way that no
+extraction metric is independent of the model that produced it. A reader who is told the recall and
+not told that one person wrote every label has been given a number without the thing needed to
+weigh it.
 
-There is no honest single-labeller version of an agreement statistic, so none is invented. Instead:
-
-- Labels are one person's judgement, and `RESULTS.md` says so in those words, in the results
-  themselves rather than in a protocol footnote.
-- A subset of at least 100 reports is relabelled blind by the same person after at least two weeks.
-  This is reported as **intra-rater consistency** and is never called inter-annotator agreement. It
-  measures whether one person applies the protocol the same way twice, which is worth knowing and
-  is not the same question.
-- Section 7 precedents become mandatory rather than optional, since they are the only external
-  record of how judgement calls were made.
-- All labels are published, so the calls can be checked by anyone who disagrees.
+So a gold standard declares how it was made, `score.mjs` prints that declaration in its header
+alongside the model and prompt version, and it refuses to run without it. Under 5a the declaration
+reads `1 labeller, agreement between people not measured`, and it appears above every table.
 
 ## 6. Metrics, and how they are reported
 

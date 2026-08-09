@@ -79,7 +79,9 @@ for (const file of files) {
       if (/!\s|!$/.test(bare)) report(file, n, 'exclamation mark');
     }
 
-    if (!isMarkdown) return;
+    // STYLE.md is the word list. Running the word list over it reports every entry as a
+    // violation, which is the detector finding itself. Characters are still checked there.
+    if (!isMarkdown || file === 'STYLE.md') return;
 
     const lower = line.toLowerCase();
     for (const w of BANNED_WORDS) {

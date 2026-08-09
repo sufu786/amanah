@@ -236,6 +236,21 @@ const line = (label, m) => console.log(`  ${label.padEnd(38)} ${pct(m.n, m.of).p
 console.log(`corpus ${report.corpus}`);
 console.log(`model ${report.model ?? '(UNRECORDED)'}   prompt v${report.prompt_version ?? '(UNRECORDED)'}   protocol v0.1`);
 
+// Section 5c. The same reasoning as the model line above it: a metric is not independent of the
+// ground truth it was scored against. A reader given the recall but not told that one person wrote
+// every label has a number without what is needed to weigh it.
+{
+  const l = gold.labelling;
+  const people = `${l.labellers} labeller${l.labellers === 1 ? '' : 's'}`;
+  const agreement = {
+    reported: `agreement between people reported${l.inter_rater_kappa != null ? `, kappa ${l.inter_rater_kappa}` : ''}`,
+    not_measured: 'agreement between people NOT measured',
+    intra_rater_only: `agreement between people NOT measured; intra-rater consistency only${l.intra_rater_kappa != null ? `, kappa ${l.intra_rater_kappa}` : ''}`,
+  }[l.agreement];
+  console.log(`labels ${people}, ${agreement}`);
+  if (l.note) console.log(`  ${l.note}`);
+}
+
 for (const m of perLanguage) {
   console.log(`\n=== ${m.language}  (${m.reports} reports, ${m.gold_instances} labelled instances) ===`);
   line('false positives on clean reports', m.false_positive_rate_on_clean_reports);

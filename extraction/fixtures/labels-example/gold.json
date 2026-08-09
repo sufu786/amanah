@@ -3,6 +3,13 @@
   "labeller": "resolved",
   "protocol_version": "0.1",
   "resolved": true,
+  "labelling": {
+    "labellers": 1,
+    "agreement": "intra_rater_only",
+    "intra_rater_kappa": null,
+    "inter_rater_kappa": null,
+    "note": "Section 5a. One labeller. A blind relabel of a subset is pending."
+  },
   "labels": [
     {
       "report_id": "ex-clean",

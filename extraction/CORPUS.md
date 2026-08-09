@@ -1,6 +1,6 @@
 # Corpus sampling plan v0.1 (draft)
 
-**Status:** draft. Two decisions in section 9 are unresolved and change the numbers below.
+**Status:** draft. Section 9.1 is decided; 9.2 is still open and does not affect the numbers below.
 **Written:** 2026-08-03, while PhysioNet credentialing is under review.
 
 This plan is written before access is granted, for the same reason `LABELLING.md` was written
@@ -129,8 +129,9 @@ Composition check: stratum A alone is about 85% clean, comfortably above the 60%
 Across A and B combined it falls to roughly 65%, still above. If the pilot shows a base rate above
 about 25%, increase A rather than let the combined share drop below 60%.
 
-**500 reports, labelled twice, is the real cost of this plan.** At two minutes per report per
-labeller that is roughly 33 hours of labelling, before resolution. This is the dominant cost of
+**500 reports is the real cost of this plan.** At two minutes per report that is roughly 17 hours
+of labelling for one person, plus about 3 more for the blind relabel of 100 reports under section
+5a. If a second labeller appears, add about 3 hours for their subset. This is the dominant cost of
 Phase 1 and it should be planned as such rather than discovered.
 
 ## 6. Drawing the sample
@@ -182,20 +183,21 @@ created, gets closed. That is Phase 2 and it needs a deployment, not a corpus.
 
 ## 9. Open decisions
 
-**9.1 Two labellers, or amend the protocol.** Section 5 of `LABELLING.md` requires two independent
-labellers and gates model evaluation on kappa 0.75. With one labeller that gate cannot be satisfied
-as written, and `agreement.mjs` will refuse the comparison rather than let it slide.
+**9.1 How many labellers. Decided 2026-08-07: one.** Section 5 of `LABELLING.md` is amended to
+match, and the reasoning is there rather than repeated here. In short, a second labeller on MIMIC
+needs their own PhysioNet credential, and recruiting one means asking somebody to complete CITI
+training and then work unpaid for many hours.
 
-There is no honest single-labeller version of an agreement statistic. The options are to recruit a
-second labeller, or to amend the protocol to state plainly that agreement was not measured and that
-the labels are one person's judgement. The second is a real weakening and should be recorded as one
-in `RESULTS.md`, not buried in a protocol edit.
+If a credentialed volunteer appears, section 5b takes effect and a subset is double-labelled. The
+work does not need redesigning to accept them.
 
-This decision changes the schedule, roughly doubling or halving the labelling hours in section 5.
-**It should be made before the pilot, not after.**
+The cost is that no agreement between people will be measured, so nothing will demonstrate that a
+second reader would have labelled the same way. That is a real weakening and it is not buried: the
+gold standard declares how it was made, and `score.mjs` prints `1 labeller, agreement between
+people NOT measured` above every table it produces, and refuses to run without the declaration.
 
 **9.2 Quotation under the DUA.** Section 3. Confirm with PhysioNet, or publish spans without quotes.
 
 ---
 
-*Draft. Sizes in section 5 are contingent on the pilot in the same section, and on decision 9.1.*
+*Draft. Sizes in section 5 are contingent on the pilot in the same section.*

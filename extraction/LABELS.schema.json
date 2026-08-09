@@ -28,7 +28,35 @@
     "resolved": {
       "type": "boolean",
       "default": false,
-      "description": "True when this set is the post-resolution gold standard produced under section 5.2, rather than one labeller's independent pass. Only a resolved set may be used as ground truth by score.mjs; agreement.mjs refuses to compare two resolved sets, because agreement is meaningless after resolution."
+      "description": "True when this set is the post-resolution gold standard, rather than one labeller's independent pass. Only a resolved set may be used as ground truth by score.mjs; agreement.mjs refuses to compare two resolved sets, because agreement is meaningless after resolution."
+    },
+
+    "labelling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["labellers", "agreement"],
+      "description": "How this gold standard was made. Required on a resolved set, and printed by score.mjs above every metrics table. A metric is not independent of the ground truth it was scored against, in the same way no extraction metric is independent of the model that produced it. Section 5c.",
+      "properties": {
+        "labellers": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "How many people labelled. Under section 5a this is 1."
+        },
+        "agreement": {
+          "type": "string",
+          "enum": ["reported", "not_measured", "intra_rater_only"],
+          "description": "reported: inter-annotator agreement was measured on a subset and published (5b). not_measured: nothing was measured. intra_rater_only: the same person relabelled a subset blind, which measures consistency and NOT whether the protocol is unambiguous to somebody else (5a)."
+        },
+        "intra_rater_kappa": {
+          "type": ["number", "null"],
+          "description": "Cohen's kappa from the blind relabel under 5a. Never presented as inter-annotator agreement."
+        },
+        "inter_rater_kappa": {
+          "type": ["number", "null"],
+          "description": "Cohen's kappa between two labellers under 5b. Null under 5a, and it must stay null rather than being filled with the intra-rater figure."
+        },
+        "note": { "type": ["string", "null"] }
+      }
     },
 
     "labels": {

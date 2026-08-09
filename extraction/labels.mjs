@@ -154,12 +154,41 @@ export function loadLabelSet(path, corpusData, { partial = false } = {}) {
       + `subset (section 5), load it with {partial: true}.`);
   }
 
+  // Section 5c. A gold standard has to say how it was made, because that is part of what a number
+  // scored against it means. Required only on a resolved set: an individual labeller's pass is not
+  // ground truth for anything and has nothing to declare yet.
+  if (raw.resolved) {
+    const l = raw.labelling;
+    const AGREEMENT = ['reported', 'not_measured', 'intra_rater_only'];
+    if (!l || typeof l !== 'object') {
+      push('a resolved set must declare how it was made: '
+        + '{labelling: {labellers, agreement}}. See section 5c. score.mjs prints this above every '
+        + 'metrics table and will not run without it.');
+    } else {
+      if (!Number.isInteger(l.labellers) || l.labellers < 1) {
+        push('labelling.labellers must be a positive integer');
+      }
+      if (!AGREEMENT.includes(l.agreement)) {
+        push(`labelling.agreement must be one of ${AGREEMENT.join(', ')}`);
+      }
+      if (l.agreement === 'reported' && l.labellers < 2) {
+        push('labelling.agreement is "reported" but only one labeller is declared. Agreement '
+          + 'between people cannot be measured by one person.');
+      }
+      if (l.agreement !== 'reported' && typeof l.inter_rater_kappa === 'number') {
+        push('labelling.inter_rater_kappa is set but agreement was not reported. Section 5a is '
+          + 'explicit that an intra-rater figure is never presented as agreement between people.');
+      }
+    }
+  }
+
   if (errs.length) throw new Error(`invalid label set\n  ${errs.join('\n  ')}`);
 
   return {
     corpus: raw.corpus,
     labeller: raw.labeller,
     resolved: Boolean(raw.resolved),
+    labelling: raw.labelling ?? null,
     labels,
   };
 }
