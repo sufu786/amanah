@@ -8,6 +8,11 @@
 *.png
 !docs/**/*.png
 
+# The social card the landing page points at from og:image. It has to be committed and served
+# from Pages, because a scraper cannot read a file that only exists on somebody's laptop, and
+# og:image is ignored unless it resolves to an absolute URL. It contains no clinical material.
+!og-card.png
+
 # The generated document PDFs are deliberately NOT committed. They are build
 # artifacts, regenerable from the Markdown with `cd tools && npm run pdf`, and
 # archived with a DOI on Zenodo, which is their canonical home.
