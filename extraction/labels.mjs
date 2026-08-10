@@ -63,6 +63,7 @@ export function loadCorpus(path) {
  */
 export function loadLabelSet(path, corpusData, { partial = false } = {}) {
   const raw = readJson(path);
+  const redacted = Boolean(raw.redacted);
   const errs = [];
   const push = (msg) => errs.push(`${path}: ${msg}`);
 
@@ -105,15 +106,41 @@ export function loadLabelSet(path, corpusData, { partial = false } = {}) {
       continue;
     }
 
+    const recommendations = [];
     for (const [k, rec] of entry.recommendations.entries()) {
       const rw = `${where} rec[${k}]`;
-      if (typeof rec.recommendation_verbatim !== 'string' || !rec.recommendation_verbatim) {
-        push(`${rw}: recommendation_verbatim must be a non-empty string`);
-      }
-      validateSpan(rw, 'recommendation', rec.recommendation_span, rec.recommendation_verbatim,
-        report.text, push);
-      if (rec.finding_verbatim != null || rec.finding_span != null) {
-        validateSpan(rw, 'finding', rec.finding_span, rec.finding_verbatim, report.text, push);
+
+      if (redacted) {
+        // A redacted set carries spans and no quoted text, so that labels can be published under
+        // a data use agreement that forbids redistributing the corpus. The span is the claim, and
+        // the verbatim string is derived from the reader's own copy of the report.
+        //
+        // Nothing checkable is lost. The people who can judge a labelling call are the people who
+        // can read the report it came from, and under a per-person DUA those are exactly the
+        // people who can rebuild the corpus. text_sha256 proves they rebuilt the right one.
+        if (rec.recommendation_verbatim != null || rec.finding_verbatim != null) {
+          push(`${rw}: this set is marked redacted but still carries quoted text. Redaction is `
+            + 'all or nothing; a half-stripped file is the worst of both.');
+        }
+        const okRec = rangeCheck(rw, 'recommendation', rec.recommendation_span, report.text, push);
+        const okFinding = rec.finding_span == null
+          || rangeCheck(rw, 'finding', rec.finding_span, report.text, push);
+        recommendations.push({
+          ...rec,
+          recommendation_verbatim: okRec ? sliceSpan(report.text, rec.recommendation_span) : null,
+          finding_verbatim: rec.finding_span && okFinding
+            ? sliceSpan(report.text, rec.finding_span) : null,
+        });
+      } else {
+        if (typeof rec.recommendation_verbatim !== 'string' || !rec.recommendation_verbatim) {
+          push(`${rw}: recommendation_verbatim must be a non-empty string`);
+        }
+        validateSpan(rw, 'recommendation', rec.recommendation_span, rec.recommendation_verbatim,
+          report.text, push);
+        if (rec.finding_verbatim != null || rec.finding_span != null) {
+          validateSpan(rw, 'finding', rec.finding_span, rec.finding_verbatim, report.text, push);
+        }
+        recommendations.push(rec);
       }
       if (!FINDING_CATEGORIES.includes(rec.finding)) {
         push(`${rw}: finding "${rec.finding}" is not in the controlled vocabulary`);
@@ -132,7 +159,7 @@ export function loadLabelSet(path, corpusData, { partial = false } = {}) {
     labels.set(entry.report_id, {
       report_id: entry.report_id,
       date_found: entry.date_found ?? null,
-      recommendations: entry.recommendations,
+      recommendations,
       note: entry.note ?? null,
     });
   }
@@ -188,9 +215,27 @@ export function loadLabelSet(path, corpusData, { partial = false } = {}) {
     corpus: raw.corpus,
     labeller: raw.labeller,
     resolved: Boolean(raw.resolved),
+    redacted,
     labelling: raw.labelling ?? null,
     labels,
   };
+}
+
+const sliceSpan = (text, [s, e]) => text.slice(s, e);
+
+/** Shape and range only. Used for redacted sets, where there is no quoted text to compare against. */
+function rangeCheck(where, field, span, text, push) {
+  if (!Array.isArray(span) || span.length !== 2
+      || !Number.isInteger(span[0]) || !Number.isInteger(span[1])) {
+    push(`${where}: ${field}_span must be [start, end] integers`);
+    return false;
+  }
+  const [s, e] = span;
+  if (s < 0 || e > text.length || s >= e) {
+    push(`${where}: ${field}_span [${s}, ${e}] is out of range for a ${text.length}-char report`);
+    return false;
+  }
+  return true;
 }
 
 function validateSpan(where, field, span, verbatim, text, push) {

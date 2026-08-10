@@ -1,6 +1,6 @@
 # Corpus sampling plan v0.1 (draft)
 
-**Status:** draft. Section 9.1 is decided; 9.2 is still open and does not affect the numbers below.
+**Status:** draft. Both decisions in section 9 are settled.
 **Written:** 2026-08-03, while PhysioNet credentialing is under review.
 
 This plan is written before access is granted, for the same reason `LABELLING.md` was written
@@ -68,12 +68,15 @@ job: a credentialed reader reconstructs `reports.json` from the identifiers, and
 the labels if the text is not character-identical to what was labelled. Reproducibility without
 redistribution.
 
-**Unresolved:** label files carry `recommendation_verbatim`, which is MIMIC text. Short quotations
-from a de-identified corpus are probably not redistribution of the corpus, but *probably* is not the
-standard to apply to a DUA. Either confirm with PhysioNet, or publish the gold standard with quotes
-replaced by spans alone, which preserves checkability for credentialed readers and loses it for
-everyone else. **Do not guess this one.** Nothing else in the plan depends on it, so it can be
-settled while labelling proceeds.
+**Handled.** Label files carry `recommendation_verbatim`, which is MIMIC text. Short quotations from
+a de-identified corpus are probably not redistribution of the corpus, but *probably* is not the
+standard to apply to a data use agreement, and the question was not worth guessing at.
+
+So it is not guessed at. `redact.mjs` strips the quoted strings and publishes spans, and the loader
+derives every quote from the reader's own rebuilt corpus. Checkability is preserved for exactly the
+people who could act on it, since judging a labelling call needs the surrounding report and only a
+credentialed reader has that. Ask PhysioNet anyway, because a permissive answer means publishing
+the fuller file, but nothing waits on the reply.
 
 ## 4. Two strata, because one sample cannot serve both metrics
 
@@ -196,7 +199,14 @@ second reader would have labelled the same way. That is a real weakening and it 
 gold standard declares how it was made, and `score.mjs` prints `1 labeller, agreement between
 people NOT measured` above every table it produces, and refuses to run without the declaration.
 
-**9.2 Quotation under the DUA.** Section 3. Confirm with PhysioNet, or publish spans without quotes.
+**9.2 Quotation under the DUA. Handled 2026-08-10, and no longer blocking.** `redact.mjs` produces
+a publishable copy of any label set with the quoted report text stripped, keeping spans, categories,
+intervals, flags and `text_sha256`. A credentialed reader rebuilds the corpus and the loader derives
+every quote from their own copy, refusing the labels if the text does not hash to what was labelled.
+Scoring a redacted gold standard gives numbers identical to the unredacted one, which is checked.
+
+Still worth asking PhysioNet whether short quotations are permitted, because a permissive answer
+means publishing the fuller file. But nothing waits on the answer now. See `LABELLING.md` section 8a.
 
 ---
 

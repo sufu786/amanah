@@ -188,6 +188,7 @@ labelled report is scored by machinery nobody could tune after seeing the result
 | `labels.mjs` | Loading, validation, instance matching, Cohen's kappa. Shared, so agreement and scoring cannot use different rules. |
 | `agreement.mjs` | Section 5. Two labellers against each other, before resolution. |
 | `score.mjs` | Section 6. Extractor against the resolved gold standard. |
+| `redact.mjs` | Produces the publishable copy of a label set, with quoted report text stripped. See section 8a. |
 | `fixtures/labels-example/` | Four reports, two labellers who disagree, a resolution, and a hand-written prediction set reproducing the defects in `RESULTS.md`. Exercises the harness on failures, not only successes. It is **not** a corpus: it violates the 60% rule in section 1 by design. |
 
 ```
@@ -244,3 +245,39 @@ with no positives, which is a corpus problem and not an agreement result.
 
 `score.mjs` reports no F1, and will not pool a language below 200 labelled reports into a combined
 figure. Languages excluded from the pooled figure are named in the output.
+
+### 8a. Publishing labels without redistributing the corpus
+
+This protocol says labels are published alongside the metrics, so the judgement calls can be
+checked rather than taken on trust. A data use agreement that forbids redistributing the corpus
+pulls the other way, because a label quotes the report.
+
+`redact.mjs` resolves it without waiting for a ruling:
+
+```
+node redact.mjs --in gold.json --out gold.public.json
+```
+
+The published copy keeps the spans, categories, intervals, flags and `text_sha256`, and drops every
+quoted string. A credentialed reader rebuilds the corpus from the row identifiers, and the loader
+refuses the labels unless the text hashes to what was labelled, then derives each quote from their
+own copy. Scoring a redacted gold standard produces numbers identical to the unredacted one, which
+is checked.
+
+What a reader without corpus access loses is the ability to see the quoted sentence. That reader
+could not have judged the call anyway. A category beside one sentence, with none of the surrounding
+report, is not enough to say whether a labeller was right, so the quotes buy the appearance of
+checkability more than the substance of it.
+
+Three things are refused, because a published artefact gets no second look:
+
+- **Redacting a set with no `text_sha256`.** A redacted file is nothing but offsets. Without the
+  hash nobody can prove they rebuilt the corpus those offsets belong to, which is worse than not
+  publishing at all.
+- **A half-stripped file.** Redaction is all or nothing. A file with some quotes left in has the
+  disclosure risk of the full version and the reduced usefulness of the stripped one.
+- **Redacted labels loaded against a corpus that is not the one they describe.** Caught by the
+  hash, as with any other corpus drift.
+
+If PhysioNet confirms that short quotations are permitted, publish the unredacted file and this
+becomes unnecessary. Until then it is the safe default and it costs almost nothing.

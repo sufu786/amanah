@@ -16,7 +16,7 @@
 
     "labeller": {
       "type": "string",
-      "description": "Opaque labeller identifier, e.g. 'A'. Never a name. Section 5 requires two independent labellers, and agreement is reported before resolution, so labeller identity must survive in the record."
+      "description": "Opaque labeller identifier, e.g. 'A'. Never a name. Kept because where a second labeller exists (section 5b), agreement is reported before resolution and the two passes have to stay distinguishable."
     },
 
     "protocol_version": {
@@ -29,6 +29,12 @@
       "type": "boolean",
       "default": false,
       "description": "True when this set is the post-resolution gold standard, rather than one labeller's independent pass. Only a resolved set may be used as ground truth by score.mjs; agreement.mjs refuses to compare two resolved sets, because agreement is meaningless after resolution."
+    },
+
+    "redacted": {
+      "type": "boolean",
+      "default": false,
+      "description": "True when the quoted report text has been stripped for publication under a data use agreement that forbids redistributing the corpus. Spans, categories, intervals, flags and text_sha256 are all kept, and labels.mjs derives every quote from the reader's own rebuilt corpus. Redaction is all or nothing: a set marked redacted that still carries quoted text is rejected. Produced by redact.mjs. See LABELLING.md section 8a."
     },
 
     "labelling": {
@@ -116,13 +122,13 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "recommendation_verbatim", "recommendation_span", "finding", "action"
+        "recommendation_span", "finding", "action"
       ],
       "properties": {
 
         "recommendation_verbatim": {
           "type": "string",
-          "description": "Copied exactly as printed, including typographical errors. Section 4: do not tidy.",
+          "description": "Copied exactly as printed, including typographical errors. Section 4: do not tidy. Required on a normal label set and ABSENT on a redacted one, where labels.mjs derives it from the span. That conditional requirement is enforced by the loader rather than by this schema, because a set marked redacted must be rejected for carrying the field at all, which is the opposite of a required check.",
           "minLength": 1
         },
         "recommendation_span": { "$ref": "#/$defs/span" },
