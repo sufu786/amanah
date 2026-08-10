@@ -17,7 +17,7 @@ import { readFileSync } from 'node:fs';
 
 import {
   createObligation, transition, verify, transferOwner, record, reconstruct, tally,
-  supersede, supersessionDecision, identityKey, computeDueDate,
+  supersede, supersessionDecision, identityKey, computeDueDate, reopen, wasReopened,
   permittedTransitions, STATES, TERMINAL_STATES, CLOSURE_STATES, NOT_A_CLOSURE, EVIDENCE_TYPES,
 } from './obligation.mjs';
 
@@ -267,12 +267,19 @@ describe('section 3  permitted transitions only', () => {
     }
   });
 
-  test('terminal states have no exits, including no reopen', () => {
-    for (const s of TERMINAL_STATES) assert.deepEqual(permittedTransitions(s), []);
+  test('a terminal state has exactly one way out, and it is reopen', () => {
+    for (const s of TERMINAL_STATES) assert.deepEqual(permittedTransitions(s), ['acknowledged']);
     const resolved = transition(toCompleted(), {
       to: 'resolved', actor: CLINICIAN, at: T(4), evidence: { type: 'matching_result' },
     });
-    assert.throws(() => transition(resolved, { to: 'acknowledged', actor: PATIENT, at: T(5) }), /terminal/);
+    // Without a reason it is refused, like every other terminal decision.
+    assert.throws(() => transition(resolved, { to: 'acknowledged', actor: PATIENT, at: T(5) }),
+      /documented reason/);
+    // And it cannot skip back to a later state in the live path.
+    for (const to of ['scheduled', 'completed', 'resolved']) {
+      assert.throws(() => transition(resolved, { to, actor: PATIENT, at: T(5), reason: 'x' }),
+        /not permitted/, `reopen must not jump straight to ${to}`);
+    }
   });
 
   test('every live state can reach every terminal exit', () => {
@@ -365,5 +372,98 @@ describe('R3  exactly one owner at all times', () => {
     assert.equal(o.owner.since, T(1));
     assert.equal(o.history.at(-1).event, 'owner_transferred');
     assert.equal(o.history.at(-1).detail.from.ref, 'local-1');
+  });
+});
+
+describe('reopen  when a terminal decision was wrong (section 12.1 B, resolved in v0.4)', () => {
+  const terminal = (to, reason) => transition(verify(make(), { actor: PATIENT, at: T(1) }), {
+    to, actor: CLINICIAN, at: T(2), reason,
+  });
+
+  test('every terminal state can be reopened, because any of them can be recorded in error', () => {
+    for (const state of ['declined', 'not_indicated', 'superseded', 'lost_to_followup', 'deceased']) {
+      const o = reopen(terminal(state, 'recorded'), {
+        actor: COORDINATOR, at: T(3), reason: 'recorded against the wrong obligation',
+      });
+      assert.equal(o.state, 'acknowledged', `${state} must be reopenable`);
+    }
+    const resolved = transition(toCompleted(), {
+      to: 'resolved', actor: CLINICIAN, at: T(4), evidence: { type: 'matching_study' },
+    });
+    assert.equal(reopen(resolved, { actor: CLINICIAN, at: T(5), reason: 'the study was a different patient' }).state,
+      'acknowledged');
+  });
+
+  test('a reason and an actor are required; evidence is not', () => {
+    const declined = terminal('declined', 'patient declined');
+    assert.throws(() => reopen(declined, { actor: CLINICIAN, at: T(3) }), /documented reason/);
+    assert.throws(() => reopen(declined, { at: T(3), reason: 'x' }), /actor/);
+    // No evidence argument anywhere, deliberately. Closing needs evidence; reopening needs a name.
+    assert.equal(reopen(declined, { actor: CLINICIAN, at: T(3), reason: 'recorded in error' }).state,
+      'acknowledged');
+  });
+
+  test('the closure is cleared from the view but survives in history, with its original actor', () => {
+    const declined = terminal('declined', 'patient declined, documented');
+    assert.equal(declined.closure.reason, 'patient declined, documented');
+    assert.equal(declined.closure.recorded_by.ref, CLINICIAN.ref);
+
+    const reopened = reopen(declined, { actor: COORDINATOR, at: T(3), reason: 'wrong obligation' });
+    assert.equal(reopened.closure, null, 'the current view no longer claims a closure');
+
+    const closing = reopened.history.find((h) => h.to_state === 'declined');
+    assert.ok(closing, 'the closing transition is still in history');
+    assert.equal(closing.actor.ref, CLINICIAN.ref, 'with the name of whoever recorded it');
+    assert.equal(reopened.history.at(-1).event, 'reopened');
+    assert.equal(reopened.history.at(-1).detail.reason, 'wrong obligation');
+  });
+
+  test('11.6 still holds: the mistake and its correction are both in one object', () => {
+    const r = reconstruct(reopen(terminal('not_indicated', 'clinician said unnecessary'), {
+      actor: COORDINATOR, at: T(3), reason: 'the clinician was looking at a different finding',
+    }));
+    assert.deepEqual(r.state_path, ['created', 'acknowledged', 'not_indicated', 'acknowledged']);
+    assert.equal(r.final_state, 'acknowledged');
+    assert.ok(r.steps.some((s) => s.event === 'reopened'));
+    assert.ok(r.complete);
+  });
+
+  test('resolved after a reopen still requires fresh evidence', () => {
+    let o = reopen(terminal('declined', 'declined'), { actor: PATIENT, at: T(3), reason: 'changed mind' });
+    o = transition(o, { to: 'scheduled', actor: PATIENT, at: T(4) });
+    o = transition(o, { to: 'completed', actor: CLINICIAN, at: T(5) });
+    assert.throws(() => transition(o, { to: 'resolved', actor: CLINICIAN, at: T(6) }), /closure evidence/);
+    const done = transition(o, {
+      to: 'resolved', actor: CLINICIAN, at: T(6), evidence: { type: 'matching_study' },
+    });
+    assert.equal(done.state, 'resolved');
+  });
+
+  test('a live obligation cannot be reopened', () => {
+    assert.throws(() => reopen(make(), { actor: PATIENT, at: T(1), reason: 'x' }), /only a terminal/);
+  });
+
+  test('tally counts a reopened obligation as open, and reports the reopen separately', () => {
+    const reopened = reopen(terminal('lost_to_followup', 'ladder exhausted'), {
+      actor: COORDINATOR, at: T(3), reason: 'the patient came back',
+    });
+    const stillLost = terminal('lost_to_followup', 'ladder exhausted');
+
+    const t = tally([reopened, stillLost]);
+    assert.equal(t.open, 1, 'a reopened obligation is open again');
+    assert.equal(t.lost_to_followup, 1, 'and no longer counted as lost');
+    assert.equal(t.closed, 0);
+    assert.equal(t.ever_reopened, 1, 'the reopen is visible as a data-quality signal');
+    assert.ok(wasReopened(reopened));
+    assert.ok(!wasReopened(stillLost));
+  });
+
+  test('an obligation reopened and properly closed still shows it was reopened', () => {
+    let o = reopen(terminal('declined', 'declined'), { actor: PATIENT, at: T(3), reason: 'error' });
+    o = transition(o, { to: 'scheduled', actor: PATIENT, at: T(4) });
+    o = transition(o, { to: 'completed', actor: CLINICIAN, at: T(5) });
+    o = transition(o, { to: 'resolved', actor: CLINICIAN, at: T(6), evidence: { type: 'matching_study' } });
+    assert.equal(tally([o]).closed, 1);
+    assert.equal(tally([o]).ever_reopened, 1, 'the first closure was still wrong, and that stays visible');
   });
 });

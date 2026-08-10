@@ -1,7 +1,7 @@
 // The portable clinical obligation: the object, its state machine, and its history.
 //
-// This implements sections 2 to 6 of OBLIGATION_SPEC.md. It is the primitive the specification is
-// actually about. Everything in extraction/ produces a *proposal* for one of these; nothing until
+// This implements sections 2 to 6 of OBLIGATION_SPEC.md, including the reopen edge in 3.1. It is
+// the primitive the specification is actually about. Everything in extraction/ produces a *proposal* for one of these; nothing until
 // now could hold one.
 //
 // Three properties are deliberate and constrain everything below.
@@ -33,7 +33,7 @@ export const TERMINAL_STATES = [
   'resolved', 'declined', 'not_indicated', 'superseded', 'lost_to_followup', 'deceased',
 ];
 
-// Section 4.3. lost_to_followup terminates the escalation ladder; it does not discharge the
+// Section 4.4. lost_to_followup terminates the escalation ladder; it does not discharge the
 // obligation. Kept as a named export because every metric has to be able to ask this question,
 // and a system that folds it into "closed" has recreated the problem it was built to solve.
 export const CLOSURE_STATES = ['resolved', 'declined', 'not_indicated', 'superseded', 'deceased'];
@@ -52,9 +52,7 @@ export const EVIDENCE_TYPES = {
 export const ACTOR_KINDS = ['patient', 'clinician', 'coordinator', 'system'];
 export const OWNER_KINDS = ['patient', 'clinician', 'coordinator', 'service'];
 
-// Section 3, "permitted transitions only". Anything not listed is rejected. The terminal exits
-// are reachable from any live state, which is what the left-hand bar in the diagram shows.
-const LIVE_STATES = ['created', 'acknowledged', 'scheduled', 'completed'];
+// Section 3, "permitted transitions only". Anything not listed is rejected.
 const TERMINAL_EXITS = ['declined', 'not_indicated', 'superseded', 'lost_to_followup', 'deceased'];
 
 const PROGRESSION = {
@@ -72,12 +70,15 @@ const PROGRESSION = {
  * state, because restricting them would strand obligations: a patient may decline before verifying,
  * and a patient may die at any point.
  *
- * Both of those were ambiguous in specification v0.2 and are settled in v0.3, sections 12.1 A and
- * D. This implementation took the conservative reading first and the specification was corrected to
- * match, rather than the other way round.
+ * Both of those were ambiguous in v0.2 and are settled in v0.3, sections 12.1 A and D. A terminal
+ * state has one way out, added in v0.4, section 3.1. In each case this implementation took the
+ * conservative reading first and the specification was corrected to match, not the other way round.
  */
 export function permittedTransitions(state) {
-  if (TERMINAL_STATES.includes(state)) return [];
+  // A terminal state has exactly one way out: back to `acknowledged`, by reopening. That is a
+  // correction rather than progress, and it is the only transition in this machine that is not
+  // gated on evidence. See reopen() for why.
+  if (TERMINAL_STATES.includes(state)) return ['acknowledged'];
   return [...Object.keys(PROGRESSION[state] ?? {}), ...TERMINAL_EXITS];
 }
 
@@ -231,18 +232,26 @@ export function transition(obligation, { to, actor, at, evidence = null, reason 
   if (!STATES.includes(to)) throw new Error(`unknown state ${JSON.stringify(to)}`);
 
   const from = obligation.state;
-  if (TERMINAL_STATES.includes(from)) {
-    throw new Error(`${from} is terminal; no transition out of it exists. Section 3 draws no reopen edge.`);
-  }
   if (!permittedTransitions(from).includes(to)) {
     throw new Error(`transition ${from} -> ${to} is not permitted. Section 3: permitted transitions only. `
       + `From ${from} the legal moves are: ${permittedTransitions(from).join(', ')}.`);
   }
   if (!isPlainObject(detail)) throw new Error('detail must be an object, and must carry no free-text PHI (section 5)');
 
+  const isReopen = TERMINAL_STATES.includes(from);
   let closure = obligation.closure;
 
-  if (to === 'resolved') {
+  if (isReopen) {
+    if (!reason || typeof reason !== 'string') {
+      throw new Error(`reopening a ${from} obligation requires a documented reason and an actor. `
+        + 'It does not require evidence: closing needs evidence, reopening needs only a name, '
+        + 'because the dangerous direction is discharge.');
+    }
+    // The closure that was recorded stays in `history`, with the name of whoever recorded it still
+    // against it. Only the current view is cleared. Nothing is rewritten, so section 11.6 holds:
+    // the whole story, including the mistake and its correction, is in one object.
+    closure = null;
+  } else if (to === 'resolved') {
     if (!isPlainObject(evidence) || !EVIDENCE_TYPES[evidence.type]) {
       throw new Error('resolved requires closure evidence of a declared type: '
         + `${Object.keys(EVIDENCE_TYPES).join(', ')}. Section 4.2 prohibits closure by elapsed time, `
@@ -263,18 +272,59 @@ export function transition(obligation, { to, actor, at, evidence = null, reason 
       reason,
       at,
       recorded_by: actor,
-      // Section 4.3. This is the flag every metric must consult. lost_to_followup terminates the
+      // Section 4.4. This is the flag every metric must consult. lost_to_followup terminates the
       // escalation ladder without discharging the obligation, and must never be aggregated into
       // a closure rate.
       counts_as_closure: to !== NOT_A_CLOSURE,
     };
   }
 
-  const event = TERMINAL_EXITS.includes(to) ? 'state_changed' : (PROGRESSION[from]?.[to] ?? 'state_changed');
+  let event;
+  if (isReopen) event = 'reopened';
+  else if (TERMINAL_EXITS.includes(to)) event = 'state_changed';
+  else event = PROGRESSION[from]?.[to] ?? 'state_changed';
+
   return append({ ...obligation, state: to, closure }, {
-    at, actor, event, from_state: from, to_state: to, detail,
+    at, actor, event, from_state: from, to_state: to, detail: isReopen ? { ...detail, reason } : detail,
   });
 }
+
+/**
+ * Reopen a terminal obligation, because the terminal decision was wrong.
+ *
+ * Returns to `acknowledged`, never to `completed` or `resolved`. If an obligation was resolved on
+ * evidence that turned out to be wrong, the completion is in doubt too, so the way back runs
+ * through scheduling and fresh evidence like any other.
+ *
+ * WHY THIS IS NOT GATED ON EVIDENCE, AND NOT RESTRICTED TO THE ORIGINAL ACTOR
+ *
+ * Closing requires evidence of a declared type. Reopening requires only a documented reason and an
+ * actor. The asymmetry is deliberate: the dangerous direction is discharge, so making the
+ * conservative operation the hard one would mean mistaken closures persist, which is the harm
+ * being prevented. Nor is it restricted to whoever recorded the closure. They may have left, and
+ * if they made the mistake they are the least likely to notice it.
+ *
+ * The usual worry about an undo path does not apply here. Reopening moves an obligation out of the
+ * closed column and back into the open one, so it makes the closure rate worse. Nobody games a
+ * metric in the direction that makes them look worse.
+ *
+ * NOTE ON REOPENING A SUPERSEDED OBLIGATION
+ *
+ * Permitted, because supersession can be recorded in error like anything else. But if the
+ * obligation that superseded it is still open, the result is two open obligations sharing an
+ * identity_key. Section 6 rule 3 already covers what to do: flag for human disambiguation, never
+ * merge automatically. This function cannot see the other obligation, so it cannot check, and the
+ * caller has to.
+ */
+export function reopen(obligation, { actor, at, reason, detail = {} }) {
+  if (!TERMINAL_STATES.includes(obligation.state)) {
+    throw new Error(`only a terminal obligation can be reopened; this one is ${obligation.state}`);
+  }
+  return transition(obligation, { to: 'acknowledged', actor, at, reason, detail });
+}
+
+/** Whether an obligation has ever been reopened, which is a data-quality signal worth surfacing. */
+export const wasReopened = (obligation) => obligation.history.some((h) => h.event === 'reopened');
 
 /** R7 and section 3: verification of the extracted fields is what `created` -> `acknowledged` means. */
 export function verify(obligation, { actor, at, corrections = [] }) {
@@ -404,12 +454,16 @@ export function reconstruct(obligation) {
  * the point.
  */
 export function tally(obligations) {
-  const counts = { open: 0, closed: 0, lost_to_followup: 0, by_state: {} };
+  const counts = { open: 0, closed: 0, lost_to_followup: 0, ever_reopened: 0, by_state: {} };
   for (const o of obligations) {
     counts.by_state[o.state] = (counts.by_state[o.state] ?? 0) + 1;
     if (o.state === NOT_A_CLOSURE) counts.lost_to_followup++;
     else if (CLOSURE_STATES.includes(o.state)) counts.closed++;
     else counts.open++;
+    // Reported because a rising reopen rate means closures are being recorded carelessly, and
+    // that is worth seeing early. Counted over all obligations regardless of current state: an
+    // obligation reopened and then properly closed still says something about the first closure.
+    if (wasReopened(o)) counts.ever_reopened++;
   }
   return counts;
 }

@@ -1,16 +1,20 @@
-# Portable Clinical Obligation, specification v0.3
+# Portable Clinical Obligation, specification v0.4
 
 **Status:** draft for public comment
 **Licence:** CC BY 4.0
-**Date:** 2026-08-07
+**Date:** 2026-08-10
 **Concept DOI:** [10.5281/zenodo.21706768](https://doi.org/10.5281/zenodo.21706768)
 
+**Changes since v0.3.** Section 3.1 is new. A terminal decision that was wrong can be reopened to
+`acknowledged` by an actor with a documented reason, and no evidence. Closing needs evidence,
+reopening needs only a name, because the dangerous direction is discharge. This settles the last of
+the four contradictions found by implementing v0.2, and section 12.1 B records what was weighed and
+what was rejected.
+
 **Changes since v0.2.** Three places where v0.2 contradicted itself, all found by writing a
-reference implementation against it, are corrected: `not_indicated` is a terminal state and not a
-route to `resolved`, terminal exits are available from every non-terminal state, and exhausting the
-escalation ladder is recorded by a named actor rather than happening by itself. A fourth, what the
-system does when a terminal decision was a mistake, is stated as an open design question in section
-12.1 B rather than answered in a hurry. Section 12.1 has the reasoning for all four.
+reference implementation against it, were corrected in v0.3: `not_indicated` is a terminal state
+and not a route to `resolved`, terminal exits are available from every non-terminal state, and
+exhausting the escalation ladder is recorded by a named actor rather than happening by itself.
 
 **The object format is unchanged.** The `schema` string stays `cor.obligation/0.2`, because nothing
 about the object itself moved. A document revision is not a data format revision, and bumping the
@@ -150,8 +154,13 @@ These constrain every decision below.
           --> declined           patient declined, documented
           --> not_indicated      clinician documented follow-up unnecessary
           --> superseded         replaced by a later obligation on the same finding (section 6)
-          --> lost_to_followup   escalation ladder exhausted; NOT a closure (section 4.3)
+          --> lost_to_followup   escalation ladder exhausted; NOT a closure (section 4.4)
           --> deceased
+
+   reopen, the only way out of a terminal state (section 3.1)
+   ----------------------------------------------------------
+          any terminal state --> acknowledged
+          requires a documented reason and an actor. Requires NO evidence.
 ```
 
 **Permitted transitions only.** Any transition not drawn above is rejected. In particular there is
@@ -168,6 +177,49 @@ superseded while its obligation is still in `created`; a patient may die at any 
 the exits to one state would strand obligations with no lawful way out, which is a worse failure
 than the ambiguity it would remove. Stated in words here because the art cannot express it without
 becoming unreadable.
+
+### 3.1 Reopening, when a terminal decision was wrong
+
+People record terminal decisions in error. A coordinator marks the wrong obligation
+`not_indicated`. A `matching_study` turns out to belong to a different patient. Someone recorded
+`lost_to_followup` and the patient walks in six months later. This is not rare, and a specification
+that has no answer for it is a specification that will be worked around.
+
+**Any terminal state may be reopened to `acknowledged`**, by an actor, with a documented reason.
+
+**Reopening requires no evidence.** This asymmetry is the point. Closing an obligation requires
+evidence of a declared type, because discharge is the dangerous direction. Reopening one requires
+only a name and a reason, because it restores a duty rather than discharging one. Making the
+conservative operation the hard one would mean mistaken closures persist, which is the harm being
+prevented.
+
+**It is not restricted to whoever recorded the closure.** They may have left the service, and if
+they made the mistake they are the least likely to notice it.
+
+**The recorded closure is not erased.** It stays in `history` with the actor who recorded it, and
+only `closure` on the current view is cleared. Nothing is rewritten, so section 11.6 still holds:
+the mistake and its correction are both in one object, and the trajectory remains reconstructable
+from that object alone.
+
+**Reopening returns to `acknowledged`, never further along.** If an obligation was resolved on
+evidence that proved wrong, the completion is in doubt too, so the way back runs through scheduling
+and fresh evidence like any other. There is still no route to `resolved` that skips evidence.
+
+**Reopening a `superseded` obligation is permitted**, since supersession can be recorded in error
+like anything else. If the obligation that superseded it is still open, the result is two open
+obligations sharing an `identity_key`, and section 6 rule 3 governs: flag for human
+disambiguation, never merge automatically.
+
+**Reopening must be reported.** A rising reopen rate means closures are being recorded carelessly,
+which is worth seeing early rather than discovering during an incident. Implementations report it
+over all obligations, including those reopened and later closed properly, because the first closure
+was still wrong.
+
+The alternative design, where a terminal state is final and a mistake produces a fresh obligation
+linked to the old one, was considered and rejected. It leaves the mistaken obligation counted as
+closed forever, which inflates the one metric this specification exists to make honest, and it
+splits the truth about a finding across two records at the moment somebody most needs it in one
+place. See section 12.1 B.
 
 **From `created` to `acknowledged`** requires verification of the extracted fields (R7, C3). An
 obligation may sit in `created` indefinitely. It still generates reminders, but the prepared summary
@@ -199,7 +251,17 @@ It is recorded at a distinct confidence tier, and must be visually distinguished
 - The patient dismissing a notification.
 - Absence of contradicting information.
 
-### 4.3 `lost_to_followup` is not a success state
+### 4.3 A cleared closure is not a deleted one
+
+Reopening under section 3.1 sets `closure` to null on the current view. The closure that was
+recorded stays in `history`, with the actor who recorded it and the timestamp, exactly as written.
+It is never edited and never removed.
+
+An implementation that deletes the closure record on reopen fails section 11.6, because the
+trajectory can then no longer show that the obligation was once closed, by whom, and on what
+grounds. The whole value of allowing correction is that the error remains visible afterwards.
+
+### 4.4 `lost_to_followup` is not a success state
 
 It terminates the escalation ladder. It does not discharge the obligation. It must be reported
 separately in every metric, and never aggregated into "closed". A system that quietly folds
@@ -376,7 +438,7 @@ An implementation conforms to this specification if all of the following hold.
 ### 12.1 Contradictions found by implementing this specification
 
 Four places where v0.2 disagreed with itself, found by writing the reference implementation against
-it in August 2026. Three are corrected in v0.3. One is a real design question and stays open.
+it in August 2026. Three were corrected in v0.3 and the fourth in v0.4. All are now settled.
 
 They are recorded rather than quietly fixed because an independent implementer meets the same
 places, and a specification that silently changes underneath its readers is worse than one that
@@ -408,34 +470,40 @@ The wording now says a named actor records it. The history then shows who accept
 which is the point of keeping one. The alternative would make the system's worst outcome the only
 thing that happens without anyone deciding it.
 
-**B. `reopened` has no edge, and the question underneath it is open.** Section 5 lists `reopened` in
-the history event vocabulary. Section 3 draws no reopen transition and says only drawn transitions
-are permitted. The reference implementation gives terminal states no exits.
+**B. `reopened` had no edge. RESOLVED in v0.4: the edge is added.** Section 5 listed `reopened` in
+the history event vocabulary while section 3 drew no reopen transition. Unlike the others this was
+not a drafting slip, but a real unanswered question: what the system does when a person gets a
+terminal decision wrong, which is not rare.
 
-This one is not a drafting slip. It is the unanswered question of what the system does when a person
-gets a terminal decision wrong, which is not a rare event. Supersession in section 6 does not cover
-it, because supersession requires a later `document_date` and a mistaken `declined` has no new
-document behind it. Section 5 already lists a `corrected` event, but sections 3 and 4 never say what
-a correction does to a terminal state or to a `closure` record that someone's name is against.
+Two designs were considered. Add a reopen edge, or keep terminal states final and have a mistake
+produce a fresh obligation linked to the old one. Section 3.1 has the resolution and its
+conditions. The reasoning for choosing it is recorded here, because a reader who disagrees should
+be able to see what was weighed.
 
-Two ways out, both defensible:
+**Against the linked-successor design, decisively:** it leaves the mistaken obligation terminal
+forever, so it counts as closed in every metric. The closure rate is then inflated by exactly the
+errors most worth seeing, and anyone asking whether a finding was discharged finds a closure and
+stops. Section 4.3 already treats folding `lost_to_followup` into "closed" as recreating the
+problem this specification exists to solve. Permanently counting mistaken closures as closures does
+the same thing by another route.
 
-| | Add a reopen edge | Terminal means terminal |
-|---|---|---|
-| What happens | A documented reopen returns an obligation to `acknowledged` and voids the closure | A mistake produces a new obligation linked to the old one, and the old one stays as it was |
-| History | The closure record has to be marked void, so history stops being purely additive | Append-only survives untouched. Nobody's recorded decision is ever rewritten |
-| Audit | One object holds the whole story, including the error | The story spans two objects and the link between them must be followed |
-| Cost | Section 3 needs the edge and its conditions; section 4 needs void-closure semantics; every metric needs to decide whether a reopened obligation was ever closed | Section 6 needs a correction relationship that does not require a later document date |
-| Risk | A reopen path is a path to undo an inconvenient closure. It would want restricting to the actor who recorded it, or to a moderator | A reader who follows only the first object sees a closure and stops, missing that it was overturned |
+**Three further reasons specific to this specification.** Section 11.6 requires a full trajectory
+to be reconstructable from `history` alone; with a linked successor the trajectory of the duty is
+not in any one object. The prepared summary in section 9 renders a single obligation, so a truth
+split across two records has no correct rendering. And the object is patient-held and portable: a
+person carrying two records about the same finding, one closed and one open, is a person who will
+not know what to do.
 
-The reference implementation takes the second, by having no reopen at all, but it has not
-implemented the correction relationship that would complete it. So today a mistaken terminal
-decision has no recorded remedy in either direction, which is the honest state of affairs and should
-not stay that way.
+**An objection considered and set aside.** A reopen path is in principle a path to undo an
+inconvenient closure. It does not work as an incentive here, because reopening moves an obligation
+out of the closed column and back into the open one, making the closure rate worse. Nobody games a
+metric in the direction that makes them look worse. The reporting requirement in section 3.1 covers
+the residual case where reopening is happening too often for a different reason.
 
-Deciding this needs a view on which is worse: a history that can be edited, or a truth that is split
-across two records. That is a judgement about how this system will be audited after something goes
-wrong, and it is deliberately left to the next revision rather than settled in a hurry here.
+**One cost accepted.** The current view of an obligation can now say `acknowledged` where it once
+said `resolved`. Systems that cached the earlier answer will be stale. This is the ordinary cost of
+a state machine that admits correction, and it is preferable to a registry that cannot be corrected
+at all.
 
 ### 12.2 Design questions still open
 

@@ -44,16 +44,16 @@ follow-up registry are social and operational, and no test suite reaches them.
 
 ## What implementing this found in the specification
 
-Four places where v0.2 contradicted itself. Three are corrected in specification v0.3, and the
-fourth is a real design question left open. The reasoning for all four is in section 12.1 of
-OBLIGATION_SPEC.md, not here, because they are findings about the specification rather than notes
-about this code.
+Four places where v0.2 contradicted itself. All four are now settled, three in specification v0.3
+and the last in v0.4. The reasoning for each is in section 12.1 of OBLIGATION_SPEC.md, not here,
+because they are findings about the specification rather than notes about this code.
 
-The one still open is what the system does when a terminal decision was a mistake. Supersession
-does not cover it, since that needs a later document date and a wrongly declined obligation has no
-new document behind it. This implementation has no reopen path, which means today a mistaken
-terminal decision has no recorded remedy at all. That is the honest state and it should not stay
-that way.
+The last one was the real question: what happens when a terminal decision was wrong. A terminal
+obligation can now be reopened to acknowledged by an actor with a documented reason, and no
+evidence. Closing needs evidence; reopening needs only a name, because the dangerous direction is
+discharge and the conservative operation should not be the hard one. The closure that was recorded
+stays in history with whoever recorded it, so the mistake and its correction are both in one
+object.
 
 ## The prepared summary
 
