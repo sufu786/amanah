@@ -113,21 +113,43 @@ export async function loadAddenda(detailPath) {
 export function classifyExamName(name) {
   const n = String(name).toUpperCase();
   if (n === '___' || n.trim() === '') return 'de-identified exam name';
-  if (/MAMMO|TOMOSYNTHESIS/.test(n)) return 'Mammography';
+  // Mammography. This dataset writes screening mammograms as "DIG SCREENING BILAT" and
+  // "H DIGITAL SCREENING W/CAD", with the word mammogram nowhere in sight. CAD and tomosynthesis
+  // are mammographic techniques, so they identify the study on their own.
+  if (/MAMMO|TOMOSYNTHESIS|DIG(ITAL)?\s+SCREEN|SCREEN\/TOMO|\bCAD\b/.test(n)) return 'Mammography';
+
   if (/\bPET\b/.test(n)) return 'PET';
-  if (/ANGIO|EMBOL|CATHET|\bDRAIN|BIOPSY|ASPIRATION|\bPICC\b|LINE PLACEMENT|\bPORT\.|GUIDANCE/.test(n)) {
+
+  // Procedures come before the imaging patterns, because "PARACENTESIS DIAG/THERAP W IMAGING GUID"
+  // is a procedure that happens to be image-guided. BX and GUID are the abbreviations in use here.
+  if (/ANGIO|EMBO|CATH|\bDRAIN|BIOPSY|\bBX\b|ASPIRATION|PARACENTESIS|THORACENTESIS|\bPICC\b|LINE PLACEMENT|TUNNELED|\bERCP\b|GUID|\bEXCH\b|MOD SEDATION|NEPHROSTOM|GASTROSTOM|JEJUNOSTOM|\bTUBE\b/.test(n)) {
     return 'Interventional';
   }
-  if (/\bCTA?\b|\bCT[\s/-]|COMPUTED TOMOGRAP/.test(n)) return 'CT';
-  if (/\bMRA?\b|\bMR[\s/-]|MAGNETIC RESONANCE/.test(n)) return 'MR';
-  if (/\bUS\b|ULTRASOUND|SONOGRAM|DOPPLER|\bECHO\b/.test(n)) return 'Ultrasound';
+
+  // CTU is a CT urogram. The previous pattern allowed CT and CTA only.
+  if (/\bCT[AU]?\b|\bCT[\s/-]|COMPUTED TOMOGRAP/.test(n)) return 'CT';
+
+  // MRI was the omission that mattered. The previous pattern was \bMRA?\b, which matches MR and
+  // MRA but not MRI, so thousands of "MRI LIVER W&W/O CONTRAST" fell through to unclassified.
+  if (/\bMR[IA]?\b|\bMRCP\b|\bMR[\s/-]|MAGNETIC RESONANCE|CMR|CARDIAC STRUCTURE/.test(n)) return 'MR';
+
+  // Ultrasound, including the vascular and obstetric studies that never use the word. "RENAL U.S."
+  // has periods in it, so a \bUS\b pattern misses it entirely. Venous and arterial duplex, carotid
+  // series and fetal studies are all ultrasound and none of them say so.
+  if (/\bU\.?S\.?\b|ULTRASOUND|SONOGRA|DOPP|DUPLEX|\bDUP\b|CAROTID|\bVEINS\b|\bVEN\b|ART EXT|FETAL|\bOB\b|SCROTAL|TRANSVAG|\bECHO\b|\bBPP\b/.test(n)) {
+    return 'Ultrasound';
+  }
+
   if (/NUCLEAR|SCINTIG|BONE SCAN|\bHIDA\b|\bMAG3\b|V\/?Q\b/.test(n)) return 'Nuclear medicine';
-  if (/FLUORO|BARIUM|SWALLOW|ESOPHAG|UPPER GI|ENEMA|CYSTOGRAM|MYELOGRAM|ARTHROGRAM/.test(n)) {
+  if (/DENSITOMETRY|\bDEXA\b|\bDXA\b/.test(n)) return 'Bone densitometry';
+  if (/FLUORO|BARIUM|SWALLOW|ESOPHAG|UPPER GI|UGI|UROGRAPH|ENEMA|CYSTOGRAM|MYELOGRAM|ARTHROGRAM/.test(n)) {
     return 'Fluoroscopy';
   }
-  if (/CHEST|ABDOMEN|PELVIS|SPINE|FEMUR|TIBIA|HUMERUS|FOREARM|HAND|FOOT|ANKLE|KNEE|SHOULDER|WRIST|HIP|RIB|SKULL|SINUS|NECK|CLAVICLE|SCAPULA|RADIOGRAPH|X-?RAY|\bXR\b|\bPA\b|\bAP\b|\bLAT\b/.test(n)) {
+
+  if (/CHEST|ABDOMEN|PELVIS|SPINE|LUMBAR|THORACIC|CERVICAL|SACRUM|COCCYX|FEMUR|TIBIA|FIBULA|HUMERUS|FOREARM|FINGER|THUMB|\bTOE|HAND|FOOT|ANKLE|KNEE|SHOULDER|WRIST|ELBOW|\bHIP\b|\bRIB|SKULL|SINUS|NECK|CLAVICLE|SCAPULA|ORBIT|MANDIBLE|SKELETAL SURVEY|SCOLIOSIS|RADIOGRAPH|X-?RAY|\bXR\b|\bPA\b|\bAP\b|\bLAT\b|VIEWS?\b/.test(n)) {
     return 'Radiograph';
   }
+
   return 'other/unclassified';
 }
 

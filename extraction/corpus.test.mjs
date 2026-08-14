@@ -20,7 +20,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
 
-import { readCsv, parseCsvStream, pickStrata, sortKey } from './corpus.mjs';
+import { readCsv, parseCsvStream, pickStrata, sortKey, classifyExamName } from './corpus.mjs';
 
 const dir = mkdtempSync(join(tmpdir(), 'amanah-corpus-'));
 
@@ -257,5 +257,72 @@ describe('chunk boundaries, forced rather than hoped for', () => {
     assert.equal(rows.length, 2);
     assert.equal(rows[0].text, 'a');
     assert.equal(rows[1].text, 'b');
+  });
+});
+
+describe('exam name classification, against names taken from the real corpus', () => {
+  // Every string here appeared in MIMIC-IV-Note radiology_detail. The first version of this
+  // classifier put 11.4% of the corpus into other/unclassified, and the cases below are the ones
+  // that were wrong. They are kept as names rather than as invented examples so that a future
+  // change has to stay correct on the data that actually exists.
+  const cases = [
+    ['CHEST (PORTABLE AP)', 'Radiograph'],
+    ['CHEST (PA & LAT)', 'Radiograph'],
+    ['FINGER(S),2+VIEWS RIGHT', 'Radiograph'],
+    ['LUMBAR SINGLE VIEW IN OR', 'Radiograph'],
+    ['SCOLIOSIS SERIES', 'Radiograph'],
+    ['SKELETAL SURVEY (INCLUD LONG BONES)', 'Radiograph'],
+
+    ['CT HEAD W/O CONTRAST', 'CT'],
+    ['CT ABD & PELVIS WITH CONTRAST', 'CT'],
+    ['CTA CHEST W&W/O C&RECONS, NON-CORONARY', 'CT'],
+    // CTU is a CT urogram. The pattern allowed CT and CTA only.
+    ['CTU (ABD/PEL) W/O CONTRAST', 'CT'],
+
+    ['MR HEAD W & W/O CONTRAST', 'MR'],
+    // The regression that mattered: \bMRA?\b matches MR and MRA but not MRI, so several thousand
+    // of these were unclassified.
+    ['MRI LIVER W&W/O CONTRAST', 'MR'],
+
+    // Ultrasound that never says ultrasound. "RENAL U.S." has periods, so \bUS\b misses it.
+    ['RENAL U.S.', 'Ultrasound'],
+    ['THYROID U.S.', 'Ultrasound'],
+    ['LIVER OR GALLBLADDER US (SINGLE ORGAN)', 'Ultrasound'],
+    ['BILAT LOWER EXT VEINS', 'Ultrasound'],
+    ['UNILAT LOWER EXT VEINS LEFT', 'Ultrasound'],
+    ['CAROTID SERIES COMPLETE', 'Ultrasound'],
+    ['DUPLEX DOPP ABD/PEL', 'Ultrasound'],
+    ['VEN DUP EXTEXT BIL (MAP/DVT)', 'Ultrasound'],
+    ['FULL FETAL LOW RISK', 'Ultrasound'],
+    ['OB F/U WITH MEASUREMENT', 'Ultrasound'],
+    ['SCROTAL U.S.', 'Ultrasound'],
+
+    // Screening mammograms written without the word mammogram anywhere.
+    ['DIG SCREENING WITH CAD MAMMOGRAM', 'Mammography'],
+    ['DIG SCREENING BILAT', 'Mammography'],
+    ['H DIGITAL SCREENING W/CAD', 'Mammography'],
+    ['H DIGITAL SCREEN/TOMO,CVIEW & CAD', 'Mammography'],
+
+    // Procedures, which have to win over the imaging patterns.
+    ['CHEST PORT. LINE PLACEMENT', 'Interventional'],
+    ['PARACENTESIS DIAG/THERAP W IMAGING GUID', 'Interventional'],
+    ['BX-NEEDLE LIVER BY RADIOLOGIST', 'Interventional'],
+    ['TUNNELED W/ PORT', 'Interventional'],
+    ['G/GJ/GI TUBE CHECK', 'Interventional'],
+    ['ERCP BILIARY&PANCREAS BY GI UNIT', 'Interventional'],
+
+    ['UGI SGL CONTRAST W/ KUB', 'Fluoroscopy'],
+    ['BONE DENSITOMETRY', 'Bone densitometry'],
+    ['___', 'de-identified exam name'],
+  ];
+
+  for (const [name, expected] of cases) {
+    test(`${name} -> ${expected}`, () => {
+      assert.equal(classifyExamName(name), expected);
+    });
+  }
+
+  test('an unrecognised name falls through rather than being forced into a bucket', () => {
+    assert.equal(classifyExamName('SOMETHING NOBODY HAS SEEN'), 'other/unclassified');
   });
 });
