@@ -50,7 +50,11 @@ const BANNED_OPENERS = [
   'importantly', 'notably', 'furthermore', 'moreover', 'additionally', 'crucially',
 ];
 
-const files = execSync('git ls-files', { encoding: 'utf8' })
+// --cached lists tracked files, --others --exclude-standard adds untracked ones that are not
+// ignored. Plain `git ls-files` lists only the tracked, which meant a newly written file passed
+// this check right up to the moment it was committed and started failing immediately afterwards.
+// That is exactly backwards: the check is least useful on the files most likely to need it.
+const files = execSync('git ls-files --cached --others --exclude-standard', { encoding: 'utf8' })
   .split('\n')
   .filter((f) => f && !/\.(pdf|png|jpg|jpeg|zip|cff)$/.test(f));
 
@@ -102,4 +106,4 @@ if (errors) {
   console.log(`${errors} style issue(s). See STYLE.md.`);
   process.exit(1);
 }
-console.log(`No style issues in ${files.length} tracked files.`);
+console.log(`No style issues in ${files.length} files (tracked and untracked, ignoring .gitignore).`);

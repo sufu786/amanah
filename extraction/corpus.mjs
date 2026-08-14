@@ -50,11 +50,86 @@ const MODALITY_PATTERNS = [
   [/RADIOGRAPH|\bX-?RAY\b|\bCXR\b|\bXR\b/i, 'Radiograph'],
 ];
 
-const classifyModality = (text) => {
-  const head = text.slice(0, 400);
-  for (const [re, name] of MODALITY_PATTERNS) if (re.test(head)) return name;
-  return 'other/unclassified';
+/**
+ * The report's own EXAMINATION header, which MIMIC radiology notes carry as their first line.
+ *
+ * Classifying from this rather than from the first 400 characters of arbitrary text matters more
+ * than it looks. The modality mix decides whether stratum A has to be restricted, and the body of
+ * a chest radiograph report routinely mentions CT in a comparison line. Reading the header asks
+ * what the study was. Reading the body asks what words happen to appear in it.
+ */
+export const examinationOf = (text) => {
+  const m = text.match(/^[ \t]*EXAMINATION:[ \t]*(.+)$/im)
+    ?? text.match(/^[ \t]*(?:STUDY|PROCEDURE):[ \t]*(.+)$/im);
+  return m ? m[1].trim() : null;
 };
+
+export const classifyModality = (text) => {
+  const exam = examinationOf(text);
+  const subject = exam ?? text.slice(0, 200);
+  for (const [re, name] of MODALITY_PATTERNS) if (re.test(subject)) return name;
+  return exam ? 'other/unclassified' : 'no examination header';
+};
+
+/**
+ * Note ids that are addenda to another report, read from radiology_detail.
+ *
+ * CORPUS.md section 2 asks how addenda and corrections are represented, because each would
+ * otherwise enter the sample as an independent report. The detail table answers that directly
+ * rather than by inference from note_type: a note named as another note's addendum_note_id is an
+ * addendum. Held as a Set because they are few relative to the corpus.
+ */
+export async function loadAddenda(detailPath) {
+  const addenda = new Set();
+  const parents = new Set();
+  const examNames = new Map();
+  const modalityByNote = new Map();
+  for await (const row of readCsv(detailPath)) {
+    if (row.field_name === 'addendum_note_id') addenda.add(row.field_value);
+    else if (row.field_name === 'parent_note_id') parents.add(row.field_value);
+    else if (row.field_name === 'exam_name' && row.field_ordinal === '1') {
+      examNames.set(row.field_value, (examNames.get(row.field_value) ?? 0) + 1);
+      // Interned by construction: classifyExamName returns one of a handful of constants, so this
+      // holds millions of keys pointing at a few shared strings rather than millions of strings.
+      modalityByNote.set(row.note_id, classifyExamName(row.field_value));
+    }
+  }
+  return { addenda, parents, examNames, modalityByNote };
+}
+
+/**
+ * Modality from the exam name recorded in radiology_detail.
+ *
+ * This replaced pattern-matching the report body, which got half the corpus wrong on the real
+ * data. "CHEST (PORTABLE AP)" is plainly a radiograph and contains none of the words a body-text
+ * matcher looks for, so 24% came back unclassified and another 27% had no EXAMINATION header the
+ * matcher could find. The modality mix decides whether stratum A has to be restricted, so roughly
+ * right was not good enough.
+ *
+ * Order matters. CTA and MRA are caught before the plain CT and MR patterns, and the interventional
+ * and fluoroscopy shapes before the plain-film fallback, because "CHEST PORT. LINE PLACEMENT" is a
+ * line placement rather than a chest film.
+ */
+export function classifyExamName(name) {
+  const n = String(name).toUpperCase();
+  if (n === '___' || n.trim() === '') return 'de-identified exam name';
+  if (/MAMMO|TOMOSYNTHESIS/.test(n)) return 'Mammography';
+  if (/\bPET\b/.test(n)) return 'PET';
+  if (/ANGIO|EMBOL|CATHET|\bDRAIN|BIOPSY|ASPIRATION|\bPICC\b|LINE PLACEMENT|\bPORT\.|GUIDANCE/.test(n)) {
+    return 'Interventional';
+  }
+  if (/\bCTA?\b|\bCT[\s/-]|COMPUTED TOMOGRAP/.test(n)) return 'CT';
+  if (/\bMRA?\b|\bMR[\s/-]|MAGNETIC RESONANCE/.test(n)) return 'MR';
+  if (/\bUS\b|ULTRASOUND|SONOGRAM|DOPPLER|\bECHO\b/.test(n)) return 'Ultrasound';
+  if (/NUCLEAR|SCINTIG|BONE SCAN|\bHIDA\b|\bMAG3\b|V\/?Q\b/.test(n)) return 'Nuclear medicine';
+  if (/FLUORO|BARIUM|SWALLOW|ESOPHAG|UPPER GI|ENEMA|CYSTOGRAM|MYELOGRAM|ARTHROGRAM/.test(n)) {
+    return 'Fluoroscopy';
+  }
+  if (/CHEST|ABDOMEN|PELVIS|SPINE|FEMUR|TIBIA|HUMERUS|FOREARM|HAND|FOOT|ANKLE|KNEE|SHOULDER|WRIST|HIP|RIB|SKULL|SINUS|NECK|CLAVICLE|SCAPULA|RADIOGRAPH|X-?RAY|\bXR\b|\bPA\b|\bAP\b|\bLAT\b/.test(n)) {
+    return 'Radiograph';
+  }
+  return 'other/unclassified';
+}
 
 /**
  * Streaming RFC 4180 CSV reader.
@@ -160,7 +235,7 @@ function requireColumns(row, needed, path) {
 
 // ---------------------------------------------------------------------------------- survey
 
-async function survey(path) {
+async function survey(path, detailPath) {
   let total = 0;
   const noteTypes = new Map();
   const modalities = new Map();
@@ -172,13 +247,21 @@ async function survey(path) {
   const lengths = [];
   const examples = [];
 
+  // Loaded first, because modality is taken from exam_name rather than from the report body.
+  let detail = null;
+  if (detailPath) {
+    process.stdout.write('  reading radiology_detail ... ');
+    detail = await loadAddenda(detailPath);
+    console.log(`${detail.modalityByNote.size.toLocaleString()} exam names`);
+  }
+
   for await (const row of readCsv(path)) {
     if (total === 0) requireColumns(row, ['note_id', 'subject_id', 'text'], path);
     total++;
     const text = row.text ?? '';
 
     noteTypes.set(row.note_type ?? '(none)', (noteTypes.get(row.note_type ?? '(none)') ?? 0) + 1);
-    const mod = classifyModality(text);
+    const mod = detail?.modalityByNote.get(row.note_id) ?? classifyModality(text);
     modalities.set(mod, (modalities.get(mod) ?? 0) + 1);
     perPatient.set(row.subject_id, (perPatient.get(row.subject_id) ?? 0) + 1);
     if (lengths.length < 200000) lengths.push(text.length);
@@ -197,9 +280,17 @@ async function survey(path) {
         const sentence = m[0].toLowerCase();
         if (CUES.some((c) => sentence.includes(c))) {
           placeholderNearCue++;
-          if (/\b(in|at|within|after)\s+___|___\s*(month|week|day|year)/i.test(m[0])) {
+          // "___ year old" is an age, not an interval, and it appears in the INDICATION line of a
+          // large share of these reports. The first version of this check counted them and
+          // inflated the figure, which is the same mistake CORPUS.md section 1 records about the
+          // Open-i cue screen, made here by the tool written to avoid it.
+          const isAge = /___[\s-]*(year|yo|y\/o|month)[\s-]*old|\b(age|aged)\b[^.]*___/i.test(m[0]);
+          const looksLikeInterval = /\b(in|at|within|after|every|repeat|q)\s+___\s*(month|week|day|year|mo\b|wk\b|yr\b)/i
+            .test(m[0])
+            || /\bfollow[\s-]?up[^.]{0,40}___\s*(month|week|day|year)/i.test(m[0]);
+          if (!isAge && looksLikeInterval) {
             placeholderInIntervalShape++;
-            if (examples.length < 6) examples.push(m[0].trim().slice(0, 150));
+            if (examples.length < 8) examples.push(m[0].trim().slice(0, 140));
           }
           break;
         }
@@ -238,6 +329,21 @@ async function survey(path) {
     + `(${pct(multi, perPatient.size)} of patients)`);
   console.log('   The draw takes one report per patient, so this is handled, but it is worth');
   console.log('   knowing how much of the frame it discards.');
+  if (detail) {
+    console.log(`   notes that ARE an addendum to another: ${detail.addenda.size.toLocaleString()}`);
+    console.log(`   notes that HAVE an addendum:           ${detail.parents.size.toLocaleString()}`);
+    console.log('   The draw excludes addenda, so a report and its addendum cannot both be');
+    console.log('   labelled as though they were independent.');
+
+    const exams = [...detail.examNames].sort((a, b) => b[1] - a[1]);
+    console.log(`\n   exam_name, top 15 of ${detail.examNames.size.toLocaleString()} distinct:`);
+    for (const [name, n] of exams.slice(0, 15)) {
+      console.log(`     ${String(name).slice(0, 46).padEnd(48)} ${String(n).padStart(8)}`);
+    }
+  } else {
+    console.log('   (pass --detail radiology_detail.csv.gz to count addenda from the data');
+    console.log('   rather than inferring them from note_type)');
+  }
 
   console.log('\n3. De-identification placeholders inside recommendation sentences.');
   console.log(`   reports containing ___              ${placeholderTotal.toLocaleString()}  ${pct(placeholderTotal, total)}`);
@@ -260,20 +366,39 @@ async function survey(path) {
 
 // ------------------------------------------------------------------------------------ draw
 
-async function draw(path, { seed, nA, nB, out, modalities: allow }) {
+async function draw(path, { seed, nA, nB, out, modalities: allow, detailPath }) {
+  // The detail table is not optional for a real draw. Without it, addenda enter the sample as
+  // independent reports, and modality is guessed from the report body, which was wrong for half
+  // the corpus when it was measured.
+  if (!detailPath) {
+    console.error('--detail is required for a draw.');
+    console.error('Without radiology_detail, addenda cannot be excluded and modality is a guess.');
+    process.exit(2);
+  }
+  process.stdout.write('  reading radiology_detail ... ');
+  const detail = await loadAddenda(detailPath);
+  console.log(`${detail.addenda.size.toLocaleString()} addenda to exclude`);
+
   // Pass 1: keep only the lowest-keyed note per patient, holding no text. A Map over patients is
   // affordable; a Map over reports holding text is not.
   const best = new Map();
   let total = 0;
   let eligible = 0;
+  let skippedAddenda = 0;
+  let skippedShort = 0;
+  let skippedModality = 0;
 
   for await (const row of readCsv(path)) {
     if (total === 0) requireColumns(row, ['note_id', 'subject_id', 'text'], path);
     total++;
     const text = row.text ?? '';
-    if (text.length < 200) continue;
-    const mod = classifyModality(text);
-    if (allow && !allow.includes(mod)) continue;
+
+    // An addendum is a continuation of another report, not a report. Labelling both would count
+    // one study twice and would put two views of the same finding into the sample.
+    if (detail.addenda.has(row.note_id)) { skippedAddenda++; continue; }
+    if (text.length < 200) { skippedShort++; continue; }
+    const mod = detail.modalityByNote.get(row.note_id) ?? classifyModality(text);
+    if (allow && !allow.includes(mod)) { skippedModality++; continue; }
     eligible++;
 
     const key = sortKey(seed, row.note_id);
@@ -335,6 +460,9 @@ async function draw(path, { seed, nA, nB, out, modalities: allow }) {
   console.log(`\nDraw from ${basename(path)}  seed "${seed}"`);
   console.log(`  scanned ${total.toLocaleString()} reports, ${eligible.toLocaleString()} passed the frame, `
     + `${best.size.toLocaleString()} patients`);
+  console.log(`  excluded: ${skippedAddenda.toLocaleString()} addenda, `
+    + `${skippedShort.toLocaleString()} too short`
+    + (allow ? `, ${skippedModality.toLocaleString()} outside the modality filter` : ''));
   write('reports-A.json', 'A', strA);
   write('reports-B.json', 'B', strB);
   console.log(`\nWritten to ${out}. This directory is gitignored and must stay that way.`);
@@ -358,9 +486,9 @@ const get = (f, d = null) => { const i = args.indexOf(f); return i === -1 ? d : 
 
 const usage = () => {
   console.error('usage:');
-  console.error('  node corpus.mjs survey --in <radiology.csv.gz>');
-  console.error('  node corpus.mjs draw --in <radiology.csv.gz> --seed <string> [--a 350] [--b 150]');
-  console.error('                       [--modalities CT,MR,Ultrasound] --out <dir>');
+  console.error('  node corpus.mjs survey --in <radiology.csv.gz> [--detail <radiology_detail.csv.gz>]');
+  console.error('  node corpus.mjs draw --in <radiology.csv.gz> --detail <radiology_detail.csv.gz>');
+  console.error('                       --seed <string> [--a 350] [--b 150] [--modalities CT,MR] --out <dir>');
   process.exit(2);
 };
 
@@ -370,7 +498,7 @@ if (isMain) {
   if (!existsSync(input)) { console.error(`not found: ${input}`); process.exit(2); }
 
   if (cmd === 'survey') {
-    await survey(input);
+    await survey(input, get('--detail'));
   } else {
     const seed = get('--seed');
     if (!seed) {
@@ -384,6 +512,7 @@ if (isMain) {
       nA: Number(get('--a', '350')),
       nB: Number(get('--b', '150')),
       out: get('--out', '../corpus'),
+    detailPath: get('--detail'),
       modalities: mods ? mods.split(',').map((s) => s.trim()) : null,
     });
   }

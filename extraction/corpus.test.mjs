@@ -114,8 +114,10 @@ describe('CSV reader, on the shapes clinical text actually takes', () => {
     assert.equal(rows[1].text, 'short');
   });
 
-  test('multibyte characters are not corrupted across chunk boundaries', async () => {
-    const text = `${'a'.repeat(65535)}ééé end`;
+  // Kept as an end-to-end check through real gzip, but it is the weaker of the two: where the
+  // boundary falls is up to gzip. The forced-boundary tests below are the ones that prove it.
+  test('multibyte characters survive a real gzip round trip', async () => {
+    const text = `${'a'.repeat(65535)}\u00e9\u00e9\u00e9 end`;
     const rows = await roundTrip(`note_id,text\nn1,"${text}"\n`, 'utf8.csv.gz');
     assert.equal(rows[0].text, text);
   });
