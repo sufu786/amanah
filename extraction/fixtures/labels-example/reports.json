@@ -1,6 +1,6 @@
 {
   "corpus": "labels-example",
-  "note": "Four reports that exercise the harness, not a corpus. Section 1 of LABELLING.md requires at least 60% no-recommendation reports in a real labelled set; this is far below that and must never be scored as though it were one.",
+  "note": "Five reports that exercise the harness, not a corpus. Section 1 of LABELLING.md requires at least 60% no-recommendation reports in a real labelled set; this is far below that and must never be scored as though it were one.",
   "reports": [
     {
       "id": "ex-clean",
@@ -21,6 +21,11 @@
       "id": "ex-negated",
       "language": "en",
       "text": "CT ABDOMEN\n\nFINDINGS: 6 mm simple cyst in the right lobe of the liver, with imaging features of a benign cyst.\n\nIMPRESSION: Benign hepatic cyst. No further imaging is required."
+    },
+    {
+      "id": "ex-deident-interval",
+      "language": "en",
+      "text": "CT CHEST WITH CONTRAST\n\nFINDINGS: 5 mm nodule in the left upper lobe.\n\nIMPRESSION: Small pulmonary nodule. Recommend follow-up chest CT in ___ months."
     }
   ]
 }

@@ -96,6 +96,34 @@
         }
       ],
       "note": "Unsure whether a benign cyst with no action is category other. Raised for resolution."
+    },
+    {
+      "report_id": "ex-deident-interval",
+      "text_sha256": "5c75ab48654d6d76412a918903d885f31c6f23ab63091fbde8964f04d5783f30",
+      "date_found": null,
+      "recommendations": [
+        {
+          "recommendation_verbatim": "Recommend follow-up chest CT in ___ months.",
+          "recommendation_span": [
+            107,
+            150
+          ],
+          "finding_verbatim": "5 mm nodule in the left upper lobe",
+          "finding_span": [
+            34,
+            68
+          ],
+          "anatomy": null,
+          "modality": "CT",
+          "interval": null,
+          "interval_verbatim": "in ___ months",
+          "conditional": false,
+          "negated": false,
+          "already_scheduled": false,
+          "finding": "pulmonary_nodule",
+          "action": "imaging"
+        }
+      ]
     }
   ]
 }

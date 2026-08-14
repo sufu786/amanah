@@ -138,6 +138,51 @@
         "rejected": [],
         "elapsed_ms": 10700
       }
+    },
+    {
+      "report_id": "ex-deident-interval",
+      "output": {
+        "document": {
+          "date_found": null,
+          "date_span": null,
+          "language": "en",
+          "modality_of_document": null
+        },
+        "recommendations": [
+          {
+            "finding_verbatim": null,
+            "finding_span": null,
+            "recommendation_verbatim": "Recommend follow-up chest CT in ___ months.",
+            "recommendation_span": [
+              107,
+              150
+            ],
+            "anatomy": null,
+            "laterality": null,
+            "measurement": null,
+            "modality": "CT",
+            "interval": null,
+            "interval_verbatim": null,
+            "urgency_verbatim": null,
+            "conditional": false,
+            "condition_verbatim": null,
+            "already_scheduled": false,
+            "negated": false,
+            "finding": "pulmonary_nodule",
+            "action": "imaging",
+            "confidence": 0.9
+          }
+        ],
+        "extraction": {
+          "model": "qwen2.5:7b-instruct-q4_K_M",
+          "prompt_version": "0.1",
+          "language_validated": false,
+          "no_recommendation_found": false,
+          "unparseable": false
+        },
+        "rejected": [],
+        "elapsed_ms": 10700
+      }
     }
   ]
 }

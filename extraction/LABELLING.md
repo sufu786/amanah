@@ -173,7 +173,52 @@ combined figure.
 
 Judgement calls, appended as they arise. Each entry: the text, the decision, the reason.
 
-*(none yet)*
+The first two were written before labelling started, from the corpus survey rather than from
+labelling itself, because both are frequent enough that discovering them mid-corpus would mean
+relabelling what came before.
+
+### 7.1 An interval the de-identification removed
+
+**The text.** 7,687 reports in MIMIC-IV-Note carry a recommendation whose interval has been
+replaced by a placeholder:
+
+> "repeat Chest CT in `___` weeks to reevaluate"
+> "Recommend continued imaging followup in `___` year"
+> "chest CT for surveillance in `___` year"
+
+**The decision.** Label it as a recommendation. `interval` is null. The placeholder is kept exactly
+as printed in `interval_verbatim`, as `"in ___ weeks"`. Do not guess the number, do not omit the
+recommendation, and do not treat the placeholder as though the report said nothing about timing.
+
+**The reason.** The recommendation is real and a duty is owed. Only the timing is unknowable, and
+section 4 already forbids inventing an interval the report does not state. This is exactly the case
+that rule exists for, arrived at from the opposite direction.
+
+**Two consequences worth knowing.**
+
+An obligation built from one of these has no due date. That is handled: the escalation ladder holds
+it at L0 and keeps reminding rather than dropping it, and it is flagged as needing a human to
+establish a date. Silently ceasing to remind would be the failure this project exists to fix.
+
+These instances are **excluded from interval accuracy** by `score.mjs`, which detects the
+placeholder in `interval_verbatim` and reports the excluded count. An extractor returning null here
+is right for a reason that has nothing to do with whether it can read an interval, so counting it
+as a correct null measures the de-identification rather than the extractor. It is an artefact of
+this corpus and would not occur in deployment.
+
+### 7.2 A placeholder that is an age, not an interval
+
+**The text.** `"INDICATION: ___ year old woman with COPD"`.
+
+**The decision.** Not an interval, and usually not a recommendation at all. The INDICATION line
+states why the study was done. Do not label it, and do not let the shape of `___ year` pull it into
+7.1.
+
+**The reason.** Worth writing down because a machine made this exact error first. The survey tool
+that counted 7.1 cases matched `___ year` and reported better than double the true number, because
+`___ year old` is a de-identified age and appears in a large share of these reports. Section 1 of
+this protocol records the same lesson from the Open-i cue screen. A pattern is not a label, and the
+fact that the pattern was written by the person who knew that did not help.
 
 ---
 

@@ -34,6 +34,8 @@ export function computeMetrics(corpusData, gold, preds, ids) {
   let intervalSame = 0;
   let intervalGoldStated = 0;
   let intervalSameWhereGoldStated = 0;
+  let intervalDeidentified = 0;
+  let intervalScorable = 0;
 
   let spansExact = 0;
   let spansNormalised = 0;
@@ -118,11 +120,24 @@ export function computeMetrics(corpusData, gold, preds, ids) {
       const g = goldRecs[p.a];
       const r = predRecs[p.b];
       if (g.finding === r.finding) categorySame++;
-      const same = intervalsEqual(g.interval ?? null, r.interval ?? null);
-      if (same) intervalSame++;
-      if (g.interval != null) {
-        intervalGoldStated++;
-        if (same) intervalSameWhereGoldStated++;
+      // A de-identified interval is excluded from interval accuracy entirely. 7,687 reports in
+      // MIMIC-IV-Note carry a real recommendation whose interval the de-identification replaced
+      // with ___, as in "repeat Chest CT in ___ weeks". The correct label is interval null with
+      // the placeholder kept in interval_verbatim, and an extractor that returns null there is
+      // right for a reason that has nothing to do with its ability to read an interval. Counting
+      // it as a correct null inflates the figure with cases where there was nothing to read. It
+      // is an artefact of the corpus and would not occur in deployment. See LABELLING.md 7.1.
+      const deidentifiedInterval = /___/.test(g.interval_verbatim ?? '');
+      if (deidentifiedInterval) {
+        intervalDeidentified++;
+      } else {
+        const same = intervalsEqual(g.interval ?? null, r.interval ?? null);
+        if (same) intervalSame++;
+        intervalScorable++;
+        if (g.interval != null) {
+          intervalGoldStated++;
+          if (same) intervalSameWhereGoldStated++;
+        }
       }
       for (const f of Object.keys(flags)) {
         if (Boolean(g[f]) === Boolean(r[f])) flags[f].same++;
@@ -140,8 +155,9 @@ export function computeMetrics(corpusData, gold, preds, ids) {
     detection_recall: { n: matched, of: goldInstances },
     detection_precision: { n: matched, of: predInstances },
     false_positive_rate_on_clean_reports: { n: cleanReportsWithPrediction, of: cleanReports },
-    interval_accuracy: { n: intervalSame, of: matched },
+    interval_accuracy: { n: intervalSame, of: intervalScorable },
     interval_accuracy_where_gold_states_one: { n: intervalSameWhereGoldStated, of: intervalGoldStated },
+    interval_excluded_deidentified: intervalDeidentified,
     category_accuracy: { n: categorySame, of: matched },
     span_validity_exact: { n: spansExact, of: predInstances },
     span_validity_whitespace_normalised: { n: spansNormalised, of: predInstances },
@@ -258,6 +274,10 @@ for (const m of perLanguage) {
   line('detection precision', m.detection_precision);
   line('interval accuracy', m.interval_accuracy);
   line('  where gold states an interval', m.interval_accuracy_where_gold_states_one);
+  if (m.interval_excluded_deidentified) {
+    console.log(`  ${m.interval_excluded_deidentified} matched instance(s) excluded from interval`);
+    console.log('  accuracy: the interval was de-identified to ___, so there was nothing to read');
+  }
   line('category accuracy', m.category_accuracy);
   line('span validity, exact', m.span_validity_exact);
   line('span validity, whitespace-normalised', m.span_validity_whitespace_normalised);
