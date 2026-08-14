@@ -18,6 +18,7 @@
 //   node extract.mjs --text "..." --json
 
 import { readFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 
 export const PROMPT_VERSION = '0.1';
 
@@ -393,7 +394,11 @@ export async function extract(reportText, { model = DEFAULT_MODEL, language = 'e
 }
 
 // CLI
-const isMain = import.meta.url === `file://${process.argv[1]?.replace(/\\/g, '/')}`;
+// pathToFileURL rather than string concatenation. On Windows import.meta.url is
+// file:///C:/... with three slashes while the hand-built version had two, so the comparison
+// was always false and the CLI below never ran. It failed silently, which is why nobody
+// noticed until the corpus tool was tested.
+const isMain = process.argv[1] ? import.meta.url === pathToFileURL(process.argv[1]).href : false;
 if (isMain) {
   const args = process.argv.slice(2);
   const get = (flag) => { const i = args.indexOf(flag); return i === -1 ? null : args[i + 1]; };
@@ -409,7 +414,24 @@ if (isMain) {
   }
 
   const report = text ?? readFileSync(file, 'utf8');
-  const result = await extract(report, { model, language });
+
+  // A stack trace for an unreachable model server tells a labeller nothing they can act on, and
+  // this is the first thing anyone runs. Now that the CLI actually executes, its failures have to
+  // be legible.
+  let result;
+  try {
+    result = await extract(report, { model, language });
+  } catch (e) {
+    if (e?.cause?.code === 'ECONNREFUSED' || /fetch failed/.test(e?.message ?? '')) {
+      console.error(`Cannot reach Ollama at ${OLLAMA}.`);
+      console.error('Start it with `ollama serve`, and check the model is pulled:');
+      console.error(`  ollama pull ${model}`);
+      console.error('Set OLLAMA_HOST to point somewhere else.');
+      process.exit(3);
+    }
+    console.error(e.message);
+    process.exit(1);
+  }
 
   if (args.includes('--json')) {
     console.log(JSON.stringify(result, null, 2));
