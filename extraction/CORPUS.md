@@ -1,6 +1,8 @@
 # Corpus sampling plan v0.1 (draft)
 
-**Status:** draft. Both decisions in section 9 are settled.
+**Status:** draft. Section 2 verified against the real corpus on 2026-08-15. Both decisions in
+section 9 are settled, and the frame is decided in section 4. The sizes in section 5 still depend
+on the base-rate pilot, which has not been run.
 **Written:** 2026-08-03, while PhysioNet credentialing is under review.
 
 This plan is written before access is granted, for the same reason `LABELLING.md` was written
@@ -34,19 +36,48 @@ DUA required.
 It is chosen for the one property Open-i lacked: reports that contain real follow-up
 recommendations, written by clinicians in ordinary practice rather than curated for teaching.
 
-**To verify on first access**, rather than assumed here:
+**Verified 2026-08-15**, against MIMIC-IV-Note v2.2, by `node corpus.mjs survey`. The three
+questions this section asked in advance are answered below. They were asked before access and
+answered after, which is the order that keeps the frame honest.
 
-- The available radiology modality mix, and whether cross-sectional imaging (CT, MRI, ultrasound) is
-  present in sufficient volume. Recommendations concentrate there; plain film is where Open-i failed.
-- How addenda, corrections and duplicate reports are represented, since each would otherwise enter
-  the sample as an independent report.
-- Whether the de-identification placeholders (`___`) fall inside recommendation sentences often
-  enough to affect verbatim quoting and span round-trip.
+**2,321,355 reports, 237,427 patients, median length 782 characters.**
 
-The third one is a genuine risk to the harness. A recommendation reading "Recommend CT follow-up in
-___ months" is a real recommendation with an unquotable interval, and it must be labelled with
-`interval: null` and the placeholder kept in `interval_verbatim`. If this turns out to be common, it
-becomes a precedent under `LABELLING.md` section 7 before labelling starts, not after.
+**Modality mix.** Cross-sectional imaging is 39.7% of the corpus, roughly 740,000 reports.
+
+| | share |
+|---|---|
+| Radiograph | 47.7% |
+| CT | 20.9% |
+| Ultrasound | 11.6% |
+| MR | 7.2% |
+| Interventional | 5.7% |
+| Mammography | 3.6% |
+| de-identified exam name | 1.5% |
+| Fluoroscopy | 1.0% |
+| unclassified | 0.6% |
+| Bone densitometry | 0.1% |
+
+Volume is not the constraint this section feared. There is no shortage of cross-sectional imaging,
+so the frame does not need restricting for that reason. See section 4 for why it is not restricted
+for any other reason either.
+
+**Addenda and duplicates.** 25,735 notes are an addendum to another report, matching the 25,720
+carrying `note_type` AR. `radiology_detail` records the relationship directly as
+`addendum_note_id` and `parent_note_id`, so it does not have to be inferred. The draw excludes
+addenda outright. 78.1% of patients have more than one report, so one-report-per-patient discards a
+great deal, leaving 237,427 candidates against the 500 needed.
+
+**De-identification placeholders.** 90.4% of reports contain `___` somewhere, and 3.3% have one in
+a sentence containing a cue word. The case that matters is narrower: **7,687 reports, 0.3%, carry a
+recommendation whose interval was replaced by a placeholder**, as in "repeat Chest CT in `___`
+weeks to reevaluate". That is frequent enough to need deciding before labelling rather than during,
+and it is now `LABELLING.md` section 7.1. Those instances are excluded from interval accuracy,
+since an extractor returning null there is right for a reason that has nothing to do with reading
+an interval.
+
+A caution recorded with the answer: the first version of this count was better than double the
+truth, because it matched `___ year` and swept up "`___` year old" from the INDICATION line. That
+is section 1 of `LABELLING.md` repeating itself, in the tool written to apply it.
 
 ## 3. The publication problem, and why the harness already handles it
 
@@ -86,6 +117,20 @@ produced a corpus with no positives in it.
 
 **Stratum A, random.** A uniform random draw from the frame, unscreened, unfiltered. This is the
 only stratum that may be used for the false-positive rate and for the base rate.
+
+**Decided 2026-08-15: the frame is not restricted by modality.** Before the survey, the plan was to
+narrow it if cross-sectional imaging turned out to be thin, on the grounds that recommendations
+concentrate there and plain film is where Open-i failed. The survey shows it is not thin, so the
+volume argument does not apply. The argument against restricting is stronger than the argument for.
+
+Stratum A exists to produce the false-positive rate, and false positives on ordinary normal reports
+are what destroys the trust of the people using the system. Radiographs are 47.7% of what arrives
+and are overwhelmingly clean, which makes them the best material for that measurement rather than
+the worst. Excluding them would produce a false-positive rate for a population no deployment sees,
+and would quietly convert an honest number into a flattering one.
+
+Stratum B exists precisely so that A never has to be bent toward positives. Bending A anyway would
+give up the one unbiased estimate in the design to solve a problem B already solves.
 
 **Stratum B, cue-enriched.** Drawn at random from reports matching a deliberately over-inclusive cue
 list (recommend, suggest, follow-up, follow up, advise, consider, repeat, correlate, referral,
