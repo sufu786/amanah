@@ -486,7 +486,10 @@ async function draw(path, { seed, nA, nB, out, modalities: allow, detailPath }) 
     + `${skippedShort.toLocaleString()} too short`
     + (allow ? `, ${skippedModality.toLocaleString()} outside the modality filter` : ''));
   write('reports-A.json', 'A', strA);
-  write('reports-B.json', 'B', strB);
+  // The base-rate pilot draws stratum A only. Writing an empty B alongside it would leave a file
+  // in the pilot folder that looks like a stratum and is not one.
+  if (nB > 0) write('reports-B.json', 'B', strB);
+  else console.log('  reports-B.json               not written, --b 0');
   console.log(`\nWritten to ${out}. This directory is gitignored and must stay that way.`);
   console.log('Score each stratum separately. Concatenating them produces a precision figure over');
   console.log('text pre-selected for recommendation-shaped words, which is higher than the truth.\n');

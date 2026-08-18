@@ -165,6 +165,26 @@ Its only job is to estimate the base rate of follow-up recommendations in this f
 that follows is sensitive to it, and it is currently unknown for MIMIC radiology. If the pilot shows
 a base rate high enough, stratum B may not be needed at all.
 
+### 5.1 The pilot draw, recorded before it was taken
+
+```
+seed        amanah-pilot-2026-08-19
+stratum     A only, 50 reports
+frame       one report per patient, addenda excluded, minimum 200 characters,
+            no modality restriction (see section 4)
+source      MIMIC-IV-Note v2.2 radiology.csv.gz
+command     node corpus.mjs draw --in radiology.csv.gz --detail radiology_detail.csv.gz \
+                                 --seed amanah-pilot-2026-08-19 --a 50 --b 0
+```
+
+This block is committed **before** the draw is run, and the commit order is checkable in the
+history rather than asserted here. That is the whole point of writing it down. A seed chosen after
+seeing a sample, or changed because the first sample looked unhelpful, is not a seed, and there is
+otherwise no way for a reader to tell the difference.
+
+The draw is reproducible from this block alone by anyone holding the same source file, and
+`corpus.mjs` refuses to run without a seed for the same reason.
+
 Targets, assuming the pilot does not overturn them:
 
 | | n | What it buys |
