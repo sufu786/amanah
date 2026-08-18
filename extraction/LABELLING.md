@@ -234,6 +234,8 @@ labelled report is scored by machinery nobody could tune after seeing the result
 | `agreement.mjs` | Section 5. Two labellers against each other, before resolution. |
 | `score.mjs` | Section 6. Extractor against the resolved gold standard. |
 | `redact.mjs` | Produces the publishable copy of a label set, with quoted report text stripped. See section 8a. |
+| `corpus.mjs` | Surveys the source corpus and draws the sample. Survey first; see CORPUS.md section 2. |
+| `label-server.mjs`, `label.html` | The labelling tool. Local only, and every save is validated by the loader above. See section 8b. |
 | `fixtures/labels-example/` | Four reports, two labellers who disagree, a resolution, and a hand-written prediction set reproducing the defects in `RESULTS.md`. Exercises the harness on failures, not only successes. It is **not** a corpus: it violates the 60% rule in section 1 by design. |
 
 ```
@@ -326,3 +328,32 @@ Three things are refused, because a published artefact gets no second look:
 
 If PhysioNet confirms that short quotations are permitted, publish the unredacted file and this
 becomes unnecessary. Until then it is the safe default and it costs almost nothing.
+
+### 8b. The labelling tool
+
+```
+node label-server.mjs --corpus C:/mimic/pilot/reports-A.json --out C:/mimic/pilot/labels-A.json
+```
+
+Then open `http://127.0.0.1:7777`. Select the recommendation text and press `R`. Select the finding
+and press `F`. Press `N` for a report with no recommendation, which will be most of them. Every save
+writes the file and moves on, and restarting resumes where you stopped.
+
+**Nothing leaves the machine.** The server binds to 127.0.0.1 and makes no outbound request. The
+page loads no fonts, scripts or styles from anywhere. The corpus is held under a per-person data use
+agreement, and a labelling tool that quietly posted a report somewhere would be a breach rather than
+a bug.
+
+**The browser validates nothing.** It collects a selection and some dropdown values and is trusted
+with none of it. Every check runs on the server, through the same `loadLabelSet` that gates scoring,
+so a label the scorer would reject cannot be written. The failure appears while the report is still
+on screen rather than hours later against a file of five hundred.
+
+**The span is authoritative and the quote is derived from it.** Offsets come from the browser's own
+selection into the exact text the server sent, and the stored quote is then cut from that text. A
+quote and an offset can never disagree, because only one of them is recorded by hand and it is not
+the quote. This removes the entire class of error where a span is off by two characters, still
+loads, still looks well-formed, and points at the wrong sentence.
+
+It also refuses an interval value with no quoted words behind it, and refuses a value read from a
+de-identified placeholder, per 7.1.

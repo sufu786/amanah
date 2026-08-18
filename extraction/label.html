@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Amanah labelling</title>
+<!-- No external fonts, scripts or styles. Nothing here makes a request off this machine. -->
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: "Segoe UI", system-ui, Arial, sans-serif; font-size: 14px;
+    color: #16191d; background: #f6f7f8;
+    display: grid; grid-template-columns: 1fr 380px; height: 100vh;
+  }
+  .report { padding: 20px 24px; overflow-y: auto; background: #fff; }
+  .side { padding: 20px; overflow-y: auto; border-left: 1px solid #dfe3e6; }
+  h1 { font-size: 15px; margin: 0 0 4px; }
+  .meta { color: #6a7076; font-size: 12px; margin-bottom: 14px; }
+  pre#text {
+    white-space: pre-wrap; word-wrap: break-word; font-family: Consolas, monospace;
+    font-size: 13px; line-height: 1.65; background: #fbfcfd; border: 1px solid #e3e6e9;
+    border-radius: 4px; padding: 14px; margin: 0; user-select: text;
+  }
+  .bar { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+  button {
+    font: inherit; padding: 7px 12px; border: 1px solid #c8ced3; background: #fff;
+    border-radius: 4px; cursor: pointer;
+  }
+  button:hover { background: #f0f2f4; }
+  button.primary { background: #16191d; color: #fff; border-color: #16191d; }
+  button.clean { background: #12692f; color: #fff; border-color: #12692f; }
+  button:disabled { opacity: .45; cursor: default; }
+  .progress { height: 5px; background: #e3e6e9; border-radius: 3px; overflow: hidden; flex: 1; min-width: 120px; }
+  .progress i { display: block; height: 100%; background: #12692f; }
+  label { display: block; font-size: 12px; color: #4a5057; margin: 10px 0 3px; }
+  select, input[type=text], input[type=number], textarea {
+    font: inherit; width: 100%; padding: 6px 8px; border: 1px solid #c8ced3; border-radius: 4px;
+    background: #fff;
+  }
+  .rec { border: 1px solid #d6dade; border-radius: 5px; padding: 12px; margin-bottom: 12px; background: #fff; }
+  .quote {
+    background: #fff6d9; border-left: 3px solid #d9a406; padding: 7px 9px; font-family: Consolas, monospace;
+    font-size: 12px; white-space: pre-wrap; word-wrap: break-word; margin-bottom: 6px;
+  }
+  .quote.empty { background: #f4f5f6; border-left-color: #c8ced3; color: #8a9098; font-style: italic; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+  .flags { display: flex; gap: 14px; margin-top: 10px; font-size: 12px; }
+  .flags label { display: flex; align-items: center; gap: 5px; margin: 0; }
+  .flags input { width: auto; }
+  #msg { padding: 9px 11px; border-radius: 4px; margin-bottom: 12px; font-size: 13px; display: none; }
+  #msg.err { display: block; background: #fdeaea; border: 1px solid #f0b4b4; color: #8a1c1c; }
+  #msg.ok { display: block; background: #eaf6ee; border: 1px solid #b3ddc2; color: #14562a; }
+  .hint { font-size: 12px; color: #6a7076; margin-top: 14px; line-height: 1.5; }
+  kbd { background: #eef0f2; border: 1px solid #d6dade; border-radius: 3px; padding: 1px 5px; font-size: 11px; }
+</style>
+</head>
+<body>
+<div class="report">
+  <div class="bar">
+    <button id="prev">Previous</button>
+    <button id="next">Next</button>
+    <div class="progress"><i id="pbar"></i></div>
+    <span class="meta" id="count"></span>
+  </div>
+  <h1 id="rid"></h1>
+  <div class="meta" id="rmeta"></div>
+  <pre id="text"></pre>
+  <div class="hint">
+    Select text in the report, then press <kbd>R</kbd> to mark it as a recommendation, or
+    <kbd>F</kbd> to attach the finding to the recommendation you are editing.
+    <kbd>N</kbd> saves this report as having no recommendation.
+  </div>
+</div>
+
+<div class="side">
+  <div id="msg"></div>
+  <div class="bar">
+    <button class="clean" id="none">No recommendation (N)</button>
+    <button id="addrec">Add recommendation (R)</button>
+  </div>
+  <div id="recs"></div>
+  <label>Report date, if stated. Leave empty if none.</label>
+  <input type="text" id="datefound" placeholder="YYYY-MM-DD">
+  <label>Note on a judgement call, optional. Goes to section 7 as a precedent.</label>
+  <textarea id="note" rows="2"></textarea>
+  <div class="bar" style="margin-top:14px">
+    <button class="primary" id="save">Save and next</button>
+  </div>
+  <div class="hint">
+    Every save is checked by the same loader that gates scoring, so a label this refuses is a label
+    the scorer would have refused later. Nothing is sent off this machine.
+  </div>
+</div>
+
+<script>
+let DATA = null;
+let idx = 0;
+let recs = [];
+let activeRec = 0;
+
+const $ = (id) => document.getElementById(id);
+const msg = (text, kind) => { const m = $('msg'); m.textContent = text; m.className = kind || ''; };
+
+/**
+ * Character offsets of the current selection within the report text.
+ *
+ * The report is rendered as one text node, so the browser's own offsets into that node are offsets
+ * into the exact string the server sent. Nothing is re-derived from rendered HTML, which is how a
+ * span ends up pointing somewhere the text does not.
+ */
+function selectionSpan() {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed) return null;
+  const node = $('text').firstChild;
+  if (!node || sel.anchorNode !== node || sel.focusNode !== node) return null;
+  const a = sel.anchorOffset;
+  const b = sel.focusOffset;
+  const [s, e] = a <= b ? [a, b] : [b, a];
+  return s === e ? null : [s, e];
+}
+
+const blank = () => ({
+  recommendation_span: null, finding_span: null,
+  finding: 'pulmonary_nodule', action: 'imaging',
+  anatomy: '', modality: '', interval_value: '', interval_unit: '', interval_verbatim: '',
+  conditional: false, negated: false, already_scheduled: false,
+});
+
+function render() {
+  const r = DATA.reports[idx];
+  $('rid').textContent = r.id;
+  $('rmeta').textContent = `${r.modality || 'modality unrecorded'} - ${r.text.length} characters`;
+  $('text').textContent = r.text;
+  $('count').textContent = `${idx + 1} of ${DATA.reports.length}, ${DATA.done.length} labelled`;
+  $('pbar').style.width = `${(100 * DATA.done.length) / DATA.reports.length}%`;
+  renderRecs();
+}
+
+function renderRecs() {
+  const box = $('recs');
+  box.innerHTML = '';
+  recs.forEach((rec, i) => {
+    const text = DATA.reports[idx].text;
+    const div = document.createElement('div');
+    div.className = 'rec';
+    const quoted = rec.recommendation_span ? text.slice(...rec.recommendation_span) : '';
+    const found = rec.finding_span ? text.slice(...rec.finding_span) : '';
+    div.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <strong style="font-size:12px">Recommendation ${i + 1}${i === activeRec ? ' (editing)' : ''}</strong>
+        <button data-del="${i}" style="padding:2px 8px">Remove</button>
+      </div>
+      <div class="quote ${quoted ? '' : 'empty'}">${quoted ? esc(quoted) : 'select the recommendation text, then press R'}</div>
+      <div class="quote ${found ? '' : 'empty'}" style="border-left-color:#4a76a8;background:${found ? '#eaf1f9' : '#f4f5f6'}">${found ? esc(found) : 'finding text, optional, press F'}</div>
+      <label>Finding category</label>
+      <select data-f="finding" data-i="${i}">${DATA.findings.map((f) => `<option${f === rec.finding ? ' selected' : ''}>${f}</option>`).join('')}</select>
+      <label>Action</label>
+      <select data-f="action" data-i="${i}">${DATA.actions.map((a) => `<option${a === rec.action ? ' selected' : ''}>${a}</option>`).join('')}</select>
+      <div class="row">
+        <div><label>Anatomy</label><input type="text" data-f="anatomy" data-i="${i}" value="${esc(rec.anatomy)}" placeholder="lung.right.upper_lobe"></div>
+        <div><label>Modality</label><input type="text" data-f="modality" data-i="${i}" value="${esc(rec.modality)}" placeholder="CT"></div>
+      </div>
+      <label>Interval, only if the report states one</label>
+      <div class="row">
+        <input type="number" data-f="interval_value" data-i="${i}" value="${esc(rec.interval_value)}" placeholder="6" min="0" step="any">
+        <select data-f="interval_unit" data-i="${i}">
+          ${['', 'day', 'week', 'month', 'year'].map((u) => `<option value="${u}"${u === rec.interval_unit ? ' selected' : ''}>${u || 'unit'}</option>`).join('')}
+        </select>
+      </div>
+      <label>Interval as printed. Required if a value is given.</label>
+      <input type="text" data-f="interval_verbatim" data-i="${i}" value="${esc(rec.interval_verbatim)}" placeholder="in 6 months">
+      <div class="flags">
+        <label><input type="checkbox" data-f="conditional" data-i="${i}"${rec.conditional ? ' checked' : ''}> conditional</label>
+        <label><input type="checkbox" data-f="negated" data-i="${i}"${rec.negated ? ' checked' : ''}> negated</label>
+        <label><input type="checkbox" data-f="already_scheduled" data-i="${i}"${rec.already_scheduled ? ' checked' : ''}> scheduled</label>
+      </div>`;
+    div.addEventListener('click', () => { activeRec = i; });
+    box.appendChild(div);
+  });
+
+  box.querySelectorAll('[data-f]').forEach((el) => {
+    el.addEventListener('input', () => {
+      const i = Number(el.dataset.i);
+      recs[i][el.dataset.f] = el.type === 'checkbox' ? el.checked : el.value;
+    });
+  });
+  box.querySelectorAll('[data-del]').forEach((el) => {
+    el.addEventListener('click', () => {
+      recs.splice(Number(el.dataset.del), 1);
+      activeRec = Math.max(0, activeRec - 1);
+      renderRecs();
+    });
+  });
+}
+
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function loadInto(i) {
+  idx = Math.max(0, Math.min(DATA.reports.length - 1, i));
+  const existing = DATA.entries[DATA.reports[idx].id];
+  recs = existing
+    ? existing.recommendations.map((r) => ({
+      recommendation_span: r.recommendation_span, finding_span: r.finding_span,
+      finding: r.finding, action: r.action,
+      anatomy: r.anatomy ?? '', modality: r.modality ?? '',
+      interval_value: r.interval?.value ?? '', interval_unit: r.interval?.unit ?? '',
+      interval_verbatim: r.interval_verbatim ?? '',
+      conditional: !!r.conditional, negated: !!r.negated, already_scheduled: !!r.already_scheduled,
+    }))
+    : [];
+  activeRec = 0;
+  $('datefound').value = existing?.date_found ?? '';
+  $('note').value = existing?.note ?? '';
+  msg('', '');
+  render();
+}
+
+async function save(thenNext) {
+  const body = {
+    report_id: DATA.reports[idx].id,
+    date_found: $('datefound').value,
+    note: $('note').value,
+    recommendations: recs,
+  };
+  const res = await fetch('/save', { method: 'POST', body: JSON.stringify(body) });
+  const out = await res.json();
+  if (!out.ok) { msg(out.error, 'err'); return false; }
+  if (!DATA.done.includes(body.report_id)) DATA.done.push(body.report_id);
+  DATA.entries[body.report_id] = out.entry;
+  msg(`saved, ${out.done} of ${DATA.reports.length}`, 'ok');
+  if (thenNext && idx < DATA.reports.length - 1) loadInto(idx + 1); else render();
+  return true;
+}
+
+$('next').onclick = () => loadInto(idx + 1);
+$('prev').onclick = () => loadInto(idx - 1);
+$('save').onclick = () => save(true);
+$('none').onclick = () => { recs = []; renderRecs(); save(true); };
+$('addrec').onclick = () => {
+  const span = selectionSpan();
+  if (!span) { msg('select the recommendation text in the report first', 'err'); return; }
+  recs.push({ ...blank(), recommendation_span: span });
+  activeRec = recs.length - 1;
+  renderRecs();
+  msg('', '');
+};
+
+document.addEventListener('keydown', (e) => {
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+  const k = e.key.toLowerCase();
+  if (k === 'r') { e.preventDefault(); $('addrec').click(); }
+  if (k === 'n') { e.preventDefault(); $('none').click(); }
+  if (k === 'f') {
+    e.preventDefault();
+    const span = selectionSpan();
+    if (!span) { msg('select the finding text first', 'err'); return; }
+    if (!recs[activeRec]) { msg('add a recommendation before attaching a finding', 'err'); return; }
+    recs[activeRec].finding_span = span;
+    renderRecs();
+  }
+  if (k === 'arrowright') loadInto(idx + 1);
+  if (k === 'arrowleft') loadInto(idx - 1);
+});
+
+fetch('/data').then((r) => r.json()).then((d) => {
+  DATA = d;
+  const firstUnlabelled = d.reports.findIndex((r) => !d.done.includes(r.id));
+  loadInto(firstUnlabelled === -1 ? 0 : firstUnlabelled);
+});
+</script>
+</body>
+</html>
