@@ -149,3 +149,133 @@ It cannot be evaluated on this corpus, which contains no positives. It needs a c
 recommendations in it, which means MIMIC or hand labelling.
 
 Any change to prompt or model invalidates every table above.
+
+---
+
+# MIMIC-IV-Note stratum A pilot
+
+50 radiology reports from MIMIC-IV-Note v2.2, drawn by seed `amanah-pilot-2026-08-19` and recorded
+in `CORPUS.md` section 5.1 before the draw was taken. Hand-labelled under `LABELLING.md` protocol
+v0.1 by one labeller, 11 instances across 10 reports. Prompt v0.1, qwen2.5:7b-instruct-q4_K_M,
+Ollama 0.32.6, 963 s for 50 reports at 19.3 s each.
+
+**This is the first run where recall means anything**, because it is the first corpus with real
+recommendations in it. Everything before it measured false positives against reports that had
+nothing to find.
+
+| | |
+|---|---|
+| Reports | 50 |
+| Labelled instances | 11 |
+| **False positives on clean reports** | **0 of 40 (0%)** |
+| Detection recall | 27.3% (3/11) |
+| Detection precision | 100% (3/3) |
+| Category accuracy | 66.7% (2/3) |
+| Span validity, exact | 66.7% (2/3) |
+| Fabrication and malformed-date rejections | 5 |
+| Unparseable outputs | 0 |
+
+Gold standard: 1 labeller, agreement between people not measured. That line prints above the table
+and travels with every number in it. See `LABELLING.md` section 5c.
+
+Span validity below 100% is reported as a defect rather than a metric, and the scorer says so. The
+one failure is a quote the model reproduced across a line break, so it locates whitespace-normalised
+and the stored span differs from the quoted string by a newline. It points at the right sentence.
+Normalised, all three are valid.
+
+## The result that matters, and the result that hurts
+
+**The C1 boundary held on real clinical text.** Forty reports that recommend nothing, many of them
+describing real abnormalities, and the model invented nothing from any of them. That is the failure
+mode that destroys trust, and it is now clean across two corpora and ninety clean reports.
+
+**Recall is 27.3%.** Eight of eleven duties were not found. `CORPUS.md` section 5.4 predicted, in
+writing and before the run, that the prompt would cap recall near 91% and that the one structural
+miss would be the breast excision in `LABELLING.md` 7.7. The prediction was right about that
+instance and wrong about the ceiling being the constraint. The prompt is not what is limiting this.
+The model is.
+
+## Where the eight went
+
+| Report | Wording | Why it was missed |
+|---|---|---|
+| `13738010-RR-34` | "recommend correlation with ultrasound" | Quoted a doubled sentence. Rejected as fabricated. |
+| `16800796-RR-15` | "was given information to schedule an appointment" | No clinician recommends it. The 7.7 gap. |
+| `12889749-RR-9` | "non of which requires followup imaging" | Negated. The smoke suite predicted this. |
+| `18018980-RR-60` | "Recommend lateral some for further evaluation" | Dictation error. Carries the verb even so. |
+| `10840861-RR-25` | "dedicated radiographs can be obtained" | Permission, not instruction. |
+| `12286776-RR-17` | "this could be further evaluated with MRI lumbar spine" | Permission, not instruction. |
+| `19303239-RR-45` | "Continue follow-up" | Second duty in the report. The first was found. |
+| `13789201-RR-12` | "RECOMMENDATION: Additional imaging is needed." | A bare need, under its own header. |
+
+A pattern runs through this, and it is sharper than expected. Split the eleven instances by whether
+the labelled sentence contains the verb "recommend":
+
+| | Instances | Returned by the model |
+|---|---|---|
+| Sentence contains "recommend" | 5 | 3 |
+| Sentence does not | 6 | **0** |
+
+**Every instance the model returned contains the verb.** Not one of the six without it came back:
+"can be obtained", "could be further evaluated", "is needed", "Continue follow-up", "requires", "was
+given information to schedule". The two verb-carrying instances it did not deliver failed for
+separate reasons, and neither looks like a failure to notice. On `13738010-RR-34` it quoted a
+sentence duplicated back to back and the fabrication check rejected the quote. On `18018980-RR-60`
+the sentence is itself a dictation error.
+
+On this evidence the extractor behaves closer to a keyword trigger than to a reader. The Open-i
+pilot above concluded that a keyword screen is not a label, after a cue-word screen misread three
+reports and the author had to correct a published count. The model has now arrived at the same
+shortcut from the other direction. It is worth noticing that the mistake was attractive enough to
+catch both.
+
+The last row of the table is where it costs most. An explicit `RECOMMENDATION:` header, an
+unambiguous sentence, and a BI-RADS 0 assessment that means incomplete by definition. The sentence
+says "is needed" rather than "is recommended", and that appears to have been the whole difference.
+
+## What the fabrication check cost, visibly
+
+Five rejections. Four were attempts to read a date out of a `___` de-identification placeholder,
+which is `LABELLING.md` 7.1's problem arriving from the extraction side rather than the labelling
+side. The fifth was on `13738010-RR-34`, a report that does contain a real recommendation.
+
+That fifth one deserves care, because it is easy to describe too generously. The model returned a
+recommendation entry whose quote was the sentence **after** the recommendation, printed twice back
+to back. It is not knowable from the output whether the model had located the duty and quoted the
+wrong line, or had not located it at all. What is knowable is that the string it offered does not
+appear in the report, so the check refused it and the instance was lost.
+
+That is the mechanism working. Recording a sentence the report does not contain would put invented
+words in front of a patient under the heading of what their report said. Losing a true positive is
+the correct trade against that, and this is the first run where the trade shows up as a number
+instead of an argument.
+
+## What this run cannot tell you
+
+**Interval accuracy has no denominator.** Not one of the eleven instances stated a time, so two of
+the six metrics in section 6 returned nothing. `already_scheduled` was never exercised either. No
+amount of model improvement changes this. It needs a corpus with intervals in it, and `CORPUS.md`
+section 5.3 records why that may be harder than expected.
+
+**The false-positive bound is looser here than in the Open-i pilot**, because 40 clean reports gives
+a rule-of-three bound of 7.5% against 6.0% for 50. Two independent zeroes are more reassuring than
+either alone, and neither establishes a safe extractor.
+
+**Recall carries a known downward bias of unknown size.** Where a report states a recommendation
+twice in different words, an extractor quoting the copy the labeller did not choose scores as a
+miss. `LABELLING.md` 7.6 explains why the fix covers exact repeats and stops there.
+
+## What this changes about the plan
+
+The second verification pass proposed above targets precision and merged multi-action
+recommendations. **Precision is already 100% and nothing merged.** The problem is not that this
+extractor says too much. It is that it says almost nothing, and a pass that asks "is an action
+really recommended here" can only remove output that already exists.
+
+So that proposal is not the next thing to build. The next thing is to find out whether the recall
+failure is the prompt's phrasing or the model's capacity, and those are separable: reword the
+prompt's examples to include permissions and bare needs, hold the model fixed, and rerun. That is a
+`PROMPT_VERSION` bump which invalidates the tables above, which is exactly why it waits until the
+question is worth asking properly.
+
+Any change to prompt or model invalidates every table in this section too.
