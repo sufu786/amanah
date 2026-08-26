@@ -238,9 +238,11 @@ action turns the same sentence into a recommendation, and nothing else does.
 The amount of pathology is irrelevant to this call. A report can describe osteoarthritis, retained
 shrapnel and surgical suture material, conclude "Degenerative changes", and recommend nothing.
 
-### 7.4 The INDICATION line is never a recommendation
+### 7.4 The indication line is never a recommendation, under any header
 
-**The text.** Four of the first six reports labelled carried one of these:
+**The text.** Four of the first six reports labelled carried one of these. The header varies:
+INDICATION, REASON FOR EXAMINATION, REASON FOR EXAM, HISTORY and CLINICAL INDICATION all appear,
+and all are treated the same way.
 
 > "// Assess right HIP pain."
 > "Evaluate for acute process."
@@ -256,6 +258,65 @@ would create an obligation for work that has already been done.
 
 Only text in the findings or the impression can create an obligation, and only when it names an
 action.
+
+
+### 7.5 Correlation with a named test
+
+**The text.** From an MRI of the cervical spine:
+
+> "11-mm lesion in the left thyroid lobe for which recommend correlation with ultrasound."
+
+**The decision.** A recommendation.
+
+**The reason.** Section 2 excludes generic boilerplate such as "clinical correlation is advised"
+**unless it names a specific test or action**. "Correlation" on its own names nothing. "Correlation
+with ultrasound" is an order for a scan, and section 2 already lists "Suggest correlation with
+ultrasound" among the examples that count.
+
+That the lesion is unchanged from the prior study does not withdraw the recommendation, and an
+incidental finding on a study ordered for something else is the case this registry exists for.
+
+### 7.6 The same recommendation stated twice is one instance
+
+**The text.** The thyroid recommendation in 7.5 appeared once in the findings and again, almost
+word for word, in the impression.
+
+**The decision.** One instance, labelled from the impression.
+
+**The reason.** Section 3 separates distinct **actions**, not distinct sentences. One ultrasound is
+being asked for, so one obligation is owed. Labelling both would double-count it in recall and
+create two obligations for one duty. The impression is preferred because it is the authoritative
+summary and is usually self-contained enough to stand alone in the prepared summary.
+
+### 7.7 A future appointment or procedure counts, whoever asked for it
+
+**The text.** From a diagnostic mammogram reported as BI-RADS 2, benign:
+
+> "Findings reviewed with the patient. She prefers excision and was given information to schedule
+> an appointment at the Breast ___."
+
+**The decision.** A recommendation. Action `referral`, `already_scheduled` not set.
+
+**The reason.** Section 2 asks whether **the report states** that a further test, procedure,
+referral, treatment or review should happen after it. It does not ask who said so. A patient handed
+information and told to book is carrying an outstanding duty whose completion depends entirely on
+her doing something, which is the most loseable kind there is.
+
+Two distinctions this precedent fixes.
+
+**Given information to schedule is not scheduled.** `already_scheduled` is for "patient is booked
+for CT next month". A patient told how to book has an open obligation, and the gap between those
+two states is the one this project exists to close.
+
+**A benign imaging assessment does not discharge a surgical duty.** BI-RADS 2 settles that no
+imaging follow-up is needed. It says nothing about an excision the patient is expecting.
+
+**A known consequence, recorded rather than resolved.** `PROMPT.md` tells the extractor to find
+statements where "the clinician recommends" something, which is narrower than this precedent. The
+extractor will therefore miss reports of this shape, and recall will show it. That is a real gap
+and the measurement should carry it. Widening the prompt to match is a `PROMPT_VERSION` bump that
+invalidates every measured number in `RESULTS.md`, so it is a decision to take deliberately after
+the pilot rather than mid-corpus.
 
 ---
 
