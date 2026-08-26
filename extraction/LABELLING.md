@@ -220,6 +220,43 @@ that counted 7.1 cases matched `___ year` and reported better than double the tr
 this protocol records the same lesson from the Open-i cue screen. A pattern is not a label, and the
 fact that the pattern was written by the person who knew that did not help.
 
+
+### 7.3 "Cannot exclude" and other hedges about interpretation
+
+**The text.** From a portable chest radiograph:
+
+> "Given the extensive changes described above, it would be impossible to exclude superimposed
+> aspiration/pneumonia in the appropriate clinical setting."
+
+**The decision.** Not a recommendation.
+
+**The reason.** It qualifies the radiologist's own reading and names no test, referral or action.
+"Cannot exclude", "would be difficult to exclude", "may be", "is likely due to" and "in the
+appropriate clinical setting" describe diagnostic uncertainty. Uncertainty is not a duty. A named
+action turns the same sentence into a recommendation, and nothing else does.
+
+The amount of pathology is irrelevant to this call. A report can describe osteoarthritis, retained
+shrapnel and surgical suture material, conclude "Degenerative changes", and recommend nothing.
+
+### 7.4 The INDICATION line is never a recommendation
+
+**The text.** Four of the first six reports labelled carried one of these:
+
+> "// Assess right HIP pain."
+> "Evaluate for acute process."
+> "Please reassess disease."
+> "Evaluation for carotid stenosis."
+
+**The decision.** Not a recommendation, in any of them.
+
+**The reason.** The indication records why the study was requested, written before it was
+performed. The report is the answer to it. "Evaluate for", "assess", "reassess", "rule out" and
+"r/o" in that line describe the question, not a future duty, and treating them as recommendations
+would create an obligation for work that has already been done.
+
+Only text in the findings or the impression can create an obligation, and only when it names an
+action.
+
 ---
 
 ## 8. The harness
