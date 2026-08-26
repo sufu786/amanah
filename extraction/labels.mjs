@@ -45,6 +45,10 @@ export function loadCorpus(path) {
       language: r.language ?? 'en',
       text: r.text,
       sha256: sha256(r.text),
+      // Carried through rather than dropped. Nothing in the harness scores on it, but the
+      // labelling tool shows it as context, and it displayed "modality unrecorded" for every
+      // report while this loader was quietly discarding the field the draw had written.
+      modality: r.modality ?? null,
     });
   }
   return { corpus: raw.corpus, reports };
