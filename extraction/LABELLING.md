@@ -70,6 +70,27 @@ named in the recommendation, or `other` if the recommendation names none.
 including typographical errors. Do not tidy. Spans are offsets into the extracted text and must
 round-trip: `text[start:end]` has to equal the verbatim string, or the label is invalid.
 
+**How much to select.** The span has to contain the words that state the action. "She prefers
+excision" is not a sufficient span for a `referral`: the sentence continues "and was given
+information to schedule an appointment", and the duty is in the second half. Section 6 matches an
+extractor's output against the gold standard by span, so a gold span that omits the action
+penalises an extractor for quoting the right words.
+
+The span does not have to exclude the finding. Reports often state both in one sentence, as in
+"11-mm lesion in the left thyroid lobe for which recommend correlation with ultrasound", and cutting
+that in two would quote the clinician less faithfully than leaving it whole. `finding_span` is set
+separately whenever the report names a finding, and the two spans are allowed to overlap.
+
+**`finding_verbatim` is not optional decoration.** Set it whenever the report names the abnormality
+the recommendation is about. `from-extraction.mjs` copies it into the obligation's
+`finding.text_verbatim`, `createObligation` refuses an obligation without one under R5, and it is
+the first of the seven required contents of the prepared summary. A label that leaves it null while
+the report names a finding produces a proposal that cannot be accepted, and the failure appears at
+the point a patient presses confirm rather than during labelling.
+
+Leave it null only when the report names no finding at all. That does happen. A negative study can
+still carry a recommendation, and `CORPUS.md` section 5.5 records what the pilot found about it.
+
 **`interval`**: only when stated in the report.
 - "in 6 months" -> `{value: 6, unit: month}`
 - "6-12 months" -> interval `null`, `interval_verbatim: "6-12 months"`. Ranges are not silently
@@ -318,6 +339,152 @@ and the measurement should carry it. Widening the prompt to match is a `PROMPT_V
 invalidates every measured number in `RESULTS.md`, so it is a decision to take deliberately after
 the pilot rather than mid-corpus.
 
+### 7.8 A notification block is never a recommendation
+
+**The text.** Four of the fifty pilot reports end with a notification block. Two shapes appeared.
+From a screening mammogram reported BI-RADS 0:
+
+> "NOTIFICATION: The mammography department will attempt to contact the patient to arrange for
+> additional evaluation; the patient will be sent a letter requesting her return and her clinician
+> will be sent a copy of this report."
+
+From a renal transplant ultrasound whose impression lists three findings and asks for nothing:
+
+> "NOTIFICATION: The impression and recommendation above was entered by Dr. ___ on ___ at 14:23
+> into the Department of Radiology critical communications system for direct communication to the
+> referring provider."
+
+**The decision.** Neither is an instance. The mammogram carries one, taken from its recommendation
+line. The ultrasound is labelled as having none.
+
+**The reason.** Section 2 asks whether the report states that something further should happen. A
+notification block states how the report itself was delivered. It names no test, procedure,
+referral, treatment or review beyond what the report has already said, so labelling it would count
+one duty twice.
+
+The second example is the one worth writing down. The block says "the impression and recommendation
+above", and there is no recommendation above it. The sentence is template text, printed whether or
+not the radiologist asked for anything. Any extractor keying on the word will fire here, and this
+precedent is what makes that a false positive rather than a labeller oversight.
+
+One consequence for `already_scheduled`. A department that "will attempt to contact the patient" has
+booked nothing. Section 7.7 draws the same line for a patient handed information to schedule: an
+attempt to arrange is an open obligation, and the flag stays clear.
+
+### 7.9 A recommendation whose wording is damaged
+
+**The text.** From the impression of a CT abdomen and pelvis:
+
+> "A soft tissue density and filling defect is noted in the right posterior lateral bladder may
+> represent a blood clot or a bladder polyp. Recommend lateral some for further evaluation."
+
+**The decision.** A recommendation. Action `unclear`, finding `other`, modality and interval empty.
+
+**The reason.** "Recommend lateral some for further evaluation" is a dictation error. Something was
+asked for and the words naming it did not survive. The report still states that a duty exists, which
+is the whole of the section 2 test, so the instance is real. What cannot be read is what the duty
+is, and section 4 forbids supplying it.
+
+`unclear` is the honest encoding, and constraint C6 requires one. A recommendation nobody can parse
+is the case most likely to be quietly dropped by software, and dropping it is the failure this
+project was built to prevent. An obligation recorded with action `unclear` reaches a human. A
+discarded one reaches nobody.
+
+Do not infer the missing words from the finding. A bladder filling defect is commonly worked up by
+cystoscopy and commonly worked up by delayed imaging. Either could be what the sentence meant, and
+choosing between them here would be a guess wearing the clothes of a label.
+
+### 7.10 A pointer to another report is not an action
+
+**The text.** From a CT chest, in two places:
+
+> "Sequential scanning of the abdomen and pelvis will be reported separately."
+
+> "For abdominal findings please refer to CT abdomen report."
+
+**The decision.** No instance.
+
+**The reason.** Both sentences point at a document. Neither asks for anything to be done to the
+patient. "Please refer to" reads as an instruction, which is why it appears here, but the object of
+the instruction is a report rather than a clinician, and reading it as a `referral` would invent a
+duty the radiologist never stated.
+
+The test that separates this from a real instance: once the pointer has been followed, is anything
+still owed? Reading the companion report discharges nothing, because nothing was requested,
+scheduled or deferred. Compare 7.7, where following the instruction means booking an operation.
+
+### 7.11 Two follow-up statements against two findings are two instances
+
+**The text.** From a portable chest radiograph, impression items 2 and 3:
+
+> "2. Patchy right base opacity and left mid lung opacification could be due to multifocal
+> infection, aspiration or malignant process not excluded. Recommend followup to resolution.
+> 3. Prominence of the right mediastinum is similar compared to ___ scout image from CT, which may
+> in part relate to prominent ascending aorta. Continue follow-up."
+
+**The decision.** Two instances. "Recommend followup to resolution" against the lung opacities, and
+"Continue follow-up" against the mediastinal prominence. Both action `imaging`, both finding
+`other`, neither with an interval.
+
+**The reason.** Section 3 separates distinct actions, and 7.6 settled that one action stated twice
+is one instance. This is the other side of that rule. These two sentences are near-identical in
+wording and attach to different findings, so two duties are owed and either can be discharged
+without touching the other. Resolution of the lung opacities says nothing about the mediastinum.
+
+Collapsing them into one instance would produce a single obligation that closes on whichever
+evidence arrives first, which is rule R4 applied to the wrong object. An obligation is identified by
+the finding it belongs to, not by the sentence it was written in.
+
+The same report also states "Recommend followup to resolution" in its findings section, word for
+word. That repetition is 7.6, and it is not labelled.
+
+### 7.12 A location given for the largest of several findings is not the location of the finding
+
+**The text.** A CT chest describing multiple small subpleural pulmonary nodules, giving a
+measurement and a lobe for the largest one only, and stating that none of them requires follow-up
+imaging.
+
+**The decision.** Finding `pulmonary_nodule`, `negated` true, `anatomy` null. Not the lobe named for
+the largest nodule.
+
+**The reason.** The statement covers every nodule in both lungs. One of them has a location in the
+report, and it is there to identify which nodule was measured rather than to place the group.
+Section 4 allows anatomy only where the report is specific, and the report is not specific about the
+set this statement is about.
+
+This deserves more care than its size suggests, because `anatomy` is part of `identity_key`. Keying
+the record to the left lower lobe would assert that the radiologist cleared a left lower lobe
+nodule. What was cleared was every nodule seen. A later report raising a right upper lobe nodule
+would then fail to find this evidence, and a clinician's statement would have been narrowed without
+anyone deciding to narrow it.
+
+The general form: where one finding among several is located and the recommendation covers all of
+them, the recommendation has no anatomy. Locate the recommendation, not the measurement.
+
+### 7.13 Modality names the test, anatomy names the body part, neither carries the other
+
+**The text.** Three modality values written during the pilot: `MRI`, `MRI lumbar spine`, and
+`ultrasound-guided core needle biopsy`.
+
+**The decision.** The first stands. The other two were rewritten to `MRI` and `ultrasound`.
+
+**The reason.** Section 4 gives `anatomy` a field of its own and says what belongs in it. Nothing
+said what belongs in `modality`, so the same body part went into both fields, and there was no rule
+for which one wins if they ever disagree.
+
+`modality` is the kind of test being asked for, in the report's own words, with the body part
+removed. The body part is `anatomy`. Where a procedure names the technique guiding it, the guidance
+is the modality and the procedure is the `action`: a core needle biopsy performed under ultrasound
+is action `procedure`, modality `ultrasound`.
+
+Trimming loses nothing. R5 keeps the whole phrase in `recommendation_verbatim`, and that is the
+string a patient is shown. These two fields exist to be matched and counted on, not to be read
+aloud.
+
+A closed vocabulary for `modality` is the obvious next step, and `corpus.mjs` already carries a
+usable one in `classifyExamName`. It is not adopted here. Fixing granularity is worth doing across
+eleven instances. Agreeing an enum is worth doing once the full stratum A shows which values occur.
+
 ---
 
 ## 8. The harness
@@ -426,6 +593,13 @@ Three things are refused, because a published artefact gets no second look:
 
 If PhysioNet confirms that short quotations are permitted, publish the unredacted file and this
 becomes unnecessary. Until then it is the safe default and it costs almost nothing.
+
+**What this rule covers, and what it does not.** It governs the label file: a machine-readable
+derivative of the corpus with an entry for every report in it. It does not govern the sentences
+quoted in section 7. A protocol recording how judgement calls were made has to show the wording the
+call turned on, and a dozen illustrative sentences in a methods document are a different artefact
+from a redistributable set of 500. This is written down because a reader meeting section 7 and this
+section in the same file would otherwise be right to call them inconsistent.
 
 ### 8b. The labelling tool
 
