@@ -153,3 +153,60 @@ describe('what it accepts', () => {
     assert.equal(r.already_scheduled, true);
   });
 });
+
+describe('section 7.6: a recommendation the report states twice', () => {
+  // Reports commonly repeat the recommendation in the findings and again in the impression. The
+  // labeller marks the impression copy, and an extractor quoting the other one has found the same
+  // duty. The duplicate is derived here rather than hunted for by hand.
+  const twice = {
+    id: 'r2',
+    text: 'FINDINGS: Left base opacity. Recommend followup to resolution.\n\n'
+      + 'IMPRESSION: Left base opacity. Recommend\nfollowup to resolution.',
+  };
+  const span = (needle) => {
+    const s = twice.text.indexOf(needle);
+    if (s === -1) throw new Error(`fixture error: ${needle} not present`);
+    return [s, s + needle.length];
+  };
+  const IMPRESSION = span('Recommend\nfollowup to resolution');
+  const FINDINGS = span('Recommend followup to resolution');
+
+  const base = { finding: 'other', action: 'imaging' };
+
+  test('the other copy is recorded without the labeller marking it', () => {
+    const e = buildEntry(twice, {
+      recommendations: [{ ...base, recommendation_span: IMPRESSION }],
+    });
+    assert.deepEqual(e.recommendations[0].equivalent_spans, [FINDINGS]);
+  });
+
+  test('the canonical span stays the one the labeller chose', () => {
+    const e = buildEntry(twice, {
+      recommendations: [{ ...base, recommendation_span: IMPRESSION }],
+    });
+    const r = e.recommendations[0];
+    assert.deepEqual(r.recommendation_span, IMPRESSION);
+    assert.equal(r.recommendation_verbatim, twice.text.slice(...IMPRESSION));
+  });
+
+  test('a sentence appearing once gains no equivalent spans', () => {
+    const e = buildEntry(twice, {
+      recommendations: [{ ...base, recommendation_span: span('IMPRESSION: Left base opacity.') }],
+    });
+    assert.equal(e.recommendations[0].equivalent_spans, undefined);
+  });
+
+  test('two instances worded the same do not claim each other', () => {
+    // The guard. Where a radiologist words two follow-ups identically against different findings,
+    // each occurrence belongs to the instance that quoted it. Claiming both would make matching
+    // depend on the order the instances happen to be in.
+    const e = buildEntry(twice, {
+      recommendations: [
+        { ...base, recommendation_span: IMPRESSION },
+        { ...base, recommendation_span: FINDINGS },
+      ],
+    });
+    assert.equal(e.recommendations[0].equivalent_spans, undefined);
+    assert.equal(e.recommendations[1].equivalent_spans, undefined);
+  });
+});

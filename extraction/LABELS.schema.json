@@ -133,6 +133,12 @@
         },
         "recommendation_span": { "$ref": "#/$defs/span" },
 
+        "equivalent_spans": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/span" },
+          "description": "Other places the SAME sentence appears in the report. Section 7.6: a recommendation stated twice is one instance, labelled from the impression, so an extractor quoting the findings copy has found the same duty and must not be scored as a fabrication. The canonical recommendation_span stays the one thing the verification screen highlights and the prepared summary quotes; these are consulted only when matching. Derived by label-server.mjs rather than entered by hand, and the loader rejects any span whose text differs from the canonical one, so this cannot become a licence to make the gold standard match anything. Absent when the sentence appears once, which is the common case."
+        },
+
         "finding_verbatim": { "type": ["string", "null"] },
         "finding_span": {
           "oneOf": [{ "$ref": "#/$defs/span" }, { "type": "null" }]

@@ -158,6 +158,48 @@ export function loadLabelSet(path, corpusData, { partial = false } = {}) {
           push(`${rw}: interval must be {value > 0, unit in ${INTERVAL_UNITS.join('|')}} or null`);
         }
       }
+      // Section 7.6. An equivalent span is another place the SAME sentence appears. It is not a
+      // second recommendation and it is not a licence to make the gold standard match anything:
+      // each one must quote the same words as the canonical span, or the check fails.
+      if (rec.equivalent_spans != null) {
+        if (!Array.isArray(rec.equivalent_spans)) {
+          push(`${rw}: equivalent_spans must be an array of [start, end] spans`);
+        } else {
+          const canonical = normaliseQuote(
+            sliceSpan(report.text, rec.recommendation_span ?? [0, 0]));
+          for (const [q, span] of rec.equivalent_spans.entries()) {
+            const ew = `${rw} equivalent[${q}]`;
+            if (!rangeCheck(ew, 'equivalent', span, report.text, push)) continue;
+            if (spanOverlap(span, rec.recommendation_span) > 0) {
+              push(`${ew}: overlaps the canonical span. An equivalent is a repeat `
+                + 'elsewhere in the report, not a wider selection of the same sentence.');
+              continue;
+            }
+            if (normaliseQuote(sliceSpan(report.text, span)) !== canonical) {
+              push(`${ew}: quotes different words from the canonical span. `
+                + 'Equivalent spans record the same sentence written twice, so a span that says '
+                + 'something else is either a second instance or a mistake.');
+            }
+          }
+        }
+      }
+    }
+
+    // Cross-instance guard. If one instance's equivalent lands on another instance's canonical
+    // span, the two are competing for the same words and matching would become order-dependent.
+    // Report 19303239-RR-45 is the shape that makes this reachable: two findings, two follow-up
+    // sentences, and nothing stopping a radiologist wording both the same way.
+    for (const [k, rec] of recommendations.entries()) {
+      for (const span of rec.equivalent_spans ?? []) {
+        for (const [k2, other] of recommendations.entries()) {
+          if (k === k2) continue;
+          if (spanOverlap(span, other.recommendation_span) > 0) {
+            push(`${where} rec[${k}]: an equivalent span overlaps the canonical span of `
+              + `rec[${k2}]. Two instances cannot claim the same words. Drop the equivalent `
+              + 'and label the occurrences separately.');
+          }
+        }
+      }
     }
 
     labels.set(entry.report_id, {
@@ -289,6 +331,58 @@ export function loadPredictions(path, corpusData) {
   };
 }
 
+/**
+ * Whitespace-collapsed form of a quote. Line wrapping in clinical reports is arbitrary, so two
+ * spans quoting the same sentence can differ by a newline and nothing else.
+ */
+export const normaliseQuote = (s) => String(s).replace(/\s+/g, ' ').trim();
+
+/**
+ * Every span an instance may legitimately be quoted from: the canonical one first, then any
+ * equivalent occurrence of the same sentence elsewhere in the report. Section 7.6.
+ */
+export const spansOf = (rec) => [rec.recommendation_span, ...(rec.equivalent_spans ?? [])];
+
+/**
+ * Find every other place the same sentence appears in the report, whitespace-insensitively.
+ *
+ * Used to derive equivalent_spans at labelling time rather than asking a labeller to hunt for
+ * duplicates. Deterministic, and derived from text the labeller already selected, so it invents
+ * nothing. The caller is responsible for the collision guard: an occurrence that overlaps another
+ * instance's canonical span belongs to that instance, not this one.
+ */
+export function findRepeats(text, span) {
+  const target = normaliseQuote(text.slice(span[0], span[1]));
+  if (!target) return [];
+
+  // Map collapsed offsets back to real ones, so returned spans point at real source characters.
+  const map = [];
+  let collapsed = '';
+  let prevWasSpace = false;
+  for (let i = 0; i < text.length; i++) {
+    if (/\s/.test(text[i])) {
+      if (prevWasSpace) continue;
+      collapsed += ' ';
+      map.push(i);
+      prevWasSpace = true;
+    } else {
+      collapsed += text[i];
+      map.push(i);
+      prevWasSpace = false;
+    }
+  }
+
+  const out = [];
+  for (let idx = collapsed.indexOf(target); idx !== -1; idx = collapsed.indexOf(target, idx + 1)) {
+    const start = map[idx];
+    const end = map[Math.min(idx + target.length - 1, map.length - 1)] + 1;
+    if (start === span[0] && end === span[1]) continue;      // the canonical span itself
+    if (spanOverlap([start, end], span) > 0) continue;        // overlapping is not a repeat
+    out.push([start, end]);
+  }
+  return out;
+}
+
 export const spanOverlap = (a, b) => {
   if (!Array.isArray(a) || !Array.isArray(b)) return 0;
   return Math.max(0, Math.min(a[1], b[1]) - Math.max(a[0], b[0]));
@@ -312,7 +406,14 @@ export function matchBySpan(listA, listB) {
   const candidates = [];
   for (let i = 0; i < listA.length; i++) {
     for (let j = 0; j < listB.length; j++) {
-      const ov = spanOverlap(listA[i].recommendation_span, listB[j].recommendation_span);
+      // Section 7.6: a recommendation stated twice is one instance, labelled from the impression.
+      // An extractor quoting the other occurrence found the same duty, so every acceptable span is
+      // considered and the best overlap wins. Matching on text instead would pair the model with
+      // the wrong finding whenever two findings carry the same wording.
+      let ov = 0;
+      for (const sa of spansOf(listA[i])) {
+        for (const sb of spansOf(listB[j])) ov = Math.max(ov, spanOverlap(sa, sb));
+      }
       if (ov > 0) candidates.push({ i, j, ov });
     }
   }

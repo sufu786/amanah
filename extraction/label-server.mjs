@@ -25,7 +25,9 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { loadCorpus, loadLabelSet, sha256, PROTOCOL_VERSION } from './labels.mjs';
+import {
+  loadCorpus, loadLabelSet, sha256, findRepeats, spanOverlap, PROTOCOL_VERSION,
+} from './labels.mjs';
 import { FINDING_CATEGORIES, ACTIONS } from './extract.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -101,6 +103,21 @@ export function buildEntry(report, body) {
     }
     return out;
   });
+
+  // Section 7.6. A recommendation stated twice is one instance, labelled from the impression, and
+  // an extractor quoting the other copy has found the same duty. The labeller is not asked to hunt
+  // for the duplicate: it is derived here by searching for the same sentence, whitespace-
+  // insensitively, so it is deterministic and invents nothing.
+  //
+  // The guard matters more than the derivation. Where two instances carry the same wording against
+  // different findings, an occurrence belongs to whichever instance quoted it, so anything landing
+  // on another instance's canonical span is dropped rather than claimed by both.
+  const canonical = recommendations.map((r) => r.recommendation_span);
+  for (const [i, rec] of recommendations.entries()) {
+    const repeats = findRepeats(report.text, rec.recommendation_span)
+      .filter((span) => !canonical.some((c, j) => j !== i && spanOverlap(span, c) > 0));
+    if (repeats.length) rec.equivalent_spans = repeats;
+  }
 
   return {
     report_id: report.id,

@@ -309,6 +309,42 @@ being asked for, so one obligation is owed. Labelling both would double-count it
 create two obligations for one duty. The impression is preferred because it is the authoritative
 summary and is usually self-contained enough to stand alone in the prepared summary.
 
+**What this cost, and what was done about it.** The first extraction run scored a correct
+prediction as both a miss and a false positive. The model quoted the findings copy of a
+recommendation whose gold span was the impression copy, `matchBySpan` found no character overlap,
+and one right answer was counted wrong twice.
+
+An instance therefore carries `equivalent_spans`: every other place the same sentence appears. The
+canonical span does not move. It still does the two jobs that need exactly one answer, which are
+highlighting on the verification screen and quoting in the prepared summary. Matching consults all
+of them. The duplicates are found by `label-server.mjs` when the label is saved rather than hunted
+for by hand, and the loader rejects any equivalent whose text differs from the canonical one, so
+this cannot become a way to make the gold standard match anything.
+
+Two easier rules were rejected on the way here. Falling back to comparing quoted text would pair a
+prediction with the wrong finding whenever a radiologist words two follow-ups the same way, and a
+silently wrong match is worse than a visible miss because nothing reports it. Accepting either copy
+as canonical would leave the prepared summary's wording undetermined, which is improving the
+measurement by degrading the thing being measured.
+
+One guard is not optional. Where two instances in the same report carry identical wording, each
+occurrence belongs to the instance that quoted it, so an occurrence landing on another instance's
+canonical span is dropped rather than claimed by both.
+
+**This fixes exact repeats and not near ones, including the example above.** The thyroid
+recommendation this precedent was written from reads "11-mm rounded lesion in the left lobe of the
+thyroid" in the findings and "11-mm lesion in the left thyroid lobe" in the impression. Same duty,
+reworded. The search is exact once whitespace is collapsed, so it finds nothing, and an extractor
+quoting the findings copy of a reworded recommendation is still scored as a miss and a false
+positive.
+
+Loosening the search to catch rewordings is the obvious next move, and it is not being made. Any
+similarity threshold loose enough to pair those two sentences is also loose enough to pair two
+genuinely different recommendations in a report that discusses one finding twice, and that failure
+is silent where this one is merely unfair. The honest position is that recall carries a known
+downward bias of unknown size. The full stratum A draw will show how many instances are reworded
+rather than repeated, and that number decides whether this is worth solving and how.
+
 ### 7.7 A future appointment or procedure counts, whoever asked for it
 
 **The text.** From a diagnostic mammogram reported as BI-RADS 2, benign:
