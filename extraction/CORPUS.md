@@ -162,7 +162,8 @@ words nobody thought of). Both figures, always, with that sentence attached.
 
 **Pilot first: 50 reports from stratum A, labelled, before any of the sizes below are committed.**
 Its only job is to estimate the base rate of follow-up recommendations in this frame. Every number
-that follows is sensitive to it, and it is currently unknown for MIMIC radiology. If the pilot shows
+that follows is sensitive to it, and it was unknown for MIMIC radiology when this was written.
+Section 5.2 records what the pilot found. If the pilot shows
 a base rate high enough, stratum B may not be needed at all.
 
 ### 5.1 The pilot draw, recorded before it was taken
@@ -201,6 +202,129 @@ about 25%, increase A rather than let the combined share drop below 60%.
 of labelling for one person, plus about 3 more for the blind relabel of 100 reports under section
 5a. If a second labeller appears, add about 3 hours for their subset. This is the dominant cost of
 Phase 1 and it should be planned as such rather than discovered.
+
+### 5.2 What the pilot found
+
+Fifty reports from stratum A, drawn 2026-08-19 and labelled by one labeller under protocol v0.1.
+
+| | |
+|---|---|
+| Reports carrying at least one instance | 10 of 50 |
+| Base rate | 20%, Wilson 95% interval 11.2% to 33.0% |
+| Instances | 11 |
+| Instances per positive report | 1.1 |
+| Conditional | 3 of 11 |
+| Negated | 1 of 11 |
+| Already scheduled | 0 of 11 |
+| Stating an interval | 0 of 11 |
+
+The sizes in 5.1 stand, and they survive the interval rather than only the point estimate.
+
+**Stratum A at 350.** A 20% base rate leaves 280 clean reports. Zero false positives in 280 bounds
+the true rate at 1.07% by the rule of three, against the 1% the table claims. At the top of the
+interval the bound is 1.28% and at the bottom 0.97%, so it holds across the range 50 reports can
+distinguish.
+
+**Composition.** Stratum A is 80% clean rather than the 85% assumed above, still well clear of the
+60% floor in `LABELLING.md` section 1. Combined with a cue-enriched stratum B the share lands near
+65%, which is what 5.1 predicted.
+
+**Stratum B at 150.** A contributes about 70 positives and B about 105, for roughly 175. At 80%
+recall that is a 95% interval of plus or minus 5.9 points, against the plus or minus 6 in the table.
+
+The base rate did not reach the 25% that would have required stratum A to grow, and it is not high
+enough to make stratum B unnecessary. Both are drawn as planned.
+
+**Instances track reports.** Eleven instances across ten positive reports. The labelling cost of the
+full corpus therefore scales with report count, which is the assumption behind the 17-hour estimate
+above.
+
+### 5.3 Two things the pilot broke, recorded before scoring
+
+Both concern what the metrics in `LABELLING.md` section 6 can mean on this corpus. Both were found
+by labelling and neither was predicted.
+
+**No recommendation stated an interval. Not one of eleven.** Section 7.1 was written expecting the
+problem to be de-identification stripping the times, and 7,687 reports in the source do carry a
+removed interval. In this sample the times were not removed. They were never written. Interval
+accuracy is one of the six metrics and it has no denominator here, so it cannot be reported from
+the pilot, and on the full corpus it may rest on a much smaller base than 500 reports implies.
+
+This is worth more than a note about metrics. An obligation with no stated interval cannot be
+overdue on the report's own authority, and deciding when it becomes overdue is exactly the
+guideline judgement rule R6 forbids the extraction layer from making. If the full corpus confirms
+the pattern, then most obligations this system creates will have no due date that came from the
+report, and the specification should say so plainly rather than treat the missing interval as an
+edge case.
+
+**Eight of eleven findings fell outside the controlled vocabulary.** The three that fitted were a
+thyroid nodule, a pulmonary nodule and a BI-RADS 0 screening recall. Labelled `other`: a bladder
+filling defect, a breast mass sent for tissue diagnosis, a benign breast cyst the patient wanted
+excised, a rib fracture, a lumbar spine, and two separate lung and mediastinal opacities.
+
+The vocabulary was built around the incidental findings the follow-up literature studies, and this
+sample is mostly not those. The consequence for measurement is direct: with `other` as the majority
+class, an extractor that answers `other` every time scores well on finding-category accuracy. That
+metric is close to uninformative until the vocabulary covers the corpus, and it should not be quoted
+in `RESULTS.md` from the pilot.
+
+Expanding the vocabulary changes every label already written and every metric computed from them, so
+it waits for the full stratum A draw, where the frequencies will be worth acting on. The pilot is
+recorded here as the reason to expect the change.
+
+### 5.4 What the extractor should miss, written before it runs
+
+So that the comparison afterwards is a test and not a description.
+
+Ten of the eleven instances are shapes `PROMPT.md` v0.1 describes. The eleventh is the breast
+excision in `LABELLING.md` 7.7, where the patient states a preference and is handed information to
+schedule an appointment. The prompt asks for statements where "the clinician recommends" something,
+and no clinician recommends anything in that sentence. It should be missed.
+
+Pilot recall therefore has a ceiling near 91% that belongs to the prompt rather than to the model.
+A run scoring materially above it has matched something the gold standard does not contain, and
+that is a reason to read the output rather than to celebrate.
+
+Two cases to watch, offered as questions rather than predictions:
+
+- The damaged bladder recommendation in 7.9. The word "Recommend" is there, so the instance should
+  be found. Whether the model returns action `unclear` or supplies a plausible modality for the
+  missing words is what rule 3 of the prompt exists to test.
+- The negated nodules in `12889749-RR-9`. The prompt lists "No further imaging is required" as an
+  include with `negated` set, while rule 5 says describing a finding is not recommending follow-up.
+  A model returning an empty array here has read the second and not the first.
+
+### 5.5 A recommendation with no finding, which the obligation core cannot hold
+
+Two of the eleven instances attach to no abnormality. Both are negative studies that ask for a
+further test if clinical concern persists.
+
+> "No acute intracranial hemorrhage. If there is continued clinical concern for infarct or vascular
+> causes given the nature of symptoms, further evaluation with MRI is recommended."
+
+> "No sequela of acute trauma visualized. If there is continued concern for rib fracture, dedicated
+> radiographs can be obtained."
+
+There is nothing to quote as the finding. The study found none, and the recommendation is contingent
+on something the clinician cannot see in the images.
+
+`createObligation` refuses this. It requires `finding.text_verbatim` under R5, on the reasoning that
+an obligation carrying no quoted source is a paraphrase of one. The reasoning holds and the refusal
+is the right behaviour. It is also incomplete, because 2 of 11 instances in this sample are a shape
+it cannot represent.
+
+Nothing fails today, and the reason is luck rather than design. Both instances are conditional, and
+`acceptProposal` already refuses a conditional proposal on separate grounds: the condition has to be
+resolved by a person before any due date exists. The two rules happen to cover the same two labels.
+An unconditional recommendation on a negative study would pass the first check and fail the second,
+and fifty reports cannot say whether that shape occurs.
+
+This is a specification decision rather than a labelling one, so it is recorded and not settled.
+The options are that an obligation may quote a negative statement as its finding, that the finding
+may be absent when the report names none, or that this class is out of scope for Phase 1. The first
+two both change section 7 of `OBLIGATION_SPEC.md` and the R5 check in `obligation.mjs`, which is a
+version bump on a document that already carries a DOI. The full stratum A draw will give the
+frequency, and the frequency should decide it.
 
 ## 6. Drawing the sample
 
