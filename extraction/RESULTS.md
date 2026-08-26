@@ -279,3 +279,71 @@ prompt's examples to include permissions and bare needs, hold the model fixed, a
 question is worth asking properly.
 
 Any change to prompt or model invalidates every table in this section too.
+
+---
+
+# Prompt v0.2, and what it ruled out
+
+The rerun the section above asked for. Same fifty reports, same labels, same model, prompt v0.2.
+Acceptance rule fixed before the run and recorded in `PROMPT.md`: zero false positives on the forty
+clean reports, or the prompt is rejected whatever recall does.
+
+| | v0.1 | v0.2 |
+|---|---|---|
+| False positives on clean reports | 0 of 40 | 0 of 40 |
+| Detection recall | 27.3% (3/11) | 27.3% (3/11) |
+| Detection precision | 100% | 100% |
+| Verbatim-check rejections | 5 | 2 |
+
+**Nothing changed.** Not only the same counts. The same three instances, with character-identical
+quotes. All six instances whose sentence lacks the verb "recommend" were missed again.
+
+## The case that ended the line of enquiry
+
+v0.2 carries this among its include examples, character for character:
+
+> "Additional imaging is needed."
+
+Report `13789201-RR-12` contains that exact sentence, under its own `RECOMMENDATION:` header, in a
+study assessed BI-RADS 0, which means incomplete by definition. The model returned an empty array
+and set `no_recommendation_found` to true.
+
+The sentence was in the prompt. The identical sentence was in the report. It was still missed. On
+this evidence the constraint is not how the task is worded, and further prompt iteration would be
+fitting noise to fifty reports that are now a development set.
+
+## What v0.2 was still worth adopting for
+
+It is kept, and not because it helped. v0.1 asked for statements "where the clinician recommends"
+something, which excludes the `LABELLING.md` 7.7 shape by construction: a patient handed information
+to schedule an appointment is owed something, and no clinician recommended it. No model could have
+extracted that under v0.1. The prompt was wrong about the task, and a null result does not make it
+right.
+
+## The number that looks the same and is not
+
+**v0.2's zero false positives is weaker evidence than v0.1's, despite being the same figure.**
+
+v0.1 was written before this corpus existed, so its 0 of 40 was out-of-sample. v0.2's five new
+exclusions were written after reading those same forty reports: the indication line, the
+interpretive hedges, the technique caveats, the notification blocks and the companion-report
+pointers all came from them. Its 0 of 40 is in-sample and partly circular.
+
+The safety evidence resets with the version. Until the held-out stratum A draw tests it, v0.2's
+clean-report result should not be quoted with the confidence v0.1's carried, and the two zeroes in
+the table above should not be read as equally strong.
+
+## What this leaves
+
+The failure looks like search rather than judgement. Given "Recommend X" the model handles it
+correctly every time, including a garbled variant it declined to guess at. It does not appear to be
+scanning a thousand-character report for the other shapes.
+
+If that reading is right, the fix is architectural and not textual: ask the question one sentence at
+a time rather than asking the model to find the sentences. That removes the search and leaves the
+judgement, which is the half already working. It costs more inference per report, which is the cheap
+resource for a local model on CPU.
+
+That is a change to how extraction is structured rather than to what it is told, so it needs its own
+design and its own measurement. It is not started, and it should be measured on held-out reports
+rather than on these.

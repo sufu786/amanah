@@ -20,7 +20,7 @@
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
-export const PROMPT_VERSION = '0.1';
+export const PROMPT_VERSION = '0.2';
 
 // The 7B is the model selected in extraction/RESULTS.md: zero false positives and zero
 // fabrications on 50 real reports, against 2 false positives and 6 fabrication rejections for
@@ -55,9 +55,11 @@ export const ACTIONS = [
 // is a PROMPT_VERSION bump and invalidates every measured number in RESULTS.md.
 export const SYSTEM_PROMPT = `You extract follow-up recommendations from clinical reports. You do not interpret them.
 
-Your only task is to find statements in the report where the clinician recommends that
-something further should happen after this report: another test, a procedure, a referral,
-a treatment, or a review.
+Your only task is to find statements in the report that leave something still to be done
+after this report: another test, a procedure, a referral, a treatment, or a review.
+
+The question is whether the report leaves a duty outstanding. It is not whether the report
+uses any particular word, and it is not who asked.
 
 ABSOLUTE RULES
 
@@ -94,11 +96,37 @@ Include:
   - "Consider repeat imaging if symptoms persist."  (set "conditional": true)
   - "No further imaging is required."               (set "negated": true)
 
+THE WORD "RECOMMEND" IS NOT THE TEST
+
+Many reports never use it. Every one of these leaves a duty outstanding and every one
+counts:
+  - "Additional imaging is needed."
+  - "Dedicated radiographs can be obtained."
+  - "This could be further evaluated with MRI lumbar spine."
+  - "Continue follow-up."
+  - "The patient was given information to schedule an appointment."
+  - "Tissue diagnosis is warranted."
+
+Permission counts. A report saying a test "can be" or "could be" obtained is naming
+something still to do. So does a bare statement of need, and so does an instruction the
+patient rather than a clinician has been handed. Ask what is left outstanding, not which
+verb was used.
+
 Exclude:
   - Findings described with no recommended action.
   - Actions taken during this examination, for example "repeat views obtained".
   - Things already done, for example "CT performed yesterday".
   - Generic boilerplate such as "clinical correlation advised" when no specific test is named.
+  - The indication or clinical history, for example "rule out fracture" or "evaluate for
+    bleeding", under any header. That is why this study was done, not what to do next.
+  - Hedges about what a finding is, for example "cannot exclude", "may represent",
+    "is likely", "suggestive of". Uncertainty about a finding asks for nothing.
+  - Statements of what this examination could not show, for example "CT is not able to
+    provide intrathecal detail comparable to MRI". A limitation is not a request, even when
+    it names another test.
+  - Notification or communication blocks describing how this report was delivered, even
+    when they contain the word "recommendation".
+  - Pointers to another document, for example "please refer to the CT abdomen report".
 
 FLAGS
 

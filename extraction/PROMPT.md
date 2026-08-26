@@ -1,8 +1,42 @@
-# Extraction prompt v0.1
+# Extraction prompt v0.2
 
 The prompt is versioned and treated as part of the system, not as a tuning knob. Any change to it
 invalidates previously measured metrics, so the version string is recorded in every extraction
 output alongside the model identifier.
+
+## What changed in v0.2, and what it costs
+
+v0.1 recalled 3 of 11 labelled instances on the MIMIC stratum A pilot. Splitting those instances by
+whether the sentence contains the verb "recommend" gave 3 of 5 with it and 0 of 6 without. The
+extractor was behaving as a keyword trigger. See `RESULTS.md`.
+
+Three changes, all aimed at that.
+
+**The task sentence no longer names a speaker or a verb.** v0.1 asked for statements "where the
+clinician recommends" something, which excluded a duty by construction: a patient handed information
+to schedule an appointment is owed something, and no clinician recommended it. It now asks what the
+report leaves outstanding.
+
+**An explicit block saying the verb is not the test**, carrying the shapes the pilot missed.
+Permissions such as "can be obtained" and "could be further evaluated", bare needs such as "is
+needed", bare continuations such as "Continue follow-up", and duties handed to the patient.
+
+**Four new exclusions, taken from the precedents rather than invented.** Widening toward permission
+language moves the prompt toward hedging language, which is where false positives live. So the same
+change tightens the boundary in the places fifty real reports showed it sitting: the indication line
+(7.4), interpretive hedges (7.3), statements of what the study could not show, notification blocks
+(7.8), and pointers to companion reports (7.10).
+
+**The cost, stated plainly.** Every number in the MIMIC section of `RESULTS.md` was measured under
+v0.1 and does not describe this prompt. Worse, the fifty pilot reports are now a development set.
+This prompt was written while looking at exactly which of them failed, so any recall figure it
+produces on them is optimistic by an unknown amount. An unbiased number needs the held-out stratum A
+draw, labelled and left unconsulted until the prompt is frozen.
+
+**The acceptance rule, fixed before the run rather than after.** False positives on the 40 clean
+reports is the primary metric. If it is not zero, v0.2 is rejected whatever recall does. An
+extractor that finds more duties and invents one obligation is worse than one that finds fewer and
+invents none.
 
 ## Design decision: the model does not produce character offsets
 
@@ -29,9 +63,11 @@ concerned, and both are equally unacceptable in text that will be shown to a cli
 ```
 You extract follow-up recommendations from clinical reports. You do not interpret them.
 
-Your only task is to find statements in the report where the clinician recommends that
-something further should happen after this report: another test, a procedure, a referral,
-a treatment, or a review.
+Your only task is to find statements in the report that leave something still to be done
+after this report: another test, a procedure, a referral, a treatment, or a review.
+
+The question is whether the report leaves a duty outstanding. It is not whether the report
+uses any particular word, and it is not who asked.
 
 ABSOLUTE RULES
 
@@ -68,11 +104,37 @@ Include:
   - "Consider repeat imaging if symptoms persist."  (set "conditional": true)
   - "No further imaging is required."               (set "negated": true)
 
+THE WORD "RECOMMEND" IS NOT THE TEST
+
+Many reports never use it. Every one of these leaves a duty outstanding and every one
+counts:
+  - "Additional imaging is needed."
+  - "Dedicated radiographs can be obtained."
+  - "This could be further evaluated with MRI lumbar spine."
+  - "Continue follow-up."
+  - "The patient was given information to schedule an appointment."
+  - "Tissue diagnosis is warranted."
+
+Permission counts. A report saying a test "can be" or "could be" obtained is naming
+something still to do. So does a bare statement of need, and so does an instruction the
+patient rather than a clinician has been handed. Ask what is left outstanding, not which
+verb was used.
+
 Exclude:
   - Findings described with no recommended action.
   - Actions taken during this examination, for example "repeat views obtained".
   - Things already done, for example "CT performed yesterday".
   - Generic boilerplate such as "clinical correlation advised" when no specific test is named.
+  - The indication or clinical history, for example "rule out fracture" or "evaluate for
+    bleeding", under any header. That is why this study was done, not what to do next.
+  - Hedges about what a finding is, for example "cannot exclude", "may represent",
+    "is likely", "suggestive of". Uncertainty about a finding asks for nothing.
+  - Statements of what this examination could not show, for example "CT is not able to
+    provide intrathecal detail comparable to MRI". A limitation is not a request, even when
+    it names another test.
+  - Notification or communication blocks describing how this report was delivered, even
+    when they contain the word "recommendation".
+  - Pointers to another document, for example "please refer to the CT abdomen report".
 
 FLAGS
 
