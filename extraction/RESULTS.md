@@ -347,3 +347,113 @@ resource for a local model on CPU.
 That is a change to how extraction is structured rather than to what it is told, so it needs its own
 design and its own measurement. It is not started, and it should be measured on held-out reports
 rather than on these.
+
+---
+
+# Per-sentence detection, and the trade it makes
+
+The architectural test the section above asked for. Same fifty reports, same labels, same model.
+Instead of one call per report, the report is split into sentences and each is asked one question:
+does this sentence leave something still to be done? One call per sentence, so there is nothing to
+scan and search cannot be the failure.
+
+**Every figure here is a development-set figure.** These fifty reports were spent as development
+data by prompt v0.2, and this section spends them further: the section filter below was designed
+after reading which sentences came back wrong. Nothing here is a held-out result and none of it
+belongs in a claim about performance.
+
+| | FP on clean reports | Recall | Precision |
+|---|---|---|---|
+| Whole report, prompt v0.1 | 0 of 40 | 27.3% | 100% |
+| Whole report, prompt v0.2 | 0 of 40 | 27.3% | 100% |
+| Per sentence | 6 of 40 | 90.9% | 38.5% |
+| Per sentence, plus section filter | 1 of 40 | 90.9% | 52.6% |
+
+## The diagnosis was right
+
+Recall goes from 27.3% to 90.9% without touching the model. The sentence prompt v0.2 contained
+verbatim and still could not find, `RECOMMENDATION: Additional imaging is needed.`, is returned
+correctly the moment it is asked about on its own.
+
+So the failure was search and not judgement. Given a sentence, this model decides well. Given a
+thousand-character report, it does not reliably find the sentence.
+
+## The acceptance rule rejects it anyway
+
+The rule was fixed before the v0.2 run and it is not renegotiated because a better number appeared:
+zero false positives on the clean reports, or the extractor is rejected whatever recall does. This
+scores 1 of 40. It is rejected as a shippable extractor.
+
+What the rule cannot decide is whether the trade is worth making, because that is a product question
+rather than a measurement. Recall more than triples. The cost is one report in forty gaining an
+obligation nobody asked for, and the remaining error is not the kind the rule was written to stop.
+It is not a fabricated quote. It is a real line of the report read too generously:
+
+> "CT-GUIDED BIOPSY OF THE RIGHT TIBIA"
+
+The exam title of a procedure report. In isolation it names a procedure, and the sentence carries
+nothing to say the procedure already happened. A whole-report reader has the tense; a single
+sentence does not.
+
+## The section filter is precedent, not tuning
+
+Seven of the twelve spurious detections sat under `INDICATION`, `HISTORY`, `CLINICAL HISTORY` or
+`NOTIFICATION`. Every one is a request that this report already answered, or a note about how the
+report was delivered, and `LABELLING.md` 7.4 and 7.8 already say neither can hold a recommendation.
+
+Suppressing those sections deterministically removed seven false positives and cost no recall at
+all. No true positive in the pilot came from any of them: they arrive under `IMPRESSION`,
+`RECOMMENDATION` and `RECOMMENDATION(S)`. Writing an existing precedent as code rather than as an
+instruction the model may ignore is the standing preference in this project for deterministic over
+heuristic, and this is a clean case of it.
+
+**The last false positive was left alone deliberately.** A rule that suppresses headerless preamble
+would remove it, and would be justified by exactly one report. Tuning a filter per remaining error
+on a development set is how a number stops surviving contact with held-out data.
+
+## What the pre-registration got right and wrong
+
+`CORPUS.md` 5.4 predicted a recall ceiling near 91% and named the instance that would be missed: the
+7.7 breast excision, where a patient is handed information to schedule and no clinician recommends
+anything.
+
+The ceiling was right, to within one instance out of eleven. The named report was wrong. The breast
+excision was found. What was missed is the negated pulmonary nodules in `12889749-RR-9`, where a
+long sentence describes several nodules and ends by saying none of them requires follow-up imaging.
+
+That miss is consistent with the smoke suite at the top of this file, which recorded the 7B failing
+the negated case on a synthetic fixture months earlier. The prediction was wrong about which report
+and the evidence for the correct answer was already written down.
+
+## What is left, and what it costs
+
+Nine of the nineteen surviving predictions do not match gold. They fall into three groups.
+
+**Restatements of a duty that is real.** The `BI-RADS: 0 Incomplete` line of a report whose
+recommendation was already found. The same duty, said again in the structured assessment.
+
+**Reworded repeats.** `13738010-RR-34` states its thyroid recommendation once in the findings and
+again in the impression, in different words. The equivalent-span mechanism added for 7.6 covers
+exact repeats and deliberately stops there, so the findings copy scores as a miss. This is the known
+downward bias on recall already recorded above, appearing from the other direction.
+
+**Genuine over-reads.** Hedges taken as requests, and one instance of "clinical correlation with
+patient's symptoms is recommended", which the prompt excludes by name as boilerplate with no test
+named.
+
+Only the third group is a defect. The first two are scoring artefacts of decisions taken for good
+reasons elsewhere.
+
+## The pass that was set aside becomes the right one
+
+The section above proposed a second verification pass and then rejected it, on the grounds that it
+could only remove output and precision was already 100%. That reasoning was correct for that
+extractor.
+
+It has now inverted. Detection recall is 90.9% and precision is 52.6%, so the problem is no longer
+that the extractor says too little. A pass that asks, of each candidate sentence with the whole
+report in view, whether the duty is real and still outstanding is now the obvious next thing, and
+the tense information the single-sentence view loses is exactly what it would restore.
+
+It is not built. Stage two, which fills the fields rather than detecting the sentence, is not built
+either. Neither should be measured on these fifty reports.
