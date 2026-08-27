@@ -648,3 +648,82 @@ the check: from the hand labels, which are better input than this pipeline will 
 obligations are created.
 
 And all of it is measured on fifty reports the pipeline was debugged against.
+
+---
+
+# Closing the anatomy vocabulary, and what it exposed
+
+`identity_key` is `sha256(subject_ref | category | anatomy | laterality)`. Two spellings of one
+place produce two obligations for one finding and neither closes the other, which section 6 of the
+specification calls the most dangerous silent failure available.
+
+Two things were producing exactly that.
+
+**`laterality` was dead plumbing.** It is in `SCHEMA.json`, in `identityKey`, in
+`from-extraction.mjs` and in the obligation object. It was never populated anywhere:
+`extract.mjs` hard-coded it to null, and the labelling tool had no control for it.
+
+**Side was travelling inside `anatomy`, in two formats.** The specification's own example says
+`lung.right.upper_lobe`. The gold standard said `thyroid.left`. So `thyroid.left` with a null
+laterality, and `thyroid` with laterality `left`, hash differently while describing one nodule.
+
+Both are now closed lists in `extract.mjs` beside `FINDING_CATEGORIES`, the loader rejects anything
+outside them, the six gold values were migrated by hand-written mapping, and `score.mjs` measures
+anatomy and laterality together as one claim, because half a location is not half an identity.
+
+## The measurement it made possible says the extraction does not work
+
+| | Free text | Closed vocabulary |
+|---|---|---|
+| Location accuracy | 40% | **30%** |
+
+Closing the vocabulary made the number worse, and the reason is worth more than the number.
+
+The old 40% was mostly two nulls agreeing. Where the report named a place, the model wrote
+"left lobe of the thyroid" against a gold `thyroid.left` and the mismatch looked like a formatting
+problem. It was hiding a judgement problem.
+
+With a menu to choose from, the model started choosing. Three of the seven errors are inventions
+where the gold standard says nothing:
+
+| Report | Gold | Predicted |
+|---|---|---|
+| `18373059-RR-30` | none | `brain` / `bilateral` |
+| `10840861-RR-25` | none | `rib` |
+| `18018980-RR-60` | `bladder`, no side | `bladder` / `right` |
+
+Every one is a reasonable inference and every one is the guess rule 6 forbids by name. The first is
+inferred from the study being a head CT. The third invents a side for a bladder lesion the report
+describes without one.
+
+The other four errors run the opposite way: the report is specific, `breast` twice and
+`spine_lumbar` once, and the model returned nothing.
+
+So it over-fills where the report is silent and under-fills where the report is specific. On this
+sample that is close to unrelated to what the report says, and **location cannot currently be used
+for identity resolution at all.**
+
+## Why the vocabulary was still the right change
+
+It did not fix the problem. It made the problem visible and it is a precondition for fixing it.
+Under free text there was no measurement, because no two strings agreed; the gold standard itself
+carried a format the specification contradicted; and nothing stopped the next labeller inventing a
+third spelling.
+
+That closing a vocabulary made a metric worse is not an argument against closing it. The 40% was
+never a description of anything.
+
+## What follows
+
+Identity resolution must not be wired to model-extracted anatomy on these numbers. Resolution rule 3
+already refuses to merge on absent or coarse anatomy and flags it for a person, which is the correct
+behaviour and is now the behaviour almost every obligation would get.
+
+The guessing has the same shape as the invented action in the section above: a field filled from
+knowledge of medicine rather than from the report, behind a quote that is entirely genuine. Two
+instances of one failure mode is enough to treat it as a class rather than a pair of bugs, and
+nothing in the pipeline currently detects it. The verbatim check cannot: no quote was fabricated.
+
+An anatomy the report does not state is exactly as dangerous as an interval the report does not
+state, and R6 and rule 3 of the prompt already forbid the second by name. The asymmetry is an
+accident of which field happened to be noticed first.

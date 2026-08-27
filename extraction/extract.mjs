@@ -49,6 +49,39 @@ export const ACTIONS = [
   'procedure', 'specialist_review', 'unclear',
 ];
 
+// Anatomy, v0.1. Closed like the two lists above, and for the same reason: identity_key is
+// sha256(subject_ref | category | anatomy | laterality), so two spellings of one place produce two
+// obligations for one finding and neither closes the other. Section 6 of the specification calls
+// that the most dangerous silent failure available, and free text guarantees it. The first stage-3
+// run returned "left lobe of the thyroid" where the gold standard said "thyroid.left", and neither
+// string would ever have compared equal to the other.
+//
+// Organ level, deliberately. Sub-structure would be more precise and is more dangerous: two reports
+// about the same lung that name different lobes would fail to merge. Resolution rule 3 already
+// handles coarse anatomy safely by flagging it for a person rather than merging on weak evidence,
+// so the conservative direction is the coarse one.
+export const ANATOMY = [
+  // Head and neck
+  'brain', 'skull', 'orbit', 'sinus', 'thyroid', 'salivary_gland', 'neck_soft_tissue',
+  // Chest
+  'lung', 'pleura', 'mediastinum', 'heart', 'aorta_thoracic', 'breast', 'chest_wall', 'rib',
+  'oesophagus',
+  // Abdomen and pelvis
+  'liver', 'gallbladder', 'biliary_tract', 'pancreas', 'spleen', 'kidney', 'adrenal', 'bladder',
+  'ureter', 'prostate', 'uterus', 'ovary', 'stomach', 'small_bowel', 'colon', 'rectum', 'appendix',
+  'aorta_abdominal', 'peritoneum', 'retroperitoneum',
+  // Spine and musculoskeletal
+  'spine_cervical', 'spine_thoracic', 'spine_lumbar', 'spine_sacral', 'pelvis', 'shoulder', 'hip',
+  'knee', 'long_bone', 'extremity',
+  // Crossing regions
+  'lymph_node', 'artery', 'vein', 'soft_tissue', 'skin',
+  'other',
+];
+
+// Laterality is its own field because identity_key already has a slot for it and because the set is
+// small enough to close. Keeping it inside anatomy was how the two spellings arose.
+export const LATERALITY = ['left', 'right', 'bilateral', 'midline'];
+
 // This is the prompt of record. extraction/PROMPT.md must transcribe it character-for-character,
 // and smoke.mjs asserts that before it runs anything, because the previous arrangement was a
 // comment asking a human to keep two copies in step, and it silently failed. Changing this string
@@ -312,8 +345,12 @@ export function validateRecommendation(rec, source) {
       recommendation_verbatim: recVerbatim,
       recommendation_span: recSpan,
       finding: FINDING_CATEGORIES.includes(rec.finding) ? rec.finding : 'other',
-      anatomy: nn(rec.anatomy),
-      laterality: null,
+      // Anything outside the vocabulary becomes null rather than 'other'. An unrecognised place is
+      // an unknown place, and 'other' would collapse every unknown location in a patient's record
+      // to one identity_key. Null is excluded from merging by resolution rule 3, which is the
+      // behaviour an unknown location should get.
+      anatomy: ANATOMY.includes(rec.anatomy) ? rec.anatomy : null,
+      laterality: LATERALITY.includes(rec.laterality) ? rec.laterality : null,
       measurement: null,
       action: ACTIONS.includes(rec.action) ? rec.action : 'unclear',
       modality: nn(rec.modality),

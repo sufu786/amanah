@@ -24,7 +24,9 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
-import { FINDING_CATEGORIES, ACTIONS, validateRecommendation } from './extract.mjs';
+import {
+  FINDING_CATEGORIES, ACTIONS, ANATOMY, LATERALITY, validateRecommendation,
+} from './extract.mjs';
 
 export const FIELDS_VERSION = '0.1';
 
@@ -74,9 +76,17 @@ HOW TO FILL EACH FIELD
                    ultrasound guidance has modality "ultrasound" and action "procedure". Use
                    "none" when no test is named.
 
-  anatomy          The body part, only when the report is specific about it. "nodule in the lung"
-                   with no lobe is "none", not "lung". Where several findings are described and
-                   only one is located, the location belongs to that one and not to the group.
+  anatomy          The organ or structure, chosen from the list the schema allows and nothing else.
+                   A nodule in the left lower lobe is "lung". A lesion in the left thyroid lobe is
+                   "thyroid". Where several findings are described and only one is located, the
+                   location belongs to that one and not to the group, so the group is "none". If
+                   the recommendation names no body part at all, it is "none". Do not infer the
+                   body part from what kind of study this was.
+
+  laterality       left, right, bilateral or midline, and only when the report says so. This is a
+                   separate field from anatomy: a left thyroid lesion is anatomy "thyroid" and
+                   laterality "left", never anatomy "thyroid.left". Use "none" when no side is
+                   stated or the structure has no side.
 
   interval_value   The number of time units stated. Use 0 when no time is stated.
   interval_unit    day, week, month or year. Use "none" when no time is stated.
@@ -104,7 +114,8 @@ const FORMAT = {
     finding_verbatim: { type: 'string' },
     action: { type: 'string', enum: ACTIONS },
     modality: { type: 'string' },
-    anatomy: { type: 'string' },
+    anatomy: { type: 'string', enum: [...ANATOMY, 'none'] },
+    laterality: { type: 'string', enum: [...LATERALITY, 'none'] },
     interval_value: { type: 'number' },
     interval_unit: { type: 'string', enum: ['day', 'week', 'month', 'year', 'none'] },
     interval_verbatim: { type: 'string' },

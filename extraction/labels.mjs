@@ -10,7 +10,7 @@
 
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { FINDING_CATEGORIES, ACTIONS } from './extract.mjs';
+import { FINDING_CATEGORIES, ACTIONS, ANATOMY, LATERALITY } from './extract.mjs';
 
 export const PROTOCOL_VERSION = '0.1';
 const INTERVAL_UNITS = ['day', 'week', 'month', 'year'];
@@ -148,6 +148,17 @@ export function loadLabelSet(path, corpusData, { partial = false } = {}) {
       }
       if (!FINDING_CATEGORIES.includes(rec.finding)) {
         push(`${rw}: finding "${rec.finding}" is not in the controlled vocabulary`);
+      }
+      // Anatomy and laterality are separate fields and both are closed. identity_key hashes them
+      // together, so "thyroid.left" in one label and thyroid plus left in another are two
+      // identities for one finding, which is the silent failure section 6 of the specification
+      // names as the most dangerous available.
+      if (rec.anatomy != null && !ANATOMY.includes(rec.anatomy)) {
+        push(`${rw}: anatomy "${rec.anatomy}" is not in the controlled vocabulary. Laterality `
+          + 'has its own field, so "thyroid.left" is anatomy "thyroid" and laterality "left".');
+      }
+      if (rec.laterality != null && !LATERALITY.includes(rec.laterality)) {
+        push(`${rw}: laterality "${rec.laterality}" must be one of ${LATERALITY.join(', ')} or null`);
       }
       if (!ACTIONS.includes(rec.action)) {
         push(`${rw}: action "${rec.action}" is not in the controlled vocabulary`);
