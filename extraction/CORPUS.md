@@ -391,6 +391,51 @@ seed of its own and cannot be quietly re-rolled.
 stratum membership and in a shuffled order, and neither the split above nor the stratum a report
 came from may be visible while it is being labelled.
 
+### 6.2 What the draw produced
+
+Run 2026-08-27, from the block in 6.1 without modification.
+
+```
+scanned      2,321,355 reports, 2,277,058 passed the frame, 237,199 patients
+excluded     25,603 addenda, 18,694 shorter than 200 characters
+reports-A    350 reports   set sha256 088589972d1dc63f
+reports-B    150 reports   set sha256 d22019d1bc4e75bc
+```
+
+The set hashes are the corpus identity. A label file binds to report text through `text_sha256`
+per report, and these bind the sample as a whole, so a claim to have scored a particular corpus can
+be checked rather than taken on trust.
+
+**The prefix holds.** Verified rather than assumed: the first 50 reports of stratum A are the pilot
+50, in the same order, with byte-identical text. Strata A and B share no report, and neither
+contains a duplicate. The pilot labels therefore carry into the full stratum A unchanged, and the
+fifty reports already labelled do not need labelling again.
+
+**Composition.**
+
+| | Stratum A | Stratum B |
+|---|---|---|
+| Radiograph | 47.1% | 18.0% |
+| CT | 22.3% | 39.3% |
+| Ultrasound | 10.9% | 14.7% |
+| MR | 6.9% | 11.3% |
+| Mammography | 5.1% | 2.7% |
+| Interventional | 4.9% | 8.0% |
+| Exam name de-identified | 1.7% | 2.7% |
+| Median length | 776 chars | 1,559 chars |
+
+Stratum A is a random sample and looks like the corpus: mostly plain radiographs, half of them
+chest films, and short. Stratum B is cue-enriched and its shape shows it. Cross-sectional imaging
+rises from 29% to 51%, and the median report is twice as long.
+
+That difference is the reason section 6 of this document forbids concatenating the two before
+scoring. A precision figure computed over the pooled set would be measured largely on long CT
+reports that were selected for containing recommendation-shaped words, and it would be higher than
+the truth by an amount nobody could estimate afterwards.
+
+**Labelling cost from here.** 450 reports remain unlabelled. At the pilot's pace that is roughly 15
+hours, and it is the dominant cost of Phase 1, exactly as 5.1 predicted.
+
 ## 7. Development and test splits
 
 Three known extraction defects in `RESULTS.md` are unfixed, and the candidate second verification
