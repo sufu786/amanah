@@ -341,6 +341,56 @@ frequency, and the frequency should decide it.
    who knows a report came from the cue-enriched stratum expects to find something, and expecting to
    find something is how the C1 boundary gets crossed.
 
+### 6.1 The full draw, recorded before it was taken
+
+The pilot in 5.1 used seed `amanah-pilot-2026-08-19` with `--a 50 --b 0`. The full draw reuses that
+seed unchanged, with `--a 350 --b 150`.
+
+Reusing it is the point. `pickStrata` sorts candidates by `sha256(seed | note_id)` and takes the
+first n, so the same seed at a larger n returns a superset whose first 50 are exactly the pilot.
+Stratum A contains the pilot as a prefix, and that relationship is arithmetic rather than asserted:
+anyone holding the source file can rederive it. A fresh seed would have produced a set overlapping
+the pilot unpredictably, and every report in that overlap would be spent development data with
+nothing in the file marking it as spent.
+
+The seed keeps its pilot name. A seed is an identifier, not a description, and renaming it would
+break the property that makes the prefix checkable.
+
+```
+seed        amanah-pilot-2026-08-19
+strata      A 350, B 150
+frame       one report per patient, addenda excluded, minimum 200 characters,
+            no modality restriction (see section 4)
+source      MIMIC-IV-Note v2.2 radiology.csv.gz, radiology_detail.csv.gz
+command     node corpus.mjs draw --in radiology.csv.gz --detail radiology_detail.csv.gz \
+                                 --seed amanah-pilot-2026-08-19 --a 350 --b 150
+```
+
+Committed before the draw is run, as in 5.1, so the order is checkable in the history rather than
+claimed here.
+
+**The development split is already partly spent, and the ordering absorbs it.** Section 7 allocates
+30% to development. The pilot's 50 reports are development data whatever any file says: prompt v0.2
+was written after reading their misses, which is why `RESULTS.md` records its false-positive figure
+as in-sample. Because they are the first 50 of stratum A, the split can follow the draw ordering
+instead of cutting across it.
+
+| | n | Use |
+|---|---|---|
+| Stratum A, positions 1 to 50 | 50 | The pilot. Development, permanently spent. |
+| Stratum A, positions 51 to 105 | 55 | Development. |
+| Stratum A, positions 106 to 350 | 245 | Test. Scored once. |
+| Stratum B, positions 1 to 45 | 45 | Development. |
+| Stratum B, positions 46 to 150 | 105 | Test. Scored once. |
+
+That is 150 development and 350 test, the 30/70 of section 7, with both halves keeping the A and B
+proportions. Assigning by position rather than by a second random draw means the split needs no
+seed of its own and cannot be quietly re-rolled.
+
+**Labelling order is not draw order.** Section 6 step 5 requires the labeller to see reports without
+stratum membership and in a shuffled order, and neither the split above nor the stratum a report
+came from may be visible while it is being labelled.
+
 ## 7. Development and test splits
 
 Three known extraction defects in `RESULTS.md` are unfixed, and the candidate second verification
