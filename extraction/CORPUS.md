@@ -465,6 +465,33 @@ at least one other language is a separate piece of work and should be planned as
 **It is one institution.** Recommendation phrasing is institutional and dictation habits are local.
 Numbers from BIDMC radiology are numbers from BIDMC radiology.
 
+**It cannot produce a single obligation.** Not one of the 400 drawn reports contains a date. Every
+one is de-identified to `___`, so `date_found` is null for all of them, and `acceptProposal` refuses
+a proposal with no document date because every due date derives from one.
+
+This was checked against the hand labels rather than the extractor, which is the most favourable
+input available: 11 instances a person read and confirmed. Of the 10 that reach acceptance, 7 are
+blocked for the missing date and 3 are refused as conditional, which section 7 of the specification
+requires a person to resolve first. **Zero obligations are created.**
+
+Nothing here is broken. The system is refusing correctly in both cases, and the refusals are two of
+the rules the project exists to enforce. But it means MIMIC is a benchmark for the extraction layer
+and cannot exercise the obligation layer at all. The state machine, the escalation ladder, the
+prepared summary and the closure rules are tested against synthetic fixtures in `obligation/` and
+have never seen a real report, because on this corpus they cannot.
+
+Two consequences worth planning around rather than discovering later.
+
+**A due date needs something this corpus cannot give.** Either a source of reports with real dates,
+or a decision that the date comes from outside the document, from the moment a patient photographs
+it or from a record the report is attached to. That is a specification question and section 12 of
+`OBLIGATION_SPEC.md` is where it belongs.
+
+**Conditional recommendations are a third of the real ones here.** Three of eleven. The
+specification refuses all of them pending human resolution, which is the right default and is also
+a workload nobody has sized. If that proportion holds, a third of everything this system extracts
+arrives needing a person before it can become a duty at all.
+
 **It measures extraction, not linkage.** Nothing here says anything about whether an obligation, once
 created, gets closed. That is Phase 2 and it needs a deployment, not a corpus.
 
