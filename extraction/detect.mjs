@@ -14,14 +14,15 @@
 // and action "unclear" throughout. Those two columns of any score run against it are meaningless by
 // construction. Stage two, which fills the fields, is not built.
 //
-// It also does not pass its own acceptance rule. On the pilot it puts an obligation into one clean
-// report in forty, against a rule of zero fixed before the run. It is committed because the
-// measurement is worth keeping and reproducing, not because it is ready to use.
+// On its own it does not pass the acceptance rule: it puts an obligation into one clean report in
+// forty, against a rule of zero. Followed by verify.mjs it reaches zero, at 90.9% recall against
+// the 27.3% of the whole-report extractor. Every one of those figures is a development-set figure,
+// measured on reports this pipeline was debugged against. See RESULTS.md.
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
-import { splitSentences, sectionCannotRecommend } from './sentences.mjs';
+import { splitSentences, sectionCannotRecommend, spanAfterHeading } from './sentences.mjs';
 
 export const DETECT_VERSION = '0.1';
 
@@ -88,11 +89,52 @@ export async function detectInSentence(sentence, section, { model = DEFAULT_MODE
   return Boolean(JSON.parse((await res.json()).message.content).leaves_something_to_do);
 }
 
-/** Trim a segment span to its non-whitespace content, so the quote round-trips exactly. */
-function tightSpan(text, span) {
-  const raw = text.slice(span[0], span[1]);
+/**
+ * Collapse candidates that quote the same sentence twice into one.
+ *
+ * LABELLING.md 7.6: a recommendation stated twice is one duty, and the gold standard takes it from
+ * the impression because that copy is the authoritative summary and stands alone in the prepared
+ * summary. Detecting per sentence finds both copies, and reporting both would create two
+ * obligations for one duty, each closing on separate evidence.
+ *
+ * Deterministic, and it applies the precedent's own preference rather than a proxy for it: the copy
+ * under an impression or recommendation heading wins, and failing that the later one, since
+ * impressions follow findings.
+ *
+ * This covers exact repeats only, whitespace aside. A recommendation reworded between the findings
+ * and the impression is not caught here, which is the same boundary the equivalent-span mechanism
+ * draws in labels.mjs and for the same reason: two differently worded sentences may be two duties,
+ * and deciding that they are not is a judgement rather than a string comparison.
+ */
+export function dedupeRepeats(candidates) {
+  const PREFERRED = /^(IMPRESSION|RECOMMENDATION)/;
+  const groups = new Map();
+  for (const c of candidates) {
+    const key = c.recommendation_verbatim.replace(/\s+/g, ' ').trim().toLowerCase();
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(c);
+  }
+
+  const keep = new Set();
+  for (const group of groups.values()) {
+    const preferred = group.filter((c) => PREFERRED.test(c.section ?? ''));
+    const pool = preferred.length ? preferred : group;
+    keep.add(pool.reduce((a, b) => (b.recommendation_span[0] > a.recommendation_span[0] ? b : a)));
+  }
+  // Report order is preserved, so the output reads in the order a person would meet the sentences.
+  return candidates.filter((c) => keep.has(c));
+}
+
+/**
+ * Trim a segment span to the sentence itself: no surrounding whitespace, and no section header
+ * carried over from a heading that shares the line. The quote must round-trip exactly, and it must
+ * be the thing being judged rather than the label above it.
+ */
+export function tightSpan(text, span) {
+  const [afterHeading, end] = spanAfterHeading(text, span);
+  const raw = text.slice(afterHeading, end);
   const lead = raw.length - raw.trimStart().length;
-  const start = span[0] + lead;
+  const start = afterHeading + lead;
   return [start, start + raw.trim().length];
 }
 
@@ -104,12 +146,14 @@ export async function detectInReport(text, { model = DEFAULT_MODEL, sectionFilte
   const hits = [];
   let asked = 0;
   for (const seg of splitSentences(text)) {
-    const sentence = seg.text.trim();
+    // The span is tightened before the model sees anything, so the sentence asked about and the
+    // sentence stored are the same string. The heading travels separately, as context.
+    const span = tightSpan(text, seg.span);
+    const sentence = text.slice(...span);
     if (sentence.length <= 2) continue;
     if (sectionFilter && sectionCannotRecommend(seg.section)) continue;
     asked++;
     if (!await detectInSentence(sentence, seg.section, { model })) continue;
-    const span = tightSpan(text, seg.span);
     hits.push({
       recommendation_verbatim: text.slice(...span),
       recommendation_span: span,
@@ -129,7 +173,7 @@ export async function detectInReport(text, { model = DEFAULT_MODEL, sectionFilte
       already_scheduled: false,
     });
   }
-  return { hits, asked };
+  return { hits: dedupeRepeats(hits), asked };
 }
 
 const isMain = process.argv[1] ? import.meta.url === pathToFileURL(process.argv[1]).href : false;

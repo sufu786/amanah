@@ -457,3 +457,101 @@ the tense information the single-sentence view loses is exactly what it would re
 
 It is not built. Stage two, which fills the fields rather than detecting the sentence, is not built
 either. Neither should be measured on these fifty reports.
+
+---
+
+# Two stages: detect per sentence, then verify against the report
+
+detect.mjs finds candidate sentences one at a time. verify.mjs checks each against the whole report.
+Between them, deduplication by LABELLING.md 7.6, which needs no model.
+
+**Development-set figures.** These fifty reports were spent by prompt v0.2, spent again by the
+section filter, and spent again here: the verification prompt was written after listing what the
+pilot's true positives looked like, and a defect in it was found and fixed by debugging against
+these reports. Nothing in this section is a held-out result and none of it belongs in a claim about
+performance. Stratum A positions 106 to 350 exist to test it.
+
+| | Whole report v0.2 | Detect only | Detect, dedupe, verify |
+|---|---|---|---|
+| False positives on clean reports | 0 of 40 | 1 of 40 | **0 of 40** |
+| Detection recall | 27.3% | 90.9% | **90.9%** |
+| Detection precision | 100% | 52.6% | **90.9%** |
+
+The acceptance rule is met at more than three times the recall.
+
+## What was predicted before the run, and what happened
+
+The prediction was written first, as with CORPUS.md 5.4, and named which candidates should die.
+
+Right: dedup would remove exactly one, the identical repeat. Verification would remove the exam
+title, the three hedges and the boilerplate. The BI-RADS restatement would survive as a false
+positive, because a per-candidate check cannot see that a duty has already been counted.
+
+Wrong: verification also removed two candidates from the report whose duty matters most in the
+whole corpus, and that is worth more than the numbers.
+
+## The defect the numbers hid
+
+The first verified run scored 0 of 40 and 81.8% recall, which passes the rule. It reached that
+partly by deleting `19376441-RR-36`: BI-RADS 5, highly suggestive of malignancy, tissue diagnosis
+recommended. The most serious obligation in the pilot.
+
+The first explanation was that the report's notification block, which records that findings and
+recommendations were reviewed with the patient, read as evidence the duty had been discharged. That
+explanation was tested by removing the block and asking again. It was wrong: the candidate was kept
+either way.
+
+The real cause, reproducible:
+
+| Candidate sent to the verifier | Verdict |
+|---|---|
+| `RECOMMENDATION(S):  Tissue diagnosis is recommended.` | remove |
+| `Tissue diagnosis is recommended.` | keep |
+
+A section heading and its first sentence usually share a line, so the segment for that sentence
+began with the heading, and the heading travelled into the model as part of the sentence being
+judged. `spanAfterHeading` in sentences.mjs strips it, before either stage sees anything, so the
+sentence asked about and the sentence stored are the same string.
+
+Two things about this are worth keeping.
+
+**It was invisible in the metrics.** 81.8% recall and zero false positives reads like a pass. The
+report it lost was the one where a missed obligation does the most harm, and no aggregate figure
+was ever going to say so. Reading which instances died, rather than how many, is what found it.
+
+**It was also a patient-facing bug.** The stored quote carried `RECOMMENDATION(S):` into
+`recommendation_verbatim`, which is the string the prepared summary shows a patient under "what my
+report says". It would have shipped as a formatting oddity long before anyone traced it to a
+deleted obligation.
+
+## What survives, and what it costs
+
+Ten of eleven labelled instances are found. Both conditionals in the impression and the third in
+the findings survive, as does the 7.7 case where a patient is handed information to schedule an
+appointment. Those were the four the verification prompt was rewritten to protect, after listing
+every true positive and asking what a whole-report check would do to each. Without that step the
+pass would have removed all four.
+
+One false positive remains. `13789201-RR-12` states its recommendation twice, once under a
+RECOMMENDATION heading and once as `BI-RADS: 0 Incomplete - Need Additional Imaging Evaluation`.
+Both are real and both name the same duty. Deduplication does not catch it because the wordings
+differ, which is the same boundary equivalent spans draw in labels.mjs, and for the same reason: two
+differently worded sentences may be two duties, and deciding they are not is a judgement rather than
+a string comparison.
+
+One instance is still missed: the negated pulmonary nodules in `12889749-RR-9`, where a long
+sentence describes several nodules and ends by saying none requires follow-up. The smoke suite at
+the top of this file recorded the 7B failing negation on a synthetic fixture, and it has now failed
+it on real text in three separate architectures.
+
+## What this does not settle
+
+Field extraction does not exist. Both stages answer yes or no, so finding and action are
+placeholders and those columns mean nothing here.
+
+Interval accuracy still has no denominator, because no instance in this corpus states an interval.
+Two of the six metrics in LABELLING.md section 6 have never been measured on anything.
+
+And the number that matters has not been measured at all. Everything above describes fifty reports
+that this pipeline was built and debugged against. What it does on reports it has never seen is the
+open question, and answering it needs the held-out labels that do not exist yet.

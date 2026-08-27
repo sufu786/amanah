@@ -48,6 +48,31 @@ const SUPPRESSED = new RegExp(`^(${SECTIONS_WITHOUT_RECOMMENDATIONS.join('|')})\
 export const sectionCannotRecommend = (section) =>
   typeof section === 'string' && SUPPRESSED.test(section.trim());
 
+/**
+ * Advance a span past a leading section header, so the quote is the sentence and not the label
+ * above it.
+ *
+ * A header and its first sentence usually share a line ("IMPRESSION:  No acute fracture."), so the
+ * segment for that sentence begins with the header. Two things go wrong if it is left there. The
+ * quote shown to a patient reads "RECOMMENDATION(S): Tissue diagnosis is recommended", and a model
+ * asked to judge the sentence is judging the header too. The second is not hypothetical: sending
+ * the header with the sentence flipped a verification verdict from keep to remove on the most
+ * serious obligation in the pilot corpus, reproducibly.
+ *
+ * Returns the span unchanged when there is no header to strip, or when stripping would leave
+ * nothing.
+ */
+export function spanAfterHeading(text, span) {
+  const raw = text.slice(span[0], span[1]);
+  const h = HEADER.exec(raw);
+  if (!h) return span;
+  const afterColon = raw.indexOf(':', h.index) + 1;
+  const lead = raw.slice(afterColon).length - raw.slice(afterColon).trimStart().length;
+  const start = span[0] + afterColon + lead;
+  if (start >= span[1] || !text.slice(start, span[1]).trim()) return span;
+  return [start, span[1]];
+}
+
 const isTerminator = (ch) => ch === '.' || ch === '?' || ch === '!';
 
 /**
