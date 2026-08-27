@@ -727,3 +727,50 @@ nothing in the pipeline currently detects it. The verbatim check cannot: no quot
 An anatomy the report does not state is exactly as dangerous as an interval the report does not
 state, and R6 and rule 3 of the prompt already forbid the second by name. The asymmetry is an
 accident of which field happened to be noticed first.
+
+## Correction: the gold standard was wrong, not the model
+
+The section above reports three invented locations and draws a conclusion from them. Checked against
+the report text, rather than against the gold standard, two of the three were correct extractions
+scored against a wrong label.
+
+| Report | Gold said | Model said | The report says |
+|---|---|---|---|
+| `18018980-RR-60` | `bladder`, no side | `bladder` / `right` | "the right posterior lateral bladder" |
+| `10840861-RR-25` | no location | `rib` | "continued concern for rib fracture" |
+| `18373059-RR-30` | no location | `brain` / `bilateral` | a head CT asking for MRI, no side anywhere |
+
+Only the third is an invention, and only half of it. `bilateral` is unsupported. `brain` is
+defensible for an MRI requested to look for infarct, and the gold standard's null is at best
+arguable.
+
+## Why the gold was wrong, which is the more useful finding
+
+Location was never really labelled. It was one free-text field filled in passing, and laterality had
+no field at all, so side was captured only when a labeller happened to write it into the anatomy
+string. Six of eleven instances carry a location the report states and the gold does not:
+
+| Report | Gold | Report states |
+|---|---|---|
+| `12889749-RR-9` | none | subpleural pulmonary nodules, so `lung` at organ level |
+| `18018980-RR-60` | `bladder`, no side | "right posterior lateral bladder" |
+| `10840861-RR-25` | none | "rib fracture", with no side anywhere |
+| `12286776-RR-17` | `spine_lumbar`, no side | "right eccentric disc bulge", "right S1 nerve root" |
+| `19303239-RR-45` | none | "right base opacity and left mid lung opacification", so `lung` bilateral |
+| `19303239-RR-45` | none | "Prominence of the right mediastinum" |
+
+So the 30% is not a measurement of the extractor. It is a measurement of a gold standard that was
+never made carefully for this field, against an extractor doing better than the number says. The
+corrected figure is unknown until those six are relabelled, which is a labelling decision and not
+one to take while writing up a result.
+
+**The finding stands with its subject changed.** Closing the vocabulary did expose a real problem,
+and the problem was in the labels rather than the model. That is worth more than the conclusion it
+replaces: a free-text field nobody could score is a field nobody was checking, and it reached a
+committed gold standard and a published metric while empty.
+
+One part of the original section survives intact. `12889749-RR-9` is 7.12, where a lobe is named for
+the largest of several nodules and the gold correctly refuses to attach it to the group. At organ
+level that reasoning does not apply, because `lung` describes every nodule in the set. The precedent
+was written against a finer vocabulary than the one now in use, and needs revisiting on those
+grounds rather than because it was wrong.
