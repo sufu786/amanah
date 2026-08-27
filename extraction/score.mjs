@@ -31,6 +31,7 @@ export function computeMetrics(corpusData, gold, preds, ids) {
   let cleanReportsWithPrediction = 0;
 
   let categorySame = 0;
+  let actionSame = 0;
   let intervalSame = 0;
   let intervalGoldStated = 0;
   let intervalSameWhereGoldStated = 0;
@@ -120,6 +121,10 @@ export function computeMetrics(corpusData, gold, preds, ids) {
       const g = goldRecs[p.a];
       const r = predRecs[p.b];
       if (g.finding === r.finding) categorySame++;
+      // Action is what the obligation is routed on and what a patient is asked to arrange, so it
+      // carries more weight than the category. It went unmeasured until stage three existed, and
+      // the first run that filled it scored 60% while category accuracy read 80%.
+      if (g.action === r.action) actionSame++;
       // A de-identified interval is excluded from interval accuracy entirely. 7,687 reports in
       // MIMIC-IV-Note carry a real recommendation whose interval the de-identification replaced
       // with ___, as in "repeat Chest CT in ___ weeks". The correct label is interval null with
@@ -159,6 +164,7 @@ export function computeMetrics(corpusData, gold, preds, ids) {
     interval_accuracy_where_gold_states_one: { n: intervalSameWhereGoldStated, of: intervalGoldStated },
     interval_excluded_deidentified: intervalDeidentified,
     category_accuracy: { n: categorySame, of: matched },
+    action_accuracy: { n: actionSame, of: matched },
     span_validity_exact: { n: spansExact, of: predInstances },
     span_validity_whitespace_normalised: { n: spansNormalised, of: predInstances },
 
@@ -279,6 +285,7 @@ for (const m of perLanguage) {
     console.log('  accuracy: the interval was de-identified to ___, so there was nothing to read');
   }
   line('category accuracy', m.category_accuracy);
+  line('action accuracy', m.action_accuracy);
   line('span validity, exact', m.span_validity_exact);
   line('span validity, whitespace-normalised', m.span_validity_whitespace_normalised);
 

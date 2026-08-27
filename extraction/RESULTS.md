@@ -555,3 +555,96 @@ Two of the six metrics in LABELLING.md section 6 have never been measured on any
 And the number that matters has not been measured at all. Everything above describes fifty reports
 that this pipeline was built and debugged against. What it does on reports it has never seen is the
 open question, and answering it needs the held-out labels that do not exist yet.
+
+---
+
+# Stage three: filling the fields
+
+detect, verify and dedupe answer yes or no. fields.mjs describes what was found: category, action,
+anatomy, modality, interval and the flags. The model is told the sentence is a recommendation and
+asked only to describe it, which is a smaller question than extract.mjs asks. Every quoted string
+goes through the same `validateRecommendation` the whole-report extractor uses, so a quote that
+cannot be located in the source is treated as invented.
+
+Development-set figures, on the same fifty reports as everything above.
+
+| | Placeholders | Stage three |
+|---|---|---|
+| False positives on clean reports | 0 of 40 | 0 of 40 |
+| Detection recall | 90.9% | 90.9% |
+| Detection precision | 90.9% | 90.9% |
+| Category accuracy | 80.0% | 80.0% |
+| **Action accuracy** | not measured | **60.0%** |
+| Conditional flag agreement | 7 of 10 | 9 of 10 |
+| Quotes rejected as invented | n/a | 0 of 11 |
+
+## The category number is the same and means something different
+
+Before this stage, `finding` was hard-coded to `other` and `action` to `unclear`. Category accuracy
+read 80% because eight of ten gold instances are `other`, so a constant scored well by accident.
+It now reads 80% because the model reads the reports: `thyroid_nodule` and `mammography_recall` are
+both identified correctly, and six of the eight `other` cases are correctly declined.
+
+Same figure, different fact. It is worth saying because a metric that does not move when a
+placeholder is replaced by real work is a metric to distrust, not a result to report.
+
+## Action was never measured, and it is the weaker number
+
+`score.mjs` computed category accuracy and not action accuracy, for no reason anyone recorded.
+Action is what an obligation is routed on and what a patient is asked to arrange, so it matters more
+than the category does. It is now measured, and it is 60%.
+
+Four of the ten are wrong, and one of those is the failure this project cares about most.
+
+**A guessed action on a recommendation nobody can read.** `18018980-RR-60` contains a dictation
+error: "Recommend lateral some for further evaluation". `LABELLING.md` 7.9 records the label as
+action `unclear`, because something is being asked for and the words naming it did not survive. The
+model returned `imaging`.
+
+Nothing in the report says imaging. The model supplied the most likely action for a bladder filling
+defect from its own knowledge, which is exactly what rule 3 of the prompt forbids for intervals and
+what constraint C6 forbids generally. The verbatim check cannot catch it, because no quote was
+fabricated. Only the field was.
+
+That is a new class of failure for this project. Every mechanical check built so far catches
+invented **text**. This is an invented **judgement**, sitting behind a quote that is entirely
+genuine.
+
+The other three are ordinary errors: a correlation with ultrasound called `procedure` rather than
+`imaging`, and two follow-up requests called `referral` rather than `imaging`.
+
+## Anatomy cannot be scored at all, and that is the most serious finding
+
+The gold standard writes anatomy as a dotted path: `thyroid.left`, `breast.right`,
+`spine.lumbar.l5_s1`. The model returns prose: `left lobe of the thyroid`, `left breast`,
+`lumbar spine`. Every one of those pairs describes the same place and not one of them would ever
+compare equal.
+
+`score.mjs` does not measure anatomy, so this was invisible until the fields were read by hand.
+
+It matters far beyond a metric. `anatomy` is part of `identity_key`, which is how an obligation is
+recognised as being about the same finding across serial studies. Section 6 of the specification
+calls the failure to resolve that identity the most dangerous silent failure available. With a free
+text anatomy field, identity resolution does not work at all: the same thyroid nodule reported twice
+produces two obligations, and neither closes the other.
+
+There is a second problem in the same column. On `18373059-RR-30` the gold anatomy is null, because
+the recommendation asks for "further evaluation with MRI" and names no body part. The model returned
+`head`. It is a reasonable inference from a head CT and it is still an invented location, which
+rule 6 of the prompt forbids by name.
+
+**A controlled vocabulary for anatomy is now a prerequisite rather than a refinement.** It needs to
+be decided, applied to the labels already written, and enforced in the schema the way
+`FINDING_CATEGORIES` and `ACTIONS` already are. Until then anatomy is unmeasured, unusable for
+identity, and free to be guessed.
+
+## What stage three does not settle
+
+Intervals remain unmeasurable: no instance in this corpus states one.
+
+No obligation can be built from any of this. Every date in MIMIC is de-identified, so
+`acceptProposal` refuses every proposal for want of a document date. `CORPUS.md` section 8 records
+the check: from the hand labels, which are better input than this pipeline will ever produce, zero
+obligations are created.
+
+And all of it is measured on fifty reports the pipeline was debugged against.
