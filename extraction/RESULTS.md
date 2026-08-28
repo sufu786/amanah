@@ -774,3 +774,56 @@ the largest of several nodules and the gold correctly refuses to attach it to th
 level that reasoning does not apply, because `lung` describes every nodule in the set. The precedent
 was written against a finer vocabulary than the one now in use, and needs revisiting on those
 grounds rather than because it was wrong.
+
+## Location, measured against a corrected gold standard
+
+The six locations the gold standard was missing are now labelled, read from the words in each
+instance's own finding span. With those in place and the vocabulary closed, location can be scored
+for the first time.
+
+```
+detection recall     90.9%   (10/11)
+category accuracy    80.0%   (8/10)
+action accuracy      60.0%   (6/10)
+location accuracy    40.0%   (4/10)
+```
+
+Location is the weakest field, and it fails in the opposite direction to the one the earlier draft
+of this section claimed. Five of the six errors are the model returning nothing where the report
+states a location. Only one is an over-reach: `brain` on a head CT whose recommendation names no
+body part.
+
+## An attempted fix that made it worse, and was reverted
+
+The obvious cause was an instruction in `fields.mjs` telling the model that anatomy is "none" when
+the recommendation names no body part. Locations live in the finding, not the recommendation:
+"Additional imaging is needed" names nothing, while the finding above it says "Right breast focal
+asymmetry". The prompt pointed at the wrong sentence.
+
+Rewriting it to read the location from the finding was tried and is not kept.
+
+| | Before | After |
+|---|---|---|
+| Detection recall | 90.9% | 81.8% |
+| Location accuracy | 40.0% | 33.3% |
+
+One instance improved, one regressed from correct to nothing, and one was lost entirely when the
+model invented a finding quote that the verbatim check refused. Net worse on every column.
+
+The reverted wording is arguably the more accurate description of where a location comes from. It
+also measured worse, on the only evidence available, so it is not adopted. With ten instances
+neither version is well evidenced, and that is the point: this was a second prompt edit chasing a
+number on a development set, which the section above this one explicitly warns against. It should
+not have been attempted, and it is recorded because a reverted change with a measurement attached is
+more useful to the next person than a quiet deletion.
+
+## What the number means
+
+40% location accuracy is not usable. `anatomy` and `laterality` are two of the four components of
+`identity_key`, so a location that is wrong or absent six times in ten means serial studies of the
+same finding will not resolve to one obligation. Section 6 of the specification calls that failure
+the most dangerous silent one available, and this measurement says the system currently has it.
+
+What it does not say is why. The corpus is ten instances, the labels were corrected once already,
+and one prompt attempt has produced noise rather than a direction. Both a real cause and a real fix
+need the held-out set rather than more iteration on these fifty reports.

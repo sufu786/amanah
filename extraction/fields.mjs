@@ -181,6 +181,7 @@ if (isMain) {
 
   let filled = 0;
   let rejected = 0;
+  let unreachable = 0;
   const started = Date.now();
 
   for (const p of pred.predictions) {
@@ -192,6 +193,7 @@ if (isMain) {
         v = await fillFields(text, rec.recommendation_verbatim, { model });
       } catch (err) {
         console.error(`  ${p.report_id}: ${err.message}`);
+        unreachable++;
         v = { ok: false, reason: 'model_unreachable' };
       }
       if (v.ok) {
@@ -207,6 +209,16 @@ if (isMain) {
     }
     p.output.recommendations = out;
     p.output.extraction.prompt_version += `+fields${FIELDS_VERSION}`;
+  }
+
+  // An unreachable model must not produce a file that looks like a result. Everything failing for
+  // want of a server scores as 0% recall, which is indistinguishable from a catastrophic model
+  // failure once the console output has scrolled away. Refuse to write instead.
+  if (unreachable > 0 && filled === 0) {
+    console.error(`\nEvery candidate failed with the model unreachable. Nothing written to `
+      + `${outPath}, because a file of zero extractions scores as total failure and would be `
+      + `indistinguishable from one. Start the model and run again.`);
+    process.exit(1);
   }
 
   pred.prompt_version += `+fields${FIELDS_VERSION}`;
