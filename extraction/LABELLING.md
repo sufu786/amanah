@@ -160,6 +160,39 @@ adopt this; the subset can be drawn from work already done.
    remainder. This is what makes a subset protect the whole corpus rather than only the sample: an
    ambiguity found in 100 reports was present in all 500.
 
+### 5d. Model assistance, which is advisory
+
+The labeller works alongside a language model used as a guide. The division is fixed and it is the
+point of this section: **the model advises and the labeller decides.** No label in this corpus
+originated with a model, and every call, including the ones where the model disagreed, was made by
+the person holding the credential.
+
+What the model does. It is shown the report, checks the labeller's call against the section 7
+precedents, and says which precedent applies or where it thinks the call is wrong. Once a decision
+is made it drafts the precedent text recording it. It is a faster way to hold thirteen precedents in
+mind than remembering them, and that is the whole of its function.
+
+What it does not do. It does not choose a label, resolve an ambiguity, or break a tie. Where it
+disagreed with the labeller during the pilot, the labeller settled it, sometimes by accepting the
+correction and sometimes by overruling it.
+
+Three things follow, recorded because section 5c requires that how the labels were made travels with
+every metric.
+
+**Precedent text was drafted by the model.** Six of the thirteen were, from decisions the labeller
+made. Precedents shape later calls, so this is influence on the protocol even where it is not
+influence on any individual label, and it should be visible rather than inferred.
+
+**A model is not a second labeller.** It holds no PhysioNet credential, it agrees with itself twice
+for the same reasons, and its agreement with the labeller is not an inter-annotator statistic and
+must never be reported as one. Section 5b describes the only thing that would be, and 5b is what
+answers a reader who suspects the protocol only makes sense to its authors: one credentialed person
+who has not seen this work, labelling a subset independently.
+
+**Report text reaches a hosted service.** The data use agreement forbids MIMIC data being stored or
+retained by third-party language model services. The labeller holds the credential and made that
+decision. It is recorded here so the decision is explicit rather than implicit.
+
 ### 5c. How the labels were made travels with the metrics
 
 A metric is not independent of the ground truth it was scored against, in the same way that no
