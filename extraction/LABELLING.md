@@ -588,6 +588,42 @@ examination in hand.
 further film should be obtained at 24 hours, that is an instance and 7.4 does not touch it. The test
 is not whether a time is present or whether the sentence is imperative. It is whether the thing being
 asked for is the study you are reading.
+
+### 7.15 Routine screening, recommended in general terms, is not an instance
+
+**The text.** From a screening mammogram assessed BI-RADS 2, under its own header:
+
+> "RECOMMENDATION(S):  Age and risk appropriate screening."
+
+**The decision.** No instance.
+
+**The reason.** It names no test, no interval, and nothing specific to this patient. It describes the
+routine that applies to her regardless of what this report found, which is the boilerplate the
+prompt already excludes when no specific test is named. The report has not created a duty; it has
+restated a population default.
+
+**The argument against, which is not weak.** It sits under an explicit recommendation header, and
+declining to label something a radiologist filed as a recommendation is the labeller overruling the
+report. And returning for the next screening round is a real duty that real people genuinely lose,
+which is close to the centre of what this project is for.
+
+**What settles it.** The interval cannot be read from the report and cannot be supplied. "Age and
+risk appropriate" resolves only through a screening guideline, and R6 forbids the extraction layer
+from supplying one. An obligation made from this sentence would have no due date, could therefore
+never become overdue, could never be discharged, and would appear on every benign screening
+mammogram in the corpus. That is not a duty being tracked. It is a permanent open item that means
+nothing.
+
+**Where the line moves.** A screening report that names a specific test or writes an interval is an
+instance and this precedent does not touch it. "Repeat mammogram in 6 months" is a duty with a due
+date. "Additional imaging is needed", as in 13789201-RR-12, is a duty with a specific action. The
+test is whether the report asks for something this patient in particular now owes, not whether the
+word recommendation appears above it.
+
+**Frequency.** Mammography is about 5% of stratum A and most screening studies are assessed BI-RADS
+1 or 2, so this line should be expected another ten to fifteen times. It is recorded now because a
+decision taken once and applied consistently is worth more than the same call made fifteen times
+from memory.
 ---
 
 ## 8. The harness
