@@ -673,10 +673,15 @@ section in the same file would otherwise be right to call them inconsistent.
 ### 8b. The labelling tool
 
 ```
-node label-server.mjs --corpus C:/mimic/pilot/reports-A.json --out C:/mimic/pilot/labels-A.json
+node label-server.mjs --corpus reports-A.json --out labels-A.json \n                      --corpus reports-B.json --out labels-B.json
 ```
 
-Then open `http://127.0.0.1:7777`. Select the recommendation text and press `R`. Select the finding
+Then open `http://127.0.0.1:7777`. Reports arrive in one shuffled order across every stratum given,
+and which stratum a report came from is not sent to the page at all. That is section 6 step 5: a
+labeller who knows a report came from the cue-enriched stratum expects to find something, and
+expecting to find something is how the C1 boundary gets crossed. The shuffle is seeded, so the order
+a labeller saw is reproducible rather than merely asserted, and each stratum is still written to its
+own label file because section 6 forbids pooling them for scoring. Select the recommendation text and press `R`. Select the finding
 and press `F`. Press `N` for a report with no recommendation, which will be most of them. Every save
 writes the file and moves on, and restarting resumes where you stopped.
 

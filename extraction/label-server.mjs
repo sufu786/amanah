@@ -29,6 +29,7 @@ import {
   loadCorpus, loadLabelSet, sha256, findRepeats, spanOverlap, PROTOCOL_VERSION,
 } from './labels.mjs';
 import { FINDING_CATEGORIES, ACTIONS } from './extract.mjs';
+import { sortKey } from './corpus.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -131,41 +132,72 @@ export function buildEntry(report, body) {
 function main() {
   const args = process.argv.slice(2);
   const get = (f, d = null) => { const i = args.indexOf(f); return i === -1 ? d : args[i + 1]; };
-  const corpusPath = get('--corpus');
-  const outPath = get('--out');
   const labeller = get('--labeller', 'A');
   const port = Number(get('--port', '7777'));
+  const orderSeed = get('--order-seed', 'amanah-labelling-order');
 
-  if (!corpusPath || !outPath) {
-    console.error('usage: node label-server.mjs --corpus <reports.json> --out <labels.json> [--labeller A] [--port 7777]');
+  // --corpus and --out may each be given more than once, one pair per stratum. Serving the strata
+  // together is what makes section 6 step 5 possible: a labeller who knows a report came from the
+  // cue-enriched stratum expects to find something, and expecting to find something is how the C1
+  // boundary gets crossed. One file at a time would tell them by construction.
+  const pairs = [];
+  for (let i = 0; i < args.length - 1; i++) {
+    if (args[i] === '--corpus') pairs.push({ corpusPath: args[i + 1], outPath: null });
+    if (args[i] === '--out') {
+      const open = pairs.filter((x) => x.outPath === null).at(-1);
+      if (open) open.outPath = args[i + 1];
+    }
+  }
+  if (!pairs.length || pairs.some((x) => !x.outPath)) {
+    console.error('usage: node label-server.mjs --corpus <reports.json> --out <labels.json>');
+    console.error('                             [--corpus <more.json> --out <more-labels.json>]');
+    console.error('                             [--labeller A] [--port 7777] [--order-seed S]');
+    console.error('');
+    console.error('Give one --corpus/--out pair per stratum. Reports are served in one shuffled');
+    console.error('order with the stratum hidden, and each label is written to its own file.');
     process.exit(2);
   }
 
-  const corpusData = loadCorpus(corpusPath);
-  const reports = [...corpusData.reports.values()];
+  for (const s of pairs) s.data = loadCorpus(s.corpusPath);
+
+  // One shuffled order across every stratum, keyed by the same sha256(seed | id) the draw uses.
+  // Deterministic, so the order a labeller saw is reproducible rather than merely asserted.
+  const reports = pairs
+    .flatMap((s) => [...s.data.reports.values()].map((r) => ({ ...r, _source: s })))
+    .map((r) => ({ ...r, _key: sortKey(orderSeed, r.id) }))
+    .sort((a, b) => (a._key < b._key ? -1 : a._key > b._key ? 1 : 0));
 
   // Resume. A seventeen-hour job that loses its place on a crash is a job nobody finishes.
-  let entries = new Map();
-  if (existsSync(outPath)) {
-    const existing = JSON.parse(readFileSync(outPath, 'utf8'));
-    for (const e of existing.labels ?? []) entries.set(e.report_id, e);
-    console.log(`resuming: ${entries.size} of ${reports.length} already labelled`);
+  for (const s of pairs) {
+    s.entries = new Map();
+    if (existsSync(s.outPath)) {
+      const existing = JSON.parse(readFileSync(s.outPath, 'utf8'));
+      for (const e of existing.labels ?? []) s.entries.set(e.report_id, e);
+    }
   }
+  const doneCount = () => pairs.reduce((n, s) => n + s.entries.size, 0);
+  if (doneCount()) console.log(`resuming: ${doneCount()} of ${reports.length} already labelled`);
 
+  // Each stratum keeps its own label set on disk. Section 6 forbids pooling them for scoring, so
+  // they are never pooled in storage either: a file that exists cannot be scored by mistake.
+  // Labels are written in the stratum's own draw order, not the shuffled presentation order.
   const writeOut = () => {
-    const doc = {
-      corpus: corpusData.corpus,
-      labeller,
-      protocol_version: PROTOCOL_VERSION,
-      labels: reports.filter((r) => entries.has(r.id)).map((r) => entries.get(r.id)),
-    };
-    mkdirSync(dirname(outPath), { recursive: true });
-    writeFileSync(outPath, `${JSON.stringify(doc, null, 2)}\n`, 'utf8');
+    for (const s of pairs) {
+      const doc = {
+        corpus: s.data.corpus,
+        labeller,
+        protocol_version: PROTOCOL_VERSION,
+        labels: [...s.data.reports.values()]
+          .filter((r) => s.entries.has(r.id))
+          .map((r) => s.entries.get(r.id)),
+      };
+      mkdirSync(dirname(s.outPath), { recursive: true });
+      writeFileSync(s.outPath, `${JSON.stringify(doc, null, 2)}\n`, 'utf8');
 
-    // Validate what was just written, with the loader that gates scoring. `partial` because a set
-    // in progress is legitimately incomplete; everything else is checked exactly as it will be
-    // when the file is finally scored.
-    loadLabelSet(outPath, corpusData, { partial: true });
+      // Validated by the loader that gates scoring. `partial` because a set in progress is
+      // legitimately incomplete; everything else is checked exactly as it will be when scored.
+      loadLabelSet(s.outPath, s.data, { partial: true });
+    }
   };
 
   const send = (res, code, body, type = 'application/json') => {
@@ -181,14 +213,17 @@ function main() {
     }
 
     if (req.method === 'GET' && url.pathname === '/data') {
+      // Section 6 step 5. The stratum a report was drawn from is deliberately absent here, not
+      // merely unused by the page: a labeller who could read it from the network tab would be as
+      // biased as one who was told.
       return send(res, 200, {
-        corpus: corpusData.corpus,
+        corpus: pairs.map((s) => s.data.corpus).join(' + '),
         labeller,
         findings: FINDING_CATEGORIES,
         actions: ACTIONS,
         reports: reports.map((r) => ({ id: r.id, text: r.text, modality: r.modality ?? null })),
-        done: [...entries.keys()],
-        entries: Object.fromEntries(entries),
+        done: pairs.flatMap((s) => [...s.entries.keys()]),
+        entries: Object.fromEntries(pairs.flatMap((s) => [...s.entries])),
       });
     }
 
@@ -198,8 +233,10 @@ function main() {
       req.on('end', () => {
         try {
           const body = JSON.parse(raw);
-          const report = corpusData.reports.get(body.report_id);
-          if (!report) throw new Error(`unknown report ${body.report_id}`);
+          const source = pairs.find((s) => s.data.reports.has(body.report_id));
+          if (!source) throw new Error(`unknown report ${body.report_id}`);
+          const report = source.data.reports.get(body.report_id);
+          const entries = source.entries;
           const entry = buildEntry(report, body);
           const previous = entries.get(report.id);
           entries.set(report.id, entry);
@@ -211,7 +248,7 @@ function main() {
             writeOut();
             throw e;
           }
-          send(res, 200, { ok: true, done: entries.size, entry });
+          send(res, 200, { ok: true, done: doneCount(), entry });
         } catch (e) {
           send(res, 400, { ok: false, error: e.message });
         }
@@ -225,11 +262,13 @@ function main() {
   // 127.0.0.1 explicitly, never 0.0.0.0. The corpus is credentialed data and this must not be
   // reachable from anything but this machine.
   server.listen(port, '127.0.0.1', () => {
-    console.log(`\n  Labelling ${reports.length} reports from ${corpusData.corpus}`);
-    console.log(`  Writing to ${outPath}`);
+    console.log(`\n  Labelling ${reports.length} reports from ${pairs.map((s) => s.data.corpus).join(' + ')}`);
+    for (const s of pairs) console.log(`    ${s.data.corpus} -> ${s.outPath}`);
     console.log(`\n  Open  http://127.0.0.1:${port}\n`);
     console.log('  Bound to 127.0.0.1 only. Nothing is sent anywhere else.');
-    console.log('  Every save is validated by the same loader that gates scoring.\n');
+    console.log('  Every save is validated by the same loader that gates scoring.');
+    console.log(`  Order shuffled by seed "${orderSeed}"; which stratum a report came from is`);
+    console.log('  not sent to the page at all (section 6 step 5).\n');
   });
 }
 
