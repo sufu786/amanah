@@ -554,6 +554,40 @@ A closed vocabulary for `modality` is the obvious next step, and `corpus.mjs` al
 usable one in `classifyExamName`. It is not adopted here. Fixing granularity is worth doing across
 eleven instances. Agreeing an enum is worth doing once the full stratum A shows which values occur.
 
+
+### 7.14 A scheduling instruction in the indication is still the indication
+
+**The text.** From an abdominal radiograph taken during a contrast transit study:
+
+> "INDICATION: ___ year old man with SBO// evaluate transit of contrast through small bowel,
+> please obtain at 24 hours after drinking contrast (3PM today)"
+
+**The decision.** No instance.
+
+**The reason.** Section 7.4 already says the indication is never a recommendation under any header,
+and this is the hardest form that rule has met. It is an explicit imperative, addressed to the
+department rather than to the patient, and it carries a time. It is still the order for the study
+being reported, and a request this report answers is not a request outstanding after it.
+
+The report gives a second reason to leave it alone. Its impression reads "suggestive of a partial
+small bowel obstruction", which is the diagnostic use of "suggest" recorded in `RESULTS.md` from the
+Open-i pilot, where every cue-word match turned out to be a hedge. Neither sentence asks for
+anything after this film.
+
+**Why this needed writing down.** The interval is the problem. No instance in the pilot corpus states
+one, so a time appearing anywhere in a report draws attention it has not earned, and both readers of
+this report noticed themselves wanting the label because it would have been the first. A time inside
+an order is the schedule for the study being reported. It is not a due date for a duty that study
+creates.
+
+The shape recurs: contrast transit studies, serial post-operative films, and delayed-phase imaging
+all carry timing instructions in the indication, and all of them are describing when to perform the
+examination in hand.
+
+**Where the line would move.** If a report said, in its impression rather than its indication, that a
+further film should be obtained at 24 hours, that is an instance and 7.4 does not touch it. The test
+is not whether a time is present or whether the sentence is imperative. It is whether the thing being
+asked for is the study you are reading.
 ---
 
 ## 8. The harness
