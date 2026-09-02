@@ -142,6 +142,34 @@ export function buildEntry(report, body) {
   };
 }
 
+
+/**
+ * Parse the section 7 precedents out of LABELLING.md, so the labeller can see them beside the
+ * report instead of holding seventeen rules in their head or looking them up.
+ *
+ * Read from the file at startup rather than duplicated here. A second copy of the precedents is a
+ * second copy that goes stale, which is how PROMPT.md drifted from the prompt it documented.
+ */
+function loadPrecedents() {
+  const path = join(here, 'LABELLING.md');
+  if (!existsSync(path)) return [];
+  const text = readFileSync(path, 'utf8');
+  const heading = /^### (7\.\d+) (.+)$/gm;
+  const out = [];
+  let m;
+  while ((m = heading.exec(text)) !== null) {
+    const nextIdx = text.indexOf('\n### ', m.index + 1);
+    const body = text.slice(m.index, nextIdx === -1 ? text.length : nextIdx);
+    const decision = body.match(/\*\*The decision\.\*\*\s*([\s\S]*?)(?:\n\n|$)/);
+    out.push({
+      id: m[1],
+      title: m[2].trim(),
+      decision: decision ? decision[1].replace(/\s+/g, ' ').trim() : null,
+    });
+  }
+  return out;
+}
+
 function main() {
   const args = process.argv.slice(2);
   const get = (f, d = null) => { const i = args.indexOf(f); return i === -1 ? d : args[i + 1]; };
@@ -172,6 +200,8 @@ function main() {
   }
 
   for (const s of pairs) s.data = loadCorpus(s.corpusPath);
+
+  const precedents = loadPrecedents();
 
   // One shuffled order across every stratum, keyed by the same sha256(seed | id) the draw uses.
   // Deterministic, so the order a labeller saw is reproducible rather than merely asserted.
@@ -234,6 +264,7 @@ function main() {
         labeller,
         findings: FINDING_CATEGORIES,
         actions: ACTIONS,
+        precedents,
         anatomy: ANATOMY,
         laterality: LATERALITY,
         reports: reports.map((r) => ({ id: r.id, text: r.text, modality: r.modality ?? null })),

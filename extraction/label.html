@@ -52,6 +52,12 @@
   #msg.ok { display: block; background: #eaf6ee; border: 1px solid #b3ddc2; color: #14562a; }
   .hint { font-size: 12px; color: #6a7076; margin-top: 14px; line-height: 1.5; }
   kbd { background: #eef0f2; border: 1px solid #d6dade; border-radius: 3px; padding: 1px 5px; font-size: 11px; }
+#precbox{margin-top:14px;border:1px solid #d5d5d5;border-radius:4px;background:#fbfbfb}
+#precbox summary{cursor:pointer;padding:8px 10px;font-weight:600;user-select:none}
+#preclist{padding:0 10px 10px}
+.prec{padding:6px 0;border-top:1px solid #eee}
+.prec b{font-family:ui-monospace,Menlo,Consolas,monospace}
+.prec .d{color:#555;display:block;margin-top:2px}
 </style>
 </head>
 <body>
@@ -69,7 +75,12 @@
     Select text in the report, then press <kbd>R</kbd> to mark it as a recommendation, or
     <kbd>F</kbd> to attach the finding to the recommendation you are editing.
     <kbd>N</kbd> saves this report as having no recommendation.
+    <kbd>P</kbd> shows the section 7 precedents.
   </div>
+  <details id="precbox">
+    <summary>Section 7 precedents</summary>
+    <div id="preclist"></div>
+  </details>
 </div>
 
 <div class="side">
@@ -278,12 +289,19 @@ document.addEventListener('keydown', (e) => {
     recs[activeRec].finding_span = span;
     renderRecs();
   }
+  if (k === 'p') { const b = document.getElementById('precbox'); if (b) b.open = !b.open; return; }
   if (k === 'arrowright') loadInto(idx + 1);
   if (k === 'arrowleft') loadInto(idx - 1);
 });
 
 fetch('/data').then((r) => r.json()).then((d) => {
   DATA = d;
+  const pl = document.getElementById("preclist");
+  if (pl && Array.isArray(d.precedents)) {
+    pl.innerHTML = d.precedents.map((p) =>
+      '<div class="prec"><b>' + esc(p.id) + '</b> ' + esc(p.title) +
+      (p.decision ? '<span class="d">' + esc(p.decision) + '</span>' : '') + '</div>').join('');
+  }
   const firstUnlabelled = d.reports.findIndex((r) => !d.done.includes(r.id));
   loadInto(firstUnlabelled === -1 ? 0 : firstUnlabelled);
 });
