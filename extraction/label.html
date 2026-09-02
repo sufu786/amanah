@@ -235,8 +235,21 @@ async function save(thenNext) {
   if (!DATA.done.includes(body.report_id)) DATA.done.push(body.report_id);
   DATA.entries[body.report_id] = out.entry;
   msg(`saved, ${out.done} of ${DATA.reports.length}`, 'ok');
-  if (thenNext && idx < DATA.reports.length - 1) loadInto(idx + 1); else render();
+  if (thenNext) nextUnlabelled(); else render();
   return true;
+}
+
+// Saving advances to the next report not yet labelled, wrapping once to catch anything skipped
+// earlier. Previous and Next stay strictly sequential, so a labeller can still walk back through
+// finished reports to review a call. Only the save path skips, because that is the path that knows
+// the labeller is done with the report in front of them.
+function nextUnlabelled() {
+  const n = DATA.reports.length;
+  for (let step = 1; step <= n; step++) {
+    const j = (idx + step) % n;
+    if (!DATA.done.includes(DATA.reports[j].id)) { loadInto(j); return; }
+  }
+  render(); // every report is labelled
 }
 
 $('next').onclick = () => loadInto(idx + 1);
