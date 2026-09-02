@@ -624,6 +624,49 @@ word recommendation appears above it.
 1 or 2, so this line should be expected another ten to fifteen times. It is recorded now because a
 decision taken once and applied consistently is worth more than the same call made fifteen times
 from memory.
+
+### 7.16 Attention on future studies is a recommendation, owed by someone the registry cannot name
+
+**The text.** Three reports, all labelled, all the same construction:
+
+> "Attention on followup exams is recommended."
+> "Close attention on follow-up is recommended."
+> "Micro nodules in the right lower lobe are nonspecific attention in followup studies is
+> recommended."
+
+**The decision.** A recommendation in each case. Action `imaging`, no modality, no interval.
+
+**The reason.** Section 2 asks whether the report states that something further should happen after
+it, and each of these does. None of them is hedged, generic, or boilerplate: each names a specific
+finding and asks that it be watched. Three occurrences in roughly forty reports makes this one of
+the commoner recommendation shapes in the corpus, so declining to label it would lose a material
+fraction of everything the corpus contains.
+
+**What is unresolved, and belongs in the specification rather than here.** These duties are not owed
+by the patient.
+
+Every other instance in this corpus asks for something a patient can arrange, chase, or fail to
+attend: an ultrasound, a biopsy, an appointment. These ask whoever reports the next scan to look
+carefully at something. The patient cannot arrange it, cannot verify it, cannot discharge it, and
+would not know what to do if the prepared summary showed it to them.
+
+The obligation model has no concept of this. `owner` exists on an obligation and is a person, the
+escalation ladder assumes somebody can act, and the prepared summary is written to be handed to a
+patient. A duty owed by an unnamed future radiologist fits none of that.
+
+Three things follow, and none of them is a labelling decision.
+
+- The label stands. The report states a duty, the protocol records what the report states, and
+  inventing an owner would be the extraction layer deciding something the document does not say.
+- `OBLIGATION_SPEC.md` needs to say what happens to an obligation whose owner is not the subject.
+  Either the model gains a way to hold one, or this class is explicitly out of scope and filtered
+  before an obligation is built.
+- Until that is settled, an extractor scoring well on these instances is scoring well on material
+  the system downstream cannot use. That is worth knowing when reading a recall figure.
+
+**Where the line sits.** "Attention on follow-up" attached to a named finding is an instance. A
+general exhortation attached to nothing, of the "continued clinical vigilance is advised" kind, is
+boilerplate under 7.15 and is not.
 ---
 
 ## 8. The harness
