@@ -667,6 +667,41 @@ Three things follow, and none of them is a labelling decision.
 **Where the line sits.** "Attention on follow-up" attached to a named finding is an instance. A
 general exhortation attached to nothing, of the "continued clinical vigilance is advised" kind, is
 boilerplate under 7.15 and is not.
+
+### 7.17 An empty recommendation section
+
+**The text.** From a cerebral angiogram, the last two lines of the report:
+
+> "RECOMMENDATION(S):
+> 1."
+
+**The decision.** No instance.
+
+**The reason.** Nothing states a duty. There is no sentence, so there is nothing to quote, and R5
+requires that every obligation carry verbatim source text. A header is not a recommendation, and a
+list marker with nothing after it is not one either. An extractor returning anything here would be
+inventing it outright.
+
+**Why it is recorded rather than passed over.** Every other report labelled with no instance had
+nothing to recommend. This one has a structure saying a recommendation was expected, and a blank
+where it should be. The radiologist opened the section, typed the number, and stopped.
+
+That is worth counting. Elsewhere in this corpus a duty sometimes plainly exists in clinical terms
+and goes unwritten: an indeterminate pulmonary nodule with no follow-up, a comminuted calcaneal
+fracture with no referral. Those are a reader's inference and the protocol correctly refuses to act
+on them. This case is different, because the document testifies against itself. The template says a
+recommendation belongs here and none was dictated.
+
+**What it bounds.** This system tracks duties that are lost after being stated. A duty lost at
+dictation is invisible to it, and no extractor of any quality reaches one. The frequency of empty
+recommendation sections is therefore an upper bound on what the approach can do, and it is
+measurable from the corpus rather than argued about. If these accumulate, the number belongs in
+`CORPUS.md` section 8 alongside the other things this corpus cannot do.
+
+**Not to be confused with 7.9.** There, the wording was damaged but a request survived: "Recommend
+lateral some for further evaluation" asks for something whose name did not make it through
+dictation, and is labelled with action `unclear`. Here nothing was asked for at all. The difference
+is whether a duty exists and is unreadable, or does not exist in the document.
 ---
 
 ## 8. The harness
