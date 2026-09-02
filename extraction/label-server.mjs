@@ -28,7 +28,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
   loadCorpus, loadLabelSet, sha256, findRepeats, spanOverlap, PROTOCOL_VERSION,
 } from './labels.mjs';
-import { FINDING_CATEGORIES, ACTIONS } from './extract.mjs';
+import { FINDING_CATEGORIES, ACTIONS, ANATOMY, LATERALITY } from './extract.mjs';
 import { sortKey } from './corpus.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -58,6 +58,7 @@ export function buildEntry(report, body) {
       finding_verbatim: null,
       finding_span: null,
       anatomy: r.anatomy?.trim() || null,
+      laterality: r.laterality?.trim() || null,
       modality: r.modality?.trim() || null,
       interval: null,
       interval_verbatim: r.interval_verbatim?.trim() || null,
@@ -101,6 +102,18 @@ export function buildEntry(report, body) {
     }
     if (!ACTIONS.includes(out.action)) {
       throw new Error(`recommendation ${i + 1}: pick an action`);
+    }
+    // Both closed lists, both feeding identity_key. The old free-text anatomy field held values
+    // like "lung.right.upper_lobe", which is why this check names the mistake rather than just
+    // rejecting the value.
+    if (out.anatomy !== null && !ANATOMY.includes(out.anatomy)) {
+      throw new Error(`recommendation ${i + 1}: anatomy "${out.anatomy}" is not in the controlled `
+        + 'vocabulary. Laterality has its own field, so a left thyroid lesion is anatomy "thyroid" '
+        + 'and laterality "left", never "thyroid.left".');
+    }
+    if (out.laterality !== null && !LATERALITY.includes(out.laterality)) {
+      throw new Error(`recommendation ${i + 1}: laterality "${out.laterality}" is not one of `
+        + `${LATERALITY.join(', ')}, or empty.`);
     }
     return out;
   });
@@ -221,6 +234,8 @@ function main() {
         labeller,
         findings: FINDING_CATEGORIES,
         actions: ACTIONS,
+        anatomy: ANATOMY,
+        laterality: LATERALITY,
         reports: reports.map((r) => ({ id: r.id, text: r.text, modality: r.modality ?? null })),
         done: pairs.flatMap((s) => [...s.entries.keys()]),
         entries: Object.fromEntries(pairs.flatMap((s) => [...s.entries])),

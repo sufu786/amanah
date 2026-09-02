@@ -122,7 +122,7 @@ function selectionSpan() {
 const blank = () => ({
   recommendation_span: null, finding_span: null,
   finding: 'pulmonary_nodule', action: 'imaging',
-  anatomy: '', modality: '', interval_value: '', interval_unit: '', interval_verbatim: '',
+  anatomy: '', laterality: '', modality: '', interval_value: '', interval_unit: '', interval_verbatim: '',
   conditional: false, negated: false, already_scheduled: false,
 });
 
@@ -157,7 +157,14 @@ function renderRecs() {
       <label>Action</label>
       <select data-f="action" data-i="${i}">${DATA.actions.map((a) => `<option${a === rec.action ? ' selected' : ''}>${a}</option>`).join('')}</select>
       <div class="row">
-        <div><label>Anatomy</label><input type="text" data-f="anatomy" data-i="${i}" value="${esc(rec.anatomy)}" placeholder="lung.right.upper_lobe"></div>
+        <div><label>Anatomy</label>
+          <select data-f="anatomy" data-i="${i}">
+            ${['', ...DATA.anatomy].map((a) => `<option value="${a}"${a === rec.anatomy ? ' selected' : ''}>${a || 'none'}</option>`).join('')}
+          </select></div>
+        <div><label>Laterality</label>
+          <select data-f="laterality" data-i="${i}">
+            ${['', ...DATA.laterality].map((l) => `<option value="${l}"${l === rec.laterality ? ' selected' : ''}>${l || 'none'}</option>`).join('')}
+          </select></div>
         <div><label>Modality</label><input type="text" data-f="modality" data-i="${i}" value="${esc(rec.modality)}" placeholder="CT"></div>
       </div>
       <label>Interval, only if the report states one</label>
@@ -202,7 +209,7 @@ function loadInto(i) {
     ? existing.recommendations.map((r) => ({
       recommendation_span: r.recommendation_span, finding_span: r.finding_span,
       finding: r.finding, action: r.action,
-      anatomy: r.anatomy ?? '', modality: r.modality ?? '',
+      anatomy: r.anatomy ?? '', laterality: r.laterality ?? '', modality: r.modality ?? '',
       interval_value: r.interval?.value ?? '', interval_unit: r.interval?.unit ?? '',
       interval_verbatim: r.interval_verbatim ?? '',
       conditional: !!r.conditional, negated: !!r.negated, already_scheduled: !!r.already_scheduled,
