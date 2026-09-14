@@ -436,6 +436,95 @@ the truth by an amount nobody could estimate afterwards.
 **Labelling cost from here.** 450 reports remain unlabelled. At the pilot's pace that is roughly 15
 hours, and it is the dominant cost of Phase 1, exactly as 5.1 predicted.
 
+### 6.3 What labelling found
+
+All 500 reports labelled by one labeller under protocol v0.1, finished 2026-09-15. No predictions
+have been generated on the test split.
+
+| | Stratum A | Stratum B |
+|---|---|---|
+| Reports | 350 | 150 |
+| Carrying at least one instance | 48 | 63 |
+| Share | 13.7%, Wilson 95% interval 10.5% to 17.7% | 42.0% |
+| Clean reports | 302 | 87 |
+| Instances | 56 | 76 |
+| Instances per positive report | 1.17 | 1.21 |
+| Conditional | 14 | 18 |
+| Negated | 2 | 2 |
+| Already scheduled | 1 | 1 |
+| Interval stated and stored | 8 | 9 |
+| No finding quoted | 5 | 9 |
+
+The base rate figure is from A only, as section 4 requires. B's share describes the cue list, not
+radiology.
+
+**The base rate is lower than the pilot suggested, and inside its interval.** The pilot's 20% came
+from the first 50 of these 350. The remaining 300 carried 38 positives, 12.7%. The pilot interval
+of 11.2% to 33.0% contains the full figure, so the pilot was not wrong, only wide.
+
+**What that does to the sizes in 5.1.**
+
+- *False-positive bound.* 302 clean reports in A. Zero false positives would bound the true rate at
+  0.99% by the rule of three, which is the 1% the table promised. A lower base rate helps here.
+- *Recall.* 132 instances across both strata against the roughly 175 section 5.2 projected. At 80%
+  recall the 95% interval is plus or minus 6.8 points, not 5.9. From A alone, with 56 instances, it
+  is about plus or minus 10.5. Both are reported, as section 4 says.
+- *Composition.* A is 86.3% clean and the combined set 77.8%, both above the 60% floor.
+
+**How the labels were made.** One labeller, with no second reader. Under `LABELLING.md` section 5d
+the labeller discussed individual calls with a language model while labelling; every label was
+entered and decided by the labeller, and the model saw only what the labeller chose to show it.
+Precedents 7.18 to 7.27 were written from those calls after labelling finished.
+
+**The labels were revised once after labelling, before any scoring.** A consistency check against
+the new precedents listed candidate errors by report identifier and field values. Fifteen corrections
+were made to fourteen instances and one instance was added, each confirmed by the labeller before it
+was applied, and every changed file passed `loadLabelSet` before it was written. The pre-revision
+files are kept.
+
+| Correction | n | Rule |
+|---|---|---|
+| Modality holding alternatives, reduced to the first named | 5 | 7.24 |
+| Field left empty on the second of two instances sharing a span | 2 | 7.24 |
+| Anatomy on a laboratory instance, or on annual screening | 2 | 7.13, 7.25 |
+| Finding category (lymph nodes, pleural plaques labelled as nodules) | 2 | section 4 |
+| Risk-stratified guideline sentence labelled both negated and due in 12 months | 1 | 7.22 |
+| Conditional where only the timing depended on risk, with the later CT added as its own instance | 1 | 7.20, 7.22 |
+| `already_scheduled` set on a suggestion nothing had booked | 1 | 7.26 |
+| Modality on a referral | 1 | 7.19 |
+
+**The gold standard as scored.** The label files stay outside this repository under the DUA, so
+their hashes are recorded instead. Any later change to either file is a change to the gold standard
+and must be recorded here with a new hash before scoring.
+
+```
+labels-A.json   sha256 c8b0bdbee82f54b375a5d1c7f65d3f71467d9240760242b38c778b5c90d52668
+labels-B.json   sha256 e7b3cf405fd2f6972d5e8e99599702ba851711d4044b0167ce723f078aed562a
+```
+
+**Intervals.** 17 of 132 instances carry an interval the schema can store. Ten more write a time the
+schema cannot hold: four de-identified placeholders under `LABELLING.md` 7.1, four ranges ("in
+3 to 6 months", "in five to seven days"), one in hours, and one "every few years". Section 5.3
+expected interval accuracy to rest on a small base, and it does: 8 instances in A and 17 overall.
+
+**Findings.** 97 of 132 instances are `other`, 73.5%. An extractor answering `other` every time
+scores 73.5% on category accuracy, so that metric is reported only beside this baseline. See 9.3.
+
+**What a detector cannot find, recorded before it runs.** As in 5.4, so that the misses are a test.
+
+- *Reports the section filter hides entirely.* Ten reports (eight in A, two in B) print one heading
+  at the top, such as REASON FOR EXAMINATION, and none after it. `splitSentences` files every
+  sentence under that heading, and `sectionCannotRecommend` suppresses all of them. One labelled
+  instance sits in such a report, so recall has a ceiling below 100% that belongs to the filter.
+  The fix is in `sentences.mjs` and changes what the pipeline sees, so it is made on the
+  development split and recorded in `RESULTS.md`, not applied quietly.
+- *Content in a notification block.* `LABELLING.md` 7.8 keeps notification blocks from creating
+  instances, and the filter suppresses them. 7.26 records two cases where the block carries real
+  information: a booked biopsy that sets `already_scheduled`, and a rescheduled INR recheck. The
+  flag is therefore unreachable for a detector that reads sentences outside the block.
+- *Duties outside section 2's wording.* The patient-preference excision in 7.7 remains, as 5.4
+  predicted.
+
 ## 7. Development and test splits
 
 Three known extraction defects in `RESULTS.md` are unfixed, and the candidate second verification
@@ -465,7 +554,8 @@ at least one other language is a separate piece of work and should be planned as
 **It is one institution.** Recommendation phrasing is institutional and dictation habits are local.
 Numbers from BIDMC radiology are numbers from BIDMC radiology.
 
-**It cannot produce a single obligation.** Not one of the 400 drawn reports contains a date. Every
+**It cannot produce a single obligation.** Not one of the 500 drawn reports contains a date, which
+labelling confirmed report by report. Every
 one is de-identified to `___`, so `date_found` is null for all of them, and `acceptProposal` refuses
 a proposal with no document date because every due date derives from one.
 
@@ -487,13 +577,41 @@ or a decision that the date comes from outside the document, from the moment a p
 it or from a record the report is attached to. That is a specification question and section 12 of
 `OBLIGATION_SPEC.md` is where it belongs.
 
-**Conditional recommendations are a third of the real ones here.** Three of eleven. The
-specification refuses all of them pending human resolution, which is the right default and is also
-a workload nobody has sized. If that proportion holds, a third of everything this system extracts
-arrives needing a person before it can become a duty at all.
+**Conditional recommendations are a quarter of the real ones here.** Three of eleven in the pilot,
+32 of 132 across the full draw. The specification refuses all of them pending human resolution,
+which is the right default and is also a workload nobody has sized. A quarter of everything this
+system extracts arrives needing a person before it can become a duty at all.
 
 **It measures extraction, not linkage.** Nothing here says anything about whether an obligation, once
 created, gets closed. That is Phase 2 and it needs a deployment, not a corpus.
+
+**Its de-identification is not complete.** One report in stratum B names a clinician by first name in
+its communication line. The name is a member of staff, not the patient, and it is not quoted in any
+label span or in any file in this repository. The PhysioNet data use agreement asks credentialed users
+to report identifying information they find, and this is to be reported with the report identifier
+through the credentialing contact. The identifier is deliberately not recorded here. The practical
+lesson for anyone extending the corpus: de-identified is a property of the release process, not a
+guarantee about every row.
+
+**The schema cannot hold several things the reports say.** Each was met in labelling, and each is
+recorded in `LABELLING.md` section 7 with how it was encoded instead.
+
+- *Time in hours.* "Repeat chest radiograph in 10 hours" has no unit to go in. Interval null.
+- *Ranges and recurrence.* "In 3 to 6 months", "every few years". Interval null, verbatim kept.
+- *Timing by reference or by event.* "At that time, patient will be due annual mammography", "after
+  treatment/acute process has resolved". Interval null (7.20, 7.25).
+- *Urgency.* "Urgent revision is required", "nonemergent ultrasound", "close follow-up". There is no
+  field, and urgency is not an interval (7.21).
+- *More than one finding per instance.* "Followup in 3 months for assessment of the above described
+  findings" covers three findings and quotes one.
+- *Alternatives.* "PET-CT ... alternatively ... surveillance CT" stores the first-named test (7.24).
+- *Body parts outside the anatomy list.* Tooth, trachea, bronchus, foot and ankle. Anatomy null, or
+  `extremity` where that is honest.
+- *An owner who is not the patient.* Attention on future studies (7.16, 7.27) and device adjustments
+  (7.21) are owed by clinicians the registry cannot name.
+
+None of these blocks measurement. Each is a place where an obligation built from a correct label
+carries less than the report said, and each is a specification question.
 
 ## 9. Open decisions
 
@@ -518,6 +636,22 @@ Scoring a redacted gold standard gives numbers identical to the unredacted one, 
 
 Still worth asking PhysioNet whether short quotations are permitted, because a permissive answer
 means publishing the fuller file. But nothing waits on the answer now. See `LABELLING.md` section 8a.
+
+**9.3 The finding vocabulary. Open, with the frequencies 5.3 waited for.** 97 of 132 instances are
+`other`. Of the named categories only `pulmonary_nodule` (12) and `thyroid_nodule` (9) occur more
+than five times. Expanding the list relabels every `other` and changes every category metric, so it
+is a protocol version bump. It is not done before scoring. The test split is scored against v0.1 as
+labelled, category accuracy is reported beside the 73.5% majority baseline, and any expansion is
+drawn from the development split's `other` instances afterwards.
+
+**9.4 Instances with no finding. Open, with the frequency 5.5 waited for.** 14 of 132 instances quote
+no finding: 8 conditional and 6 not. The six are the shape 5.5 said fifty reports could not rule
+out, an unconditional recommendation that `acceptProposal` would pass and `createObligation` would
+refuse under R5. Five of the six are routine mammography after a benign result (`LABELLING.md`
+7.25), four with a stored one-year interval. The shape
+occurs, at about 5% of instances, so the choice 5.5 set out between quoting a negative statement,
+allowing an absent finding, and declaring the class out of scope now has to be made in
+`OBLIGATION_SPEC.md` rather than deferred.
 
 ---
 
