@@ -550,6 +550,13 @@ Trimming loses nothing. R5 keeps the whole phrase in `recommendation_verbatim`, 
 string a patient is shown. These two fields exist to be matched and counted on, not to be read
 aloud.
 
+**Anatomy locates the finding, not the test.** A blood test has no body part, and a laboratory
+instance still takes the anatomy of the finding it is about: hCG ordered for a gestational sac is
+`uterus`, hematology labs for abnormal calvarial marrow are `skull`. `anatomy` is part of
+`identity_key`, which matches a finding across serial studies, so it must say where the finding is.
+Two instances about one finding carry the same anatomy whatever their actions. Anatomy is null only
+where the finding spans more than one structure in the list, or where there is no finding, as in 7.25.
+
 A closed vocabulary for `modality` is the obvious next step, and `corpus.mjs` already carries a
 usable one in `classifyExamName`. It is not adopted here. Fixing granularity is worth doing across
 eleven instances. Agreeing an enum is worth doing once the full stratum A shows which values occur.
@@ -702,6 +709,291 @@ measurable from the corpus rather than argued about. If these accumulate, the nu
 lateral some for further evaluation" asks for something whose name did not make it through
 dictation, and is labelled with action `unclear`. Here nothing was asked for at all. The difference
 is whether a duty exists and is unreadable, or does not exist in the document.
+
+### 7.18 What a test can or cannot show is not a request for it
+
+**The text.** Four shapes, each seen more than once across the full draw:
+
+> "There is unchanged pes planus deformity (not well assessed on non weight-bearing views)."
+> "No displaced labral tear is seen on this non-arthrographic study."
+> "Scattered small sclerotic foci ... are better evaluated on the recent bone scan."
+> "The breast tissue is extremely dense which lowers the sensitivity of mammography."
+
+**The decision.** No instance in any of them.
+
+**The reason.** Each describes the limits of the examination in hand, or points at a study that has
+already been done. None asks for anything. A reader can infer that weight-bearing views, an
+arthrogram or supplemental breast imaging would help, and section 2 does not allow the inference to
+become the label. "Better evaluated on the recent bone scan" is the 7.10 pointer in another form:
+the study it names exists, so nothing is outstanding once it has been read.
+
+**Where the line moves.** A limitation followed by a request is an instance, and the request is what
+gets labelled. "The distal phalanx of the fifth toe is poorly visualized ... If there is concern for
+osteomyelitis ... recommend repeat coned-down views" is one. So is "No CT evidence of tamponade
+physiology, however if there is clinical concern, an echocardiogram would further assess", which
+sounds like a statement of capability but names a test for this patient's finding under a condition.
+The test is whether the sentence tells someone to do something, not whether it mentions a better
+test.
+
+### 7.19 Correlation, decided by what it is correlated with
+
+**The text.** Seven forms of the same construction from the full draw:
+
+> "Correlate clinically for risk factors."
+> "Correlation with any history of instrumentation is recommended"
+> "Recommended ... correlation with prior outside imaging studies for change of these lesions."
+> "Correlate clinically and with labs and follow up if necessary."
+> "Correlate with hematology labs for anemia, systemic disease, myeloproliferative or infiltrative
+> changes."
+> "Correlate with LFTs."
+> "Recommend correlation with dental examination."
+
+**The decision.** The first four are not instances. The last three are, with actions `laboratory`,
+`laboratory` and `referral`.
+
+**The reason.** 7.5 settled that correlation with a named test is an order for that test. What it did
+not settle is what counts as named. The object of "correlate with" decides it:
+
+- Nothing, or the patient's condition ("clinically"): boilerplate under section 2.
+- Information that already exists ("history", "prior studies"): finishing the reading of this
+  examination, not a new duty. Once the history is checked, nothing is owed.
+- Laboratory work without saying which ("labs"): as unspecific as "clinically".
+- A specific test, a named panel, or a named examination by another professional: an action that has
+  not happened yet.
+
+`hematology labs` and `LFTs` go in `modality` in the report's words, as a scan would. A dental
+examination is a person rather than a test, so it is `referral` with modality empty.
+
+**The argument against the second group.** Obtaining outside images is a real step that can be
+missed. It is not labelled because counting it would make every report that lacked a comparison a
+candidate, and that expansion is a scope decision rather than a labelling one.
+
+### 7.20 A condition followed by an action is conditional; followed by a diagnosis, it is not an instance
+
+**The text.**
+
+> "If there is concern for obstruction, CT should be obtained."
+> "Ultrasound could be obtained for confirmation if clinically indicated."
+> "If there is clinical symptomatology related to this area, this could represent an acute
+> fracture."
+> "This finding could be related to degenerative disease, but suspicious metastasis should be
+> considered, given the clinical scenario of breast cancer."
+
+**The decision.** The first two are instances with `conditional` true. The last two are not
+instances.
+
+**The reason.** The shape "if ..., then ..." and the word "consider" both look like section 2's
+example "Consider repeat imaging if symptoms persist". What matters is what sits in the second half.
+A test, a procedure or a referral is something to do. A diagnosis is the radiologist's reading of the
+finding, which is 7.3. "Metastasis should be considered" asks the reader to hold a possibility in
+mind and names nothing to do about it.
+
+"If clinically indicated" is a weak condition, closer to a hedge than a trigger, and it still sets the
+flag. It does not remove the instance, because the sentence names a specific test.
+
+**Timing is not a condition.** "Follow-up CT is recommended after treatment/acute process has resolved"
+says when, not whether. `conditional` stays false and the interval is empty, because the timing is
+tied to an event and not to a number of units. The same holds for "Consideration for repeat
+tomosynthesis" once pathology returns: the wait is for a result, and the consideration is promised
+either way.
+
+### 7.21 Lines, tubes and devices: an adjustment is an instance, a position is not
+
+**The text.**
+
+> "the left PICC line continues to be malpositioned in the jugular vein. Urgent revision is
+> required."
+> "NG tube positioned with its tip just beyond the GE junction. Consider advancement for more
+> optimal positioning."
+> "Tip of the endotracheal tube ... is no less than 5 cm from the carina and could be advanced 2 cm
+> for more secured seating."
+> "The tip of a right internal jugular central venous catheter projects over the upper right atrium,
+> approximately 2 cm beyond the cavoatrial junction."
+> "Low position of IUD in lower uterine segment, with 1 arm of the crossbar extending anteriorly into
+> the myometrium by 4 mm"
+
+**The decision.** The first three are instances, action `procedure`, modality empty. The last two are
+not instances.
+
+**The reason.** Portable chest films and line checks are a large share of the corpus, and nearly every
+one describes where a device ends. Section 2 needs a named action, and the position alone is a
+finding however clearly it is wrong. The malpositioned IUD, partly in the myometrium, will be removed
+by a gynaecologist; the report does not say so, and the protocol tracks what was recommended.
+
+Once an adjustment is written, the duty is as real as any scan. Section 2 has no carve-out for acute
+or inpatient care, and none is made here. The instance is probably discharged within hours, which is
+an argument about what the registry is for rather than about what the report says.
+
+**Two fields that tempt.** A distance ("advanced 2 cm") is not an interval. An urgency ("urgent",
+"nonemergent", "close") is not an interval either, and the schema has nowhere to hold it; see
+`CORPUS.md` section 8.
+
+### 7.22 Text that would be printed whatever the images showed
+
+**The text.**
+
+> "Correlation with real-time findings and, when appropriate, conventional radiographs is recommended
+> for further assessment." (intraoperative fluoroscopy acquired without a radiologist present)
+> "These findings are so common in asymptomatic persons that they must be interpreted with caution
+> and in context of the clinical situation." (a lumbar prevalence table on a cervical spine MRI)
+> "For high risk patients, recommend follow-up at 12 months and if no change, no further imaging
+> needed." (a pulmonary nodule guideline table under RECOMMENDATION(S))
+> "Once the pathology report is available and concordance is established an addendum will be
+> generated to this report, and the patient will be contacted ..." (a breast biopsy)
+
+**The decision.** No instance in any of them.
+
+**The reason.** The first names a test and says "recommended", and read alone it passes section 2.
+It appeared twice, one word apart, on two intraoperative studies whose images showed different
+things. A sentence that does not depend on the findings has not been caused by them, so the report
+has created no duty. This is 7.8's template reasoning applied outside a notification block.
+
+The test is not whether a sentence is common. "If there is concern for obstruction, CT should be
+obtained" may appear word for word on many abdominal films, and it is still an instance, because it
+is only written when the gas pattern is nonspecific. Commonness is not boilerplate. Independence
+from the findings is.
+
+**Guideline tables.** A table listing every size and risk band is not a set of instances, and its
+branches are not labelled as negated or as intervals. The report's own sentence pointing into the
+table is the instance: "Recommend correlation with patient risk factors and a follow up CT chest
+imaging, as below." Its interval is null, because it depends on a risk the report does not know.
+Choosing the low-risk branch would be choosing for the patient. It is not conditional where every
+branch that applies to the finding's size calls for follow-up, because only the timing depends on
+the risk.
+
+**The template sentence can carry a real one.** The biopsy report's next sentence, "This will
+include consideration for repeat tomosynthesis image of the left breast to confirm that the
+ultrasound finding corresponds to the questioned architectural distortion", follows from a clip that
+this report found may be misplaced. That sentence is an instance even though the one before it is
+not.
+
+### 7.23 A negated instance needs a finding to negate
+
+**The text.**
+
+> "1.0 cm left thyroid lobe nodule. No further follow-up is recommended."
+> "There are no thyroid abnormalities warranting further imaging evaluation."
+
+**The decision.** The first is an instance with `negated` true, finding `thyroid_nodule`. The second
+is not an instance.
+
+**The reason.** Section 4 labels "No further imaging required" as evidence for the `not_indicated`
+state. That evidence closes something. In the first report a nodule was measured and deliberately
+closed. In the second nothing was reported, and the sentence is a normal finding phrased in the
+language of guidelines. An obligation made from it would close an item that never existed.
+
+A report can carry both kinds of instance. A CT chest in the full draw recommends repeat CT for lung
+nodules, negates follow-up for a thyroid nodule and offers renal ultrasound, in one impression. That
+is three instances, one negated.
+
+### 7.24 Alternatives are one instance; tests asked for together are one each
+
+**The text.**
+
+> "correlation with PET-CT may be helpful to rib alternatively, these nodes may be reassessed at
+> future surveillance CT."
+> "Further evaluation with MRA/CTA is recommended for better assessment"
+> "Continued evaluation of hCG and followup ultrasound should be performed to assess for fetal
+> viability."
+> "Followup imaging with mammography and ultrasound in six months does represent a reasonable
+> approach at this time."
+
+**The decision.** The first two are one instance each, with the first-named test as the modality:
+`PET-CT`, `MRA`. The last two are two instances each, one per test, sharing the recommendation span.
+
+**The reason.** Section 3 separates distinct actions. Where the report offers a choice, one of the
+tests will be done and the other will not, so one duty is owed. Where it asks for both, each can be
+done or missed separately, and the schema holds one modality per instance. The first-named rule is
+arbitrary, and it is written down so that it is applied the same way each time rather than decided by
+which test seems likelier.
+
+Two instances with identical spans are permitted. Check after saving that both were kept.
+
+### 7.25 Annual screening named with its test and interval is an instance, with no anatomy
+
+**The text.**
+
+> "RECOMMENDATION(S): Annual mammography."
+> "RECOMMENDATION(S): The patient can resume annual screening mammography."
+> "At that time, patient will be due annual mammography of the left breast."
+
+**The decision.** An instance in each case, action `imaging`, finding `other`, finding span empty.
+The first two have interval 1 year and anatomy null. The third has anatomy `breast`, laterality
+`left`, and interval null.
+
+**The reason.** This is the other side of 7.15, which excluded "Age and risk appropriate screening"
+because it names no test and no interval. These name both, and 7.15 itself records that a named
+test with a due date is a duty.
+
+Anatomy is null in the first two because the sentence names no body part, and section 4 does not
+allow anatomy to be read off the study type, even where mammography can only mean the breasts. The
+third names the side and the organ.
+
+The third has no interval because "annual" is how often the test recurs, and "at that time" places
+the next one at the six-month follow-up of the other breast. Writing 12 months would give the wrong
+due date. The interval is stated by reference to another instance, which the schema cannot hold.
+
+There is no finding to quote in any of them. Each is the routine that follows a benign result, not a
+duty about something the report found.
+
+**Tension with 7.16.** Asking whether a recommendation would exist without this report's findings
+points to no instance here, because annual screening happens regardless. That question is useful for
+7.16 and for template text under 7.22. It is not applied to screening, because 7.15 already draws that
+line on a clearer test, and two tests for the same sentence would give two answers.
+
+### 7.26 An examination that could not be done and is to be done again
+
+**The text.**
+
+> "Paracentesis not performed due to supratherapeutic INR. Patient rescheduled for therapeutic
+> paracentesis."
+> "Incomplete MRI examination due to claustrophobia. The patient will be rescheduled for the MRI
+> using a large-bore magnet to allow completion of examination."
+> "Ultrasound guided core biopsy is recommended to confirm benignity." with, in the notification
+> block, "She is scheduled for biopsy on ___."
+
+**The decision.** An instance in each case. `already_scheduled` is true for the paracentesis and the
+biopsy, and false for the MRI.
+
+**The reason.** Section 2 excludes recommendations about the current examination, and its example,
+"repeat views obtained due to motion", is a step taken and finished within the study. These are new
+appointments on later dates, and each can be lost. 7.7 already says a future procedure counts
+whoever arranged it.
+
+The flag follows 7.7 and 7.8. "Rescheduled" and "is scheduled for biopsy" report a booking. "Will be
+rescheduled" reports an intention, and a department that intends to book has booked nothing.
+
+A notification block cannot create an instance under 7.8, and it can still supply a flag for one the
+impression created. The paracentesis report also confirms "rescheduling of patient for paracentesis
+with rechecking of INR" in its notification block, which would be a `laboratory` instance anywhere
+else in the report. The section filter in `sentences.mjs` suppresses notification text, so any
+detector will miss it; see `CORPUS.md` section 8.
+
+### 7.27 Follow-up tied to a specific finding, whatever the verb
+
+**The text.**
+
+> "Attention to this finding should be made on subsequent follow up."
+> "There is minimal left apical pneumothorax that should be followed on the subsequent study."
+> "These bear continued surveillance on followup exams."
+> "However, a small focus of subarachnoid hemorrhage may appear similar and close follow-up is
+> recommended."
+
+**The decision.** An instance in each case, under 7.16. Action `imaging`, modality empty, interval
+empty.
+
+**The reason.** 7.16 was written from three sentences using "attention" and "recommended". The same
+duty arrives in other words, and the verb does not decide the label. What decides it is that a
+specific finding in this report is to be looked at again.
+
+A recommendation may sit only in the findings, with the impression pointing back to it ("please see
+above regarding further workup"). It is labelled where the request is written. The pointer is 7.10
+and adds nothing.
+
+A request written as a relative clause, "that should be followed on the subsequent study", has no
+subject of its own. The recommendation span is then the whole sentence, and the finding span overlaps
+it, which section 4 permits.
+
 ---
 
 ## 8. The harness
