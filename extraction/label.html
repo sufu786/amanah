@@ -67,6 +67,7 @@
     <button id="next">Next</button>
     <div class="progress"><i id="pbar"></i></div>
     <span class="meta" id="count"></span>
+    <input type="text" id="goto" placeholder="Go to report ID, then Enter" style="width:16em;margin:0">
   </div>
   <h1 id="rid"></h1>
   <div class="meta" id="rmeta"></div>
@@ -262,6 +263,17 @@ function nextUnlabelled() {
   }
   render(); // every report is labelled
 }
+
+// Review needs to reach a named report. The audit lists labels as "B:18618107-RR-12#0", so the
+// stratum prefix and instance suffix are accepted and ignored.
+$('goto').onkeydown = (e) => {
+  if (e.key !== 'Enter') return;
+  const id = e.target.value.trim().replace(/^[A-Za-z]+:/, '').replace(/#\d+$/, '');
+  const j = DATA.reports.findIndex((r) => r.id === id);
+  if (j === -1) { msg(`no report ${id} in this corpus`, 'err'); return; }
+  loadInto(j);
+  e.target.blur();
+};
 
 $('next').onclick = () => loadInto(idx + 1);
 $('prev').onclick = () => loadInto(idx - 1);
