@@ -107,6 +107,27 @@ describe('section headings', () => {
     const segs = splitSentences('CT-GUIDED BIOPSY OF THE RIGHT TIBIA\n\nFINDINGS:  Normal.\n');
     assert.equal(segs[0].section, null);
   });
+
+  test('a suppressed section ends at a blank line, so a body with no heading is not hidden', () => {
+    const text = 'HISTORY:  Fall.\n\nThere is a rib fracture.  Recommend CT for further evaluation.\n';
+    const segs = tiles(text);
+    assert.equal(segs.find((s) => s.text.includes('Fall')).section, 'HISTORY');
+    const rec = segs.find((s) => s.text.includes('Recommend CT'));
+    assert.equal(rec.section, null);
+    assert.equal(sectionCannotRecommend(rec.section), false);
+  });
+
+  test('a suppressed section still covers its own wrapped lines', () => {
+    const text = 'INDICATION:  Cough, evaluate\nfor pneumonia.  Please assess.\n\nIMPRESSION:  Clear.\n';
+    const segs = splitSentences(text);
+    assert.equal(segs.find((s) => s.text.includes('Please assess')).section, 'INDICATION');
+  });
+
+  test('a section that can hold recommendations keeps inheriting across blank lines', () => {
+    const text = 'FINDINGS:  Lungs are clear.\n\nA 6 mm nodule is seen.  Recommend CT in 12 months.\n';
+    const segs = splitSentences(text);
+    assert.equal(segs.find((s) => s.text.includes('Recommend CT')).section, 'FINDINGS');
+  });
 });
 
 describe('sections that cannot hold a recommendation', () => {

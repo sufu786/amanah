@@ -22,7 +22,9 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
-import { splitSentences, sectionCannotRecommend, spanAfterHeading } from './sentences.mjs';
+import {
+  splitSentences, sectionCannotRecommend, spanAfterHeading, SECTION_FILTER_VERSION,
+} from './sentences.mjs';
 
 export const DETECT_VERSION = '0.1';
 
@@ -195,6 +197,7 @@ if (isMain) {
   const reports = corpus.reports ?? corpus;
   const predictions = [];
   let calls = 0;
+  let failed = 0;
   const started = Date.now();
 
   for (const [i, r] of reports.entries()) {
@@ -204,6 +207,7 @@ if (isMain) {
       ({ hits, asked } = await detectInReport(r.text, { model, sectionFilter }));
     } catch (err) {
       console.error(`  ${r.id}: ${err.message}`);
+      failed++;
     }
     calls += asked;
     predictions.push({
@@ -213,7 +217,7 @@ if (isMain) {
         recommendations: hits.map(({ section, ...rec }) => rec),
         extraction: {
           model,
-          prompt_version: DETECT_VERSION + (sectionFilter ? '+sectionfilter' : ''),
+          prompt_version: DETECT_VERSION + (sectionFilter ? `+sectionfilter${SECTION_FILTER_VERSION}` : ''),
           language_validated: false,
           no_recommendation_found: hits.length === 0,
           unparseable: false,
@@ -225,10 +229,19 @@ if (isMain) {
       + `${asked} asked -> ${hits.length} yes`);
   }
 
+  // A report whose calls failed is recorded above with no hits, which scores exactly like a report
+  // the model read and found clean. Over a run of hours a dropped model server would turn into a
+  // recall figure. Refuse to write, as fields.mjs does.
+  if (failed > 0) {
+    console.error(`\n${failed} report(s) failed. Nothing written to ${outPath}, because a failed `
+      + 'report is indistinguishable from a clean one once scored. Fix the cause and run again.');
+    process.exit(1);
+  }
+
   writeFileSync(outPath, JSON.stringify({
     corpus: corpus.corpus ?? corpusPath,
     model,
-    prompt_version: DETECT_VERSION + (sectionFilter ? '+sectionfilter' : ''),
+    prompt_version: DETECT_VERSION + (sectionFilter ? `+sectionfilter${SECTION_FILTER_VERSION}` : ''),
     predictions,
   }, null, 2) + '\n', 'utf8');
 

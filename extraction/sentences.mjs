@@ -42,6 +42,10 @@ export const SECTIONS_WITHOUT_RECOMMENDATIONS = [
   'TECHNIQUE', 'COMPARISON', 'NOTIFICATION', 'WET READ', 'DOSE',
 ];
 
+// Recorded in every predictions file through detect.mjs. 0.1 inherited a suppressed heading until the
+// next heading; 0.2 also ends it at a blank line. Runs under different versions are not comparable.
+export const SECTION_FILTER_VERSION = '0.2';
+
 const SUPPRESSED = new RegExp(`^(${SECTIONS_WITHOUT_RECOMMENDATIONS.join('|')})\\b`);
 
 /** True when a sentence under this heading cannot be a recommendation. Null section is not suppressed. */
@@ -153,11 +157,20 @@ export function splitSentences(text) {
   // later segments inherit until the next one. Tracking this during the split was wrong: a header
   // and its first sentence usually share a line ("IMPRESSION:  No acute fracture."), so the
   // running value lagged by one segment.
+  //
+  // A section that cannot hold a recommendation also ends at the first blank line. Some reports
+  // print one heading at the top ("HISTORY: Fall.") and then the whole body with no heading after
+  // it, and inheriting until the next heading filed every sentence of those reports under the
+  // indication, where the filter hid all of them. 7.4 says the indication line is never a
+  // recommendation; it does not say the report beneath it is part of the line. Sections that can
+  // hold recommendations keep inheriting across blank lines, because findings are written in
+  // paragraphs. See RESULTS.md for where this was found and how it was measured.
   let current = null;
   for (const s of out) {
     const h = HEADER.exec(s.text);
     if (h) current = h[1].trim();
     s.section = current;
+    if (sectionCannotRecommend(current) && /\n[ \t]*\n\s*$/.test(s.text)) current = null;
   }
   return out;
 }
