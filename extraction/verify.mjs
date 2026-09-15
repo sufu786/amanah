@@ -118,6 +118,7 @@ if (isMain) {
   const started = Date.now();
 
   let deduped = 0;
+  let failed = 0;
   for (const p of pred.predictions) {
     const text = reports.get(p.report_id);
 
@@ -145,6 +146,7 @@ if (isMain) {
         // keeps the detection result, which is the conservative direction for a system whose worse
         // error is a duty nobody sees.
         console.error(`  ${p.report_id}: ${err.message} (keeping candidate)`);
+        failed++;
       }
       if (keep) kept.push(rec);
       else {
@@ -156,6 +158,15 @@ if (isMain) {
     p.output.recommendations = kept;
     p.output.extraction.no_recommendation_found = kept.length === 0;
     p.output.extraction.prompt_version = `${p.output.extraction.prompt_version}+verify${VERIFY_VERSION}`;
+  }
+
+  // Failing open is right for one candidate in use and wrong for a measurement: a run where the
+  // verifier was unreachable keeps every detection and scores as though verification had approved
+  // them. Refuse to write, as detect.mjs and fields.mjs do.
+  if (failed > 0) {
+    console.error(`\n${failed} candidate(s) could not be verified. Nothing written to ${outPath}. `
+      + 'Fix the cause and run again.');
+    process.exit(1);
   }
 
   pred.prompt_version = `${pred.prompt_version}+verify${VERIFY_VERSION}`;

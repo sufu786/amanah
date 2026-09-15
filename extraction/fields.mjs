@@ -213,11 +213,12 @@ if (isMain) {
 
   // An unreachable model must not produce a file that looks like a result. Everything failing for
   // want of a server scores as 0% recall, which is indistinguishable from a catastrophic model
-  // failure once the console output has scrolled away. Refuse to write instead.
-  if (unreachable > 0 && filled === 0) {
-    console.error(`\nEvery candidate failed with the model unreachable. Nothing written to `
-      + `${outPath}, because a file of zero extractions scores as total failure and would be `
-      + `indistinguishable from one. Start the model and run again.`);
+  // failure once the console output has scrolled away. Refuse to write instead. This also applies
+  // when only some candidates failed: each one is dropped as rejected and scores as a miss.
+  if (unreachable > 0) {
+    console.error(`\n${unreachable} candidate(s) failed with the model unreachable. Nothing written `
+      + `to ${outPath}, because a dropped candidate scores as a miss and would be indistinguishable `
+      + `from one. Start the model and run again.`);
     process.exit(1);
   }
 
