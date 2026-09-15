@@ -827,3 +827,136 @@ the most dangerous silent one available, and this measurement says the system cu
 What it does not say is why. The corpus is ten instances, the labels were corrected once already,
 and one prompt attempt has produced noise rather than a direction. Both a real cause and a real fix
 need the held-out set rather than more iteration on these fifty reports.
+
+---
+
+# The full-draw development split
+
+The pipeline as it stood, run once over the development split of the full draw: stratum A positions
+1 to 105 and stratum B positions 1 to 45, cut by `split.mjs` at the positions `CORPUS.md` 6.1
+fixed before the draw. Same model, same detection, verification and field prompts as the sections
+above. One change: the section filter is version 0.2, described below.
+
+**Development figures, and weaker than that sounds.** The first 50 reports of A-dev are the pilot
+this pipeline was debugged against. The test split is not scored. It waits for the blind relabel
+in `LABELLING.md` 5a step 2 and for precedents 7.18 to 7.27 to be applied back by re-reading, so
+that the gold standard is final when the test split is spent. Section 4 of `CORPUS.md` forbids a
+false-positive rate or a precision figure from stratum B, and none is given.
+
+| Stratum A, 105 reports, 19 instances | Detect | Verify | Fields |
+|---|---|---|---|
+| False positives on clean reports | 5 of 88 | **1 of 88** | 1 of 88 |
+| Detection recall | 89.5% (17/19) | 78.9% (15/19) | **78.9% (15/19)** |
+| Detection precision | 48.6% | 83.3% | 83.3% |
+| Category accuracy | | | 86.7% (13/15) |
+| Action accuracy | | | 60.0% (9/15) |
+| Location accuracy | | | 33.3% (5/15) |
+| Span validity | 100% | 100% | 100% |
+
+| Stratum B, 45 reports, 21 instances | Detect | Verify | Fields |
+|---|---|---|---|
+| Detection recall | 90.5% (19/21) | 66.7% (14/21) | **57.1% (12/21)** |
+| Category accuracy | | | 83.3% (10/12) |
+| Action accuracy | | | 41.7% (5/12) |
+| Location accuracy | | | 33.3% (4/12) |
+
+Across both, conditional on the cue list: detection finds 36 of 40 instances and the full pipeline
+keeps 27. Interval accuracy is not reported. One development instance states an interval.
+
+**The acceptance rule is failed.** One clean report in 88 receives an obligation nobody asked for,
+against a rule of zero. The pilot met the rule on 40 of these same clean reports, which were the
+reports it was tuned on.
+
+## Where the recall went
+
+Thirteen of the 40 development instances are lost. Detection is no longer where most of them go.
+
+| Stage | Lost | Instances |
+|---|---|---|
+| Detection | 4 | Two negations and an annual screening line, and a hedged request |
+| Verification | 7 | Listed below |
+| Field filling | 2 | Both rejected by the verbatim check on the finding quote |
+
+**Verification removes more true instances than detection misses.** It removed 39 candidates across
+both strata, and seven of them were labelled instances:
+
+- "There is minimal left apical pneumothorax that should be followed on the subsequent study"
+- "Continued surveillance is suggested"
+- "Patient rescheduled for therapeutic paracentesis"
+- "Annual mammography"
+- "Right lower lobe bronchoscopy", the whole of a RECOMMENDATION(S) section
+- "This could, however, be better evaluated with multi phasic CT or MR"
+- "a dedicated MR is recommended for further evaluation"
+
+Four of these are shapes the labelling protocol settled after the verification prompt was written:
+follow-up tied to a finding whatever the verb (7.27), a rescheduled procedure (7.26), annual screening
+naming its test and interval (7.25). The verifier is applying an older reading of section 2 than the
+gold standard. That is a mismatch between two versions of the protocol, not evidence the model
+cannot judge.
+
+Two are harder calls. The bronchoscopy line is a heading's whole content with no verb, and "could be
+better evaluated with multi phasic CT or MR" sits on the line 7.18 draws between a statement of what
+a test can show and a request for it. The last item is neither. It is an explicit recommendation
+removed by a model that was shown it, and it is the kind of error the verification stage was built to
+be conservative about.
+
+**A wrong finding quote deletes a right recommendation.** Both instances lost in field filling were
+correctly detected and correctly verified. The model then returned a finding quote it could not copy
+exactly, `validateRecommendation` treated the whole candidate as fabricated, and the recommendation
+went with it. R5 is right to refuse a paraphrased finding. It does not follow that the recommendation,
+whose quote was located character for character by detection, has to be refused too. Whether a
+failed finding quote should null the finding and keep the recommendation is a specification question
+about R5, and it is recorded rather than changed here.
+
+**Detection misses the negative and the routine.** "No further follow-up is needed", "The patient can
+resume annual screening mammography", and the negated nodules the pilot already missed. The detection
+prompt asks whether a sentence leaves something still to be done. A negation leaves nothing to be
+done by construction, and section 4 of `LABELLING.md` still labels it, as evidence for
+`not_indicated`. The prompt and the protocol ask different questions.
+
+## The section filter, version 0.2
+
+Found during the label audit, not during a model run, and found on a **test** report: stratum A
+position 109, whose single REASON FOR EXAMINATION heading sits at the top and has none after it.
+Version 0.1 inherited that heading across the whole report and suppressed every sentence, including
+the one labelled recommendation.
+
+Version 0.2 ends a suppressed section at the first blank line as well as at the next heading. The
+rule follows from 7.4, which excludes the indication line rather than the report beneath it, and it
+was measured on the development split only.
+
+- Development reports hidden entirely: 4 before, 0 after.
+- Development instances inside a suppressed section: 0 before, 0 after. No recall was gained or lost
+  on development data, because none of the four hidden development reports carries an instance.
+- Sentences newly sent to the detector: 108, in 24 reports. Mostly body text after a COMPARISON or
+  TECHNIQUE line in reports with no FINDINGS heading.
+
+The fix was not tuned against the test report and its effect on the test split is not measured. It
+is recorded here because a defect found by looking at a held-out report is a small leak, and a leak
+disclosed is a weaker claim than no leak but a stronger one than an undisclosed one.
+
+## Three failures that would have become numbers
+
+Found while preparing this run and fixed before it. Each stage handled an unreachable model in a way
+that produced a well-formed file.
+
+- `detect.mjs` recorded a failed report as having no hits, which scores as a miss.
+- `verify.mjs` kept every candidate it could not verify and wrote the file, which scores as false
+  positives approved by verification.
+- `fields.mjs` refused only when every candidate failed. A partial outage dropped candidates as
+  rejected, which scores as misses.
+
+All three now refuse to write when anything failed. The run above was interrupted once, when the
+session running it ended and the model server stopped with it. Stratum B verification had written
+nothing, and it was resumed from the detection file rather than rerun.
+
+**Runtime is not a measurement.** Stratum A detection took 17.7 hours for 1,299 sentence calls and
+stratum B took 41 minutes for 888. The machine slept.
+
+## What this leaves
+
+The detection and verification prompts predate precedents 7.18 to 7.27, and the gold standard does
+not. Updating them is a prompt change on development data, which is permitted before the prompt is
+frozen and is exactly what the sections above warn can turn into chasing a number. The discipline
+that follows: change them once, to match the written protocol rather than to recover particular
+instances, record the change here, freeze, and then score the test split once.
