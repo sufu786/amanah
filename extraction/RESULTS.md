@@ -960,3 +960,84 @@ not. Updating them is a prompt change on development data, which is permitted be
 frozen and is exactly what the sections above warn can turn into chasing a number. The discipline
 that follows: change them once, to match the written protocol rather than to recover particular
 instances, record the change here, freeze, and then score the test split once.
+
+---
+
+# Prompts against the precedents, and a reproducibility problem found on the way
+
+The development run above left the detection and verification prompts disagreeing with the labelling
+protocol: both predate precedents 7.18 to 7.27, and seven true instances were removed by a verifier
+applying an older reading of section 2. Both prompts were rewritten once, with every rule traced to a
+written precedent rather than to an instance that had been lost, and both versions bumped to 0.2.
+
+The result, on the same development split.
+
+| Configuration | A recall | A precision | A FP on clean | B recall |
+|---|---|---|---|---|
+| detect 0.1 + verify 0.1 | 78.9% (15/19) | 83.3% | 1 of 88 | 57.1% (12/21) |
+| detect 0.2 + verify 0.2 | 63.2% (12/19) | 80.0% | 1 of 88 | 47.6% (10/21) |
+| detect 0.2 + verify 0.1 | 73.7% (14/19) | 82.4% | 1 of 88 | 57.1% (12/21) |
+
+Stratum B false positives and precision are not reported. `CORPUS.md` section 4.
+
+**The detector improved and the verifier got worse.** Detection found the same instances, 17 in A and
+19 in B, from fewer candidates: 29 rather than 35, and 36 rather than 44. The added YES categories
+cost nothing and the added NO categories removed six candidates that were never instances.
+
+Verification 0.2 deleted six instances that 0.1 had kept, and the shape is consistent:
+
+- "If there are no contraindications, this could be further evaluated with MRI lumbar spine"
+- "A transthoracic echo is recommended if clinically necessary"
+- "If this is of clinical concern, MRI of the orbits can be performed"
+- "Recommend correlation with patient risk factors and a follow up CT chest imaging"
+
+Two rules added to the NO list did the damage. "Correlation with something that is not a test" fires
+on sentences that name a test and mention risk factors as well. "A condition followed by a diagnosis"
+generalises to conditions followed by an action, which is the opposite of 7.20 and costs the
+conditional class, a quarter of all instances. Precedents written for a person reading one sentence
+are not automatically safe as instructions to a model reading thousands.
+
+**What was adopted.** Detection 0.2, verification reverted to 0.1. The two stages are separate files
+with separate versions and the evidence points in opposite directions for each. The recall difference
+between rows 1 and 3 is one instance, which the next section shows is not evidence, so no claim is
+made that detection 0.2 improves recall. It reduces candidates, which is measured, and it matches the
+protocol, which is checkable.
+
+## The order candidates are asked in changes the answer
+
+Row 3 lost one instance that row 1 kept, with the same verifier prompt and the same candidate span.
+Four experiments, in order.
+
+| Experiment | Candidates differing |
+|---|---|
+| Same input, three consecutive runs | 0 of 29 |
+| Same input, after restarting the model server | 0 of 29 |
+| Same candidates, reverse order | 1 of 29 |
+| One candidate alone, versus after two others from its report | the verdict changes |
+
+The last is the explanation. "The patient will be rescheduled for the MRI using a large-bore magnet"
+is removed when it is the only candidate for its report and kept when the two candidates detection
+0.1 also produced are judged first. Same prompt, same sentence, same report, different answer. The
+server reuses cached state across requests that share a long prefix, and the requests here share an
+entire report.
+
+Three consequences.
+
+**A one-instance difference between runs is not evidence.** About 3% of verdicts move with ordering,
+and 19 instances make one instance worth 5 points of recall. Only the six-instance verification gap
+above survives this.
+
+**The comparisons already in this file carry the effect.** Every table above was a single run, and
+several compare runs made on different days over different candidate sets. Those comparisons were
+made in good faith and the numbers stand as records of what those runs produced. They are not clean
+A-versus-B tests, and nothing in them should be read as a difference smaller than two instances.
+
+**A scored test split inherits the ordering of its own run.** Either the ordering is recorded and the
+figure is published with this sensitivity attached, or verification is made independent per candidate,
+which is slower and is a pipeline change needing its own development run before the freeze. That
+decision belongs before the prompt is frozen, not after the number exists.
+
+**What was not done.** No third prompt was written. Removing the two harmful rules and rerunning
+would be a third configuration tuned against these same 150 reports, which is the failure the
+location attempt above already recorded. The verifier's handling of conditional requests is a real
+weakness and it needs a hypothesis tested once on held-out data, not another iteration here.
