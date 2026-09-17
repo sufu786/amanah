@@ -26,15 +26,16 @@ import {
   splitSentences, sectionCannotRecommend, spanAfterHeading, SECTION_FILTER_VERSION,
 } from './sentences.mjs';
 
-export const DETECT_VERSION = '0.1';
+export const DETECT_VERSION = '0.2';
 
 const OLLAMA = process.env.OLLAMA_HOST || 'http://127.0.0.1:11434';
 const DEFAULT_MODEL = 'qwen2.5:7b-instruct-q4_K_M';
 
 export const DETECT_PROMPT = `You are shown ONE sentence from a clinical report, and the section heading it appears under.
 
-Answer one question: does this sentence leave something still to be done after this report?
-Something to be done means another test, a procedure, a referral, a treatment, or a review.
+Answer one question: does this sentence settle what happens after this report, either by asking for
+something or by stating that nothing further is needed? Something to be done means another test, a
+procedure, a referral, a treatment, or a review.
 
 The question is not whether the sentence contains any particular word. Reports ask for things in
 many ways, and all of these are YES:
@@ -45,7 +46,38 @@ many ways, and all of these are YES:
   - "Continue follow-up."
   - "Tissue diagnosis is recommended."
   - "The patient was given information to schedule an appointment."
-  - "No further imaging is required."      (this is a YES: it settles the question explicitly)
+  - "Right lower lobe bronchoscopy."       (the whole content of a RECOMMENDATION heading names the
+                                            thing asked for, even with no verb)
+
+Seven kinds that are also YES. Each is a real duty and each is easy to read past.
+
+  1. Watching a finding on future studies, whatever the verb. "Attention on followup exams is
+     recommended", "should be followed on the subsequent study", "these bear continued surveillance",
+     "continued surveillance is suggested". The duty is to look again at something this report found.
+
+  2. Settling the question in the negative. "No further follow-up is recommended", "no follow up
+     needed", "no further imaging is required". These close a finding deliberately and are recorded
+     as such. Answer YES.
+
+  3. An examination or procedure that is being rescheduled or booked. "Patient rescheduled for
+     therapeutic paracentesis", "she is scheduled for biopsy", "the patient will be rescheduled for
+     the MRI". Something still has to happen, whoever arranged it.
+
+  4. Routine screening that names a test and an interval. "Annual mammography", "the patient can
+     resume annual screening mammography". Compare the NO list: screening described in general terms
+     with no test and no interval is not a request.
+
+  5. Adjusting a line, tube or device. "Urgent revision is required", "consider advancement for more
+     optimal positioning", "could be advanced 2 cm". Compare the NO list: a device position
+     described with no adjustment asked for is not a request.
+
+  6. Correlation WITH A NAMED TEST, panel, or examination by another professional. "Correlation with
+     thyroid ultrasound is recommended", "correlate with LFTs", "recommend correlation with dental
+     examination".
+
+  7. A condition followed by an action. "If there is concern for obstruction, CT should be obtained",
+     "ultrasound could be obtained if clinically indicated". Whether the condition holds is for a
+     clinician to judge later.
 
 Answer NO for:
   - A finding described with nothing asked for. Most sentences in a report are this.
@@ -56,12 +88,26 @@ Answer NO for:
   - Comparison with prior studies.
   - Hedges about what a finding is: "cannot exclude", "may represent", "is likely",
     "suggestive of". Uncertainty about a finding asks for nothing.
-  - What this study could not show, for example "CT is not able to provide intrathecal detail
-    comparable to MRI". A limitation is not a request, even when it names another test.
+  - A condition followed by a DIAGNOSIS rather than an action. "If there is clinical symptomatology,
+    this could represent an acute fracture" asks for nothing. Nor does "metastasis should be
+    considered": what is to be considered is what the finding might be, not something to do.
+  - What this study could not show, or what another test would show better, with nothing asked for:
+    "not well assessed on non weight-bearing views", "better evaluated with MRI". A limitation is
+    not a request, even when it names another test.
+  - A study that has already been done: "better evaluated on the recent bone scan", "this is better
+    seen on the prior CT". The study it names exists.
+  - Correlation with something that is NOT a test: "correlate clinically", "correlation with any
+    history of instrumentation", "correlation with prior outside imaging studies", or bare
+    "correlate with labs" with no panel named.
+  - Screening in general terms: "age and risk appropriate screening" names no test and no interval.
+  - The position of a line, tube or device with no adjustment asked for: "the tip terminates in the
+    mid SVC", "low position of IUD in the lower uterine segment".
+  - Text that would be printed whatever the images showed: the intraoperative fluoroscopy disclaimer
+    "correlation with real-time findings and conventional radiographs is recommended", prevalence
+    tables of findings in asymptomatic people, and guideline tables listing every size and risk band.
   - Notification or communication blocks describing how this report was delivered, even when they
     contain the word "recommendation".
   - Pointers to another document, for example "please refer to the CT abdomen report".
-  - Generic "clinical correlation advised" with no specific test named.
 
 Answer with JSON only: {"leaves_something_to_do": true or false}`;
 
