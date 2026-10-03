@@ -1059,3 +1059,40 @@ Stratum A is unaffected. Stratum B rises because the removed development instanc
 extractor had never found: the denominator falls by one and the numerator does not. No model output
 changed, and nothing was rerun. The tables above are left as they were produced rather than
 silently restated, and this section is the correction.
+
+---
+
+# The frozen configuration
+
+Recorded before the test split is scored, so that what was frozen is checkable rather than asserted.
+`CORPUS.md` section 7: the test split is scored once, after the prompt is frozen. A prompt change
+after this point spends the split, whatever the file names say.
+
+```
+model              qwen2.5:7b-instruct-q4_K_M, Ollama, local
+detect             v0.2   prompt sha256 feb33e925506673b6f68034e8a334e90
+section filter     v0.2
+verify             v0.1   prompt sha256 c883b69aaeca8e58cc3a485b941de9cf
+fields             v0.1   prompt sha256 5ecfa9a4b6c13fcb291ab877d84dc1d7
+composite          0.2+sectionfilter0.2+verify0.1+fields0.1
+gold labels-A      sha256 c8b0bdbee82f54b375a5d1c7f65d3f71467d9240760242b38c778b5c90d52668
+gold labels-B      sha256 6676719fbc35b2ef6ce1ebbe4f339ee7dd46a2280e75d60487f7ceb1462b1c68
+repository         commit 0e38ad2
+```
+
+The prompt hashes are of the prompt strings themselves rather than of the files, so an unrelated edit
+to a comment does not read as a changed prompt, and a changed prompt cannot hide inside an unrelated
+commit.
+
+**Verification is run in the pipeline's ordinary mode**, candidates in detection order, with no
+isolation between calls. The ordering sensitivity measured above, about 3% of verdicts, therefore
+applies to the test figures and is published with them. Isolating each candidate was considered and
+not done: it would change what the measurement means rather than what the extractor does, and the
+effort belongs with the fields that are failing. That decision is recorded here so a reader can
+disagree with it knowing it was made deliberately.
+
+**What is predicted before the run.** Development recall under this configuration is 73.7% in
+stratum A and 60.0% in B, with 1 false positive in 88 clean reports. The test split should land
+lower rather than higher: the development reports include the fifty the pipeline was debugged
+against, and every prompt rule was written with development text in view. A test result materially
+above development would be a reason to look for a fault in the harness rather than to celebrate.
