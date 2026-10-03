@@ -525,6 +525,40 @@ scores 73.5% on category accuracy, so that metric is reported only beside this b
 - *Duties outside section 2's wording.* The patient-preference excision in 7.7 remains, as 5.4
   predicted.
 
+### 6.4 The blind relabel, recorded before it was drawn
+
+`LABELLING.md` 5a step 2 requires a subset of at least 100 reports to be relabelled blind by the same
+labeller, after at least two weeks, with the first labels not consulted. Labelling finished
+2026-09-15, so the earliest permitted date was 2026-09-29. This block is committed before the draw
+script is written, as 5.1 and 6.1 were, so the order is checkable in the history.
+
+```
+seed        amanah-relabel-2026-10-04
+subset      100 reports: 70 from stratum A, 30 from stratum B
+selection   the first n of each stratum by sha256(seed | report_id), the ordering corpus.mjs
+            already uses, so the subset is rederivable by anyone holding the corpus
+command     node relabel.mjs draw --seed amanah-relabel-2026-10-04 --a 70 --b 30
+```
+
+70 and 30 keep the 350 to 150 proportion of the draw, so the subset is not quietly weighted toward
+the cue-enriched stratum where positives are three times as common.
+
+**How the pass is kept blind.** The draw writes a corpus of the 100 reports and a copy of their
+existing labels, which is set aside and not opened. The labelling tool is then run against the
+subset corpus with a fresh output file, so it has no prior labels to load and shows none. The
+labeller works through the 100 reports as if they were new.
+
+**What it can and cannot say.** This is intra-rater consistency: whether one person applies the
+protocol the same way twice. It is never reported as agreement between people, and `score.mjs`
+keeps printing `1 labeller, agreement between people NOT measured` whatever this produces. A low
+figure would mean the protocol is ambiguous to its own author, which is worth knowing and is a
+weaker test than 5b.
+
+**What happens to disagreements.** They are resolved by the labeller, each resolution becomes a
+precedent under 5a step 3, and the precedent is applied back across all 500 reports under step 4.
+The gold standard may therefore change after this pass, which is why the test split is not scored
+until it is done. Any change is recorded in 6.3 with a new label file hash.
+
 ## 7. Development and test splits
 
 Three known extraction defects in `RESULTS.md` are unfixed, and the candidate second verification
