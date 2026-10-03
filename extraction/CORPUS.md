@@ -548,6 +548,16 @@ existing labels, which is set aside and not opened. The labelling tool is then r
 subset corpus with a fresh output file, so it has no prior labels to load and shows none. The
 labeller works through the 100 reports as if they were new.
 
+**A leak at the draw, recorded rather than quietly fixed.** The first version of `relabel.mjs`
+printed how many of the 100 reports carried an instance in the first pass, under an instruction not
+to read it. The labeller saw it. The line is removed, and the subset is kept rather than redrawn,
+for two reasons. The number is derivable from 6.3 by anyone holding this document: 70 reports at
+stratum A's 13.7% and 30 at stratum B's 42.0% predicts about 22, which is what the draw contains.
+And redrawing after seeing a figure from the first draw is a seed changed after a result, which is
+the thing 5.1 and 6.1 exist to prevent. The honest position is that the labeller began the second
+pass knowing roughly how many positives to expect, could have worked that out regardless, and that
+this is recorded beside the figure the pass produces.
+
 **What it can and cannot say.** This is intra-rater consistency: whether one person applies the
 protocol the same way twice. It is never reported as agreement between people, and `score.mjs`
 keeps printing `1 labeller, agreement between people NOT measured` whatever this produces. A low
