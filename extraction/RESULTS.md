@@ -1041,3 +1041,21 @@ decision belongs before the prompt is frozen, not after the number exists.
 would be a third configuration tuned against these same 150 reports, which is the failure the
 location attempt above already recorded. The verifier's handling of conditional requests is a real
 weakness and it needs a hypothesis tested once on held-out data, not another iteration here.
+
+## The gold standard changed after these figures were produced
+
+The blind relabel in `CORPUS.md` 6.4 was run on 2026-10-04 and applied precedent 7.18 back across
+all 500 reports, removing two instances. Every figure above was scored against the gold standard as
+it stood before that, with 132 instances rather than 130.
+
+Rescoring the detect 0.2 plus verify 0.1 run against the corrected gold, with the same predictions:
+
+| | Before | After |
+|---|---|---|
+| Stratum A recall | 73.7% (14/19) | 73.7% (14/19) |
+| Stratum B recall | 57.1% (12/21) | 60.0% (12/20) |
+
+Stratum A is unaffected. Stratum B rises because the removed development instance was one the
+extractor had never found: the denominator falls by one and the numerator does not. No model output
+changed, and nothing was rerun. The tables above are left as they were produced rather than
+silently restated, and this section is the correction.

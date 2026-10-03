@@ -444,16 +444,18 @@ have been generated on the test split.
 | | Stratum A | Stratum B |
 |---|---|---|
 | Reports | 350 | 150 |
-| Carrying at least one instance | 48 | 63 |
-| Share | 13.7%, Wilson 95% interval 10.5% to 17.7% | 42.0% |
-| Clean reports | 302 | 87 |
-| Instances | 56 | 76 |
-| Instances per positive report | 1.17 | 1.21 |
+| Carrying at least one instance | 48 | 62 |
+| Share | 13.7%, Wilson 95% interval 10.5% to 17.7% | 41.3% |
+| Clean reports | 302 | 88 |
+| Instances | 56 | 74 |
+| Instances per positive report | 1.17 | 1.19 |
 | Conditional | 14 | 18 |
 | Negated | 2 | 2 |
 | Already scheduled | 1 | 1 |
 | Interval stated and stored | 8 | 9 |
 | No finding quoted | 5 | 9 |
+
+Figures are after the blind relabel in 6.4, which removed two instances under 7.18.
 
 The base rate figure is from A only, as section 4 requires. B's share describes the cue list, not
 radiology.
@@ -466,10 +468,10 @@ of 11.2% to 33.0% contains the full figure, so the pilot was not wrong, only wid
 
 - *False-positive bound.* 302 clean reports in A. Zero false positives would bound the true rate at
   0.99% by the rule of three, which is the 1% the table promised. A lower base rate helps here.
-- *Recall.* 132 instances across both strata against the roughly 175 section 5.2 projected. At 80%
-  recall the 95% interval is plus or minus 6.8 points, not 5.9. From A alone, with 56 instances, it
+- *Recall.* 130 instances across both strata against the roughly 175 section 5.2 projected. At 80%
+  recall the 95% interval is plus or minus 6.9 points, not 5.9. From A alone, with 56 instances, it
   is about plus or minus 10.5. Both are reported, as section 4 says.
-- *Composition.* A is 86.3% clean and the combined set 77.8%, both above the 60% floor.
+- *Composition.* A is 86.3% clean and the combined set 78.0%, both above the 60% floor.
 
 **How the labels were made.** One labeller, with no second reader. Under `LABELLING.md` section 5d
 the labeller discussed individual calls with a language model while labelling; every label was
@@ -499,15 +501,19 @@ and must be recorded here with a new hash before scoring.
 
 ```
 labels-A.json   sha256 c8b0bdbee82f54b375a5d1c7f65d3f71467d9240760242b38c778b5c90d52668
-labels-B.json   sha256 e7b3cf405fd2f6972d5e8e99599702ba851711d4044b0167ce723f078aed562a
+labels-B.json   sha256 6676719fbc35b2ef6ce1ebbe4f339ee7dd46a2280e75d60487f7ceb1462b1c68
 ```
 
-**Intervals.** 17 of 132 instances carry an interval the schema can store. Ten more write a time the
+labels-B.json changed on 2026-10-04 when 7.18 was applied back under 5a step 4; see 6.4. Its hash
+before that change was e7b3cf405fd2f6972d5e8e99599702ba851711d4044b0167ce723f078aed562a, and the
+development figures in `RESULTS.md` published before that date were scored against it.
+
+**Intervals.** 17 of 130 instances carry an interval the schema can store. Ten more write a time the
 schema cannot hold: four de-identified placeholders under `LABELLING.md` 7.1, four ranges ("in
 3 to 6 months", "in five to seven days"), one in hours, and one "every few years". Section 5.3
 expected interval accuracy to rest on a small base, and it does: 8 instances in A and 17 overall.
 
-**Findings.** 97 of 132 instances are `other`, 73.5%. An extractor answering `other` every time
+**Findings.** 96 of 130 instances are `other`, 73.8%. An extractor answering `other` every time
 scores 73.5% on category accuracy, so that metric is reported only beside this baseline. See 9.3.
 
 **What a detector cannot find, recorded before it runs.** As in 5.4, so that the misses are a test.
@@ -568,6 +574,57 @@ weaker test than 5b.
 precedent under 5a step 3, and the precedent is applied back across all 500 reports under step 4.
 The gold standard may therefore change after this pass, which is why the test split is not scored
 until it is done. Any change is recorded in 6.3 with a new label file hash.
+
+**What the pass produced.** Relabelled 2026-10-04, nineteen days after the first pass.
+
+| | |
+|---|---|
+| Reports | 100 |
+| Instances, pass one | 22 |
+| Instances, pass two | 18 |
+| Reports where the passes agree on instance count | 96 |
+| Intra-rater kappa, "does this report carry at least one recommendation" | **0.870** |
+| Observed agreement | 96.0% |
+
+Kappa 0.870 is well above the 0.75 that section 5b sets as the threshold for an ambiguous protocol,
+and 5b's threshold is for agreement between people. This figure says one person applies the protocol
+consistently to the same reports nineteen days apart. It says nothing about a second reader, and
+`score.mjs` keeps printing `1 labeller, agreement between people NOT measured`.
+
+**All four disagreements run the same way**, pass one labelling an instance and pass two none, which
+is a direction rather than noise. Resolved by the labeller:
+
+| Report | The sentence | Resolution |
+|---|---|---|
+| `12862888-RR-107` | "Consider advancement for more optimal positioning" | Pass one stands. 7.21: a written device adjustment is an instance |
+| `19711702-RR-73` | "If the patient has persistent symptoms, then consider repeat film in five to seven days" | Pass one stands. 7.20: a condition followed by an action |
+| `16287567-RR-61` | "If clinically indicated, consider correlation with dedicated chest imaging" | Pass one stands. 7.20 again |
+| `15607310-RR-20` | "This could, however, be better evaluated with multi phasic CT or MR" | **Pass two stands.** 7.18: a statement of what another test would show better, with nothing asked |
+
+Three of the four are the second pass missing a rule the protocol already carries, which is what an
+intra-rater figure is for: it measures the labeller, and the labeller was less consistent than the
+written protocol. The fourth is different in kind. 7.18 was written after the first pass, so the
+first pass could not have applied it, and this is step 4 working as designed.
+
+**Step 4, applied across all 500.** Every labelled instance whose wording matched "better
+evaluated", "better assessed", "better seen" and the like was reread against 7.18. Four exist. Two
+carry a condition and stay, because 7.18 itself says a limitation under a condition is a request:
+`19005505-RR-31` ("as needed") and `14006785-RR-53` ("if clinically warranted"). Two are bare
+capability statements and were removed: `15607310-RR-20`, and `17218141-RR-47` ("this would be
+better evaluated on a formal ankle radiograph").
+
+The corpus therefore holds 130 instances rather than 132. One removal is in the stratum B
+development split and one in the stratum B test split. The development figures in `RESULTS.md`
+published before 2026-10-04 were scored against the earlier gold; stratum B development recall under
+the corrected gold is 60.0% rather than 57.1%, from the same predictions, because the removed
+instance was one the extractor had never found.
+
+**What this does not cover.** Precedents whose application a pattern cannot find were not reread
+across all 500. Device positions, correlation objects and condition-then-diagnosis sentences were
+checked by the consistency script in 6.3, which reads fields rather than language. A full rereading
+of 500 reports against ten precedents was not done, and the three pass-two misses above are the best
+available evidence of what that would cost: on 100 reports, reread blind, the labeller differed from
+the protocol three times.
 
 ## 7. Development and test splits
 
