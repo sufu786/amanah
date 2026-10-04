@@ -599,14 +599,24 @@ never be invented, which is what it always meant.
 For the second kind, keeping the recommendation with the finding absent was the conservative choice
 and is what `not_located` provides. A better one is usually available: the model's quote is most
 often a near miss, a word changed or a phrase tidied, and the closest sentence in the source is the
-right one. Eight development and test candidates were rejected this way, and seven of them had a
-labelled finding. In five of the seven the nearest source sentence was the labelled finding. In one
-the model had quoted the recommendation itself as the finding, which the field notes now exclude. In
-the last the nearest sentence was wrong, at a match score indistinguishable from the correct ones,
-and no threshold would have separated it. So `nearest_sentence` is permitted, never as an exact
-quote, never driving supersession until a person confirms it, and never as the recommendation's own
-sentence. Eight cases establish that the approach recovers real findings. They do not establish a
-threshold, and an implementation should treat its threshold as provisional.
+right one. Eight development and test candidates were rejected this way. Rerun through the
+reference implementation of this section, all eight recommendations are kept rather than discarded.
+Seven of the eight had a labelled finding. In six the nearest source sentence states that finding,
+at match scores from 0.63 to 1.00. In the seventh the model had quoted the recommendation itself as
+the finding, which the field notes exclude, and the result is `not_located`. None was snapped to a
+wrong finding.
+
+Two of the six state the finding in a different place from the one the labeller quoted, because the
+report says it twice, once in the findings and again in the impression. An earlier measurement,
+which required the labeller's exact occurrence, counted one of them as wrong and concluded that no
+threshold could separate right from wrong. That conclusion was an artefact of the measurement and is
+withdrawn here rather than left standing.
+
+So `nearest_sentence` is permitted, never as an exact quote, never driving supersession until a
+person confirms it, and never as the recommendation's own sentence. Eight cases establish that the
+approach recovers real findings and found no wrong one. They do not show that a wrong snap cannot
+happen, and they do not establish a threshold, so an implementation should treat its threshold as
+provisional and keep the protections above.
 
 **Found while writing this.** Section 6 has keyed identity on `laterality` since v0.2, and the
 object in section 2 never defined the field. v0.5 adds it to `finding`, with the four values the

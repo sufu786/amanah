@@ -1216,3 +1216,36 @@ Not another prompt. Three questions, in the order their answers would change the
 
 The test split is now spent. Any of the three needs a new corpus, a new split, or a clearly labelled
 development-only figure.
+
+---
+
+# A finding quote that misses no longer discards the recommendation
+
+Specification v0.5. Until now a finding quote the model could not copy exactly rejected the whole
+candidate, recommendation included. On the test split that happened five times, and four of the
+five were real recommendations. The validator now replaces a missed finding quote with the nearest
+source sentence, verbatim, when one matches well enough, and otherwise records the finding as absent
+and keeps the recommendation.
+
+**Measured on the only cases available:** the eight candidates the old check rejected across the
+development and test runs, rerun through the shipped `fields.mjs` and `validateRecommendation`.
+
+| | |
+|---|---|
+| Recommendations kept | 8 of 8, against 0 of 8 before |
+| Snapped to a sentence stating the labelled finding | 6 of the 7 that had one, scores 0.63 to 1.00 |
+| Correctly refused | 1, where the model had quoted the recommendation itself as the finding |
+| Snapped to a wrong finding | 0 |
+
+**These are not test-split figures.** The test split is spent, and these eight cases were found by
+looking at its output. They show the mechanism doing what it was built to do on the cases that
+motivated it. They are not a recall estimate, and the test-split recall above is not restated.
+
+**A measurement error, found and corrected.** The first look at these cases scored with a tokenizer
+that kept the full stop as part of a word, so the last word of every sentence failed to match, and
+it judged a snap correct only if it landed on the exact occurrence the labeller had quoted. Two
+findings in these reports are stated twice, in the findings and again in the impression. The first
+measurement therefore counted a correct snap as wrong, and the specification draft was written
+saying no threshold could separate right from wrong. Both the tokenizer and the specification are
+corrected. The lesson is the one 7.6 already records for scoring: a reworded or repeated statement of
+the same finding is the same finding, and an evaluation that demands one occurrence will undercount.
