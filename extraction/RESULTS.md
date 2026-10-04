@@ -1249,3 +1249,46 @@ measurement therefore counted a correct snap as wrong, and the specification dra
 saying no threshold could separate right from wrong. Both the tokenizer and the specification are
 corrected. The lesson is the one 7.6 already records for scoring: a reworded or repeated statement of
 the same finding is the same finding, and an evaluation that demands one occurrence will undercount.
+
+---
+
+# Verification demotes instead of deleting
+
+Specification v0.5, section 3.2. The verification pass deleted every candidate it judged to ask for
+nothing, before the stage that applies concept note C6 could see it. On the test split it deleted 71
+candidates, and 22 were labelled follow-up recommendations. It now keeps them as second-tier
+candidates: never an obligation, a reminder or an alert, shown to a professional where one reviews
+extractions and listed quietly where a patient is alone.
+
+No model was rerun. First-tier output is unchanged by construction, and the second tier is exactly
+what verification removed, so both are read from the existing test outputs and scored with
+`score.mjs`'s one-to-one matching, as every figure above is.
+
+| | Stratum A | Stratum B |
+|---|---|---|
+| Recall reaching the first tier | 64.9% (24/37) | 68.5% (37/54) |
+| Recall reaching the first or second tier | 86.5% (32/37) | 92.6% (50/54) |
+| Second-tier candidates | 36, 9 of them real | 35, 13 of them real |
+| Second-tier candidates per 100 reports | 14.7 | 33.3 |
+| Clean reports carrying a second-tier candidate | 14 of 214 | not reportable |
+
+The first-tier false-positive rate stays 6 of 214. The acceptance rule is still failed, and this
+change was not made to pass it: it was made because deletion broke C6. Stratum B's per-report rate is
+cue-enriched and is not a deployment estimate.
+
+**What the second tier costs a reviewer** is one candidate in about seven reports on the unbiased
+stratum, of which one in four is real. That is affordable for a coordinator and would be harmful
+pushed to a patient alone, which is why section 3.2 routes by who is present.
+
+**What verification removes rightly** is mostly one shape: the title of a procedure report, or a
+sentence describing a procedure already done, which a single sentence cannot tell apart from a
+request. **What it removes wrongly** is mostly shapes precedents 7.19 to 7.27 define and its frozen
+prompt predates, and three plain errors on explicit requests ("Recommend CT chest to further
+evaluate"). Specification section 12.1 F has the breakdown.
+
+**A label to recheck, not changed.** Among candidates verification removed and the gold standard
+marks as not an instance is "Endotracheal tube has been withdrawn, now terminating about 7.5 cm above
+the carina, and could be advanced". Under precedent 7.21, a written device adjustment is an
+instance. The label may be wrong. It is recorded here and left as it is, because the test split is
+spent and a gold label changed after scoring is a number changed after scoring; it belongs in the
+next relabelling pass with the reason attached.
