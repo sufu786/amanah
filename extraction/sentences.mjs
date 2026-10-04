@@ -77,6 +77,19 @@ export function spanAfterHeading(text, span) {
   return [start, span[1]];
 }
 
+/**
+ * Trim a segment span to the sentence itself: no surrounding whitespace, and no section header
+ * carried over from a heading that shares the line. The quote must round-trip exactly, and it must
+ * be the thing being judged rather than the label above it.
+ */
+export function tightSpan(text, span) {
+  const [afterHeading, end] = spanAfterHeading(text, span);
+  const raw = text.slice(afterHeading, end);
+  const lead = raw.length - raw.trimStart().length;
+  const start = afterHeading + lead;
+  return [start, start + raw.trim().length];
+}
+
 const isTerminator = (ch) => ch === '.' || ch === '?' || ch === '!';
 
 /**

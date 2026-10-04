@@ -6,8 +6,12 @@
 // Two things this file guarantees, which the model cannot be trusted to guarantee itself:
 //
 //   1. Every "_verbatim" string is located in the source text and its span computed here.
-//      A quote that cannot be found character-for-character is treated as FABRICATED and the
-//      recommendation is rejected. This enforces R5 mechanically rather than by instruction.
+//      A recommendation quote that cannot be found character-for-character is treated as
+//      FABRICATED and the recommendation is rejected. A finding quote that cannot be found is
+//      never kept either: it is replaced by the nearest source sentence when one matches well
+//      enough, recorded as such, and otherwise left absent with the reason (specification v0.5).
+//      Either way only source text is retained. This enforces R5 mechanically rather than by
+//      instruction.
 //
 //   2. No interval is ever invented. If the model returns an interval the source does not
 //      support, that is caught by the verbatim check on interval_verbatim, not by trusting
@@ -19,6 +23,8 @@
 
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
+
+import { splitSentences, sectionCannotRecommend, tightSpan } from './sentences.mjs';
 
 export const PROMPT_VERSION = '0.2';
 
@@ -304,6 +310,53 @@ export function locateSpan(source, quote) {
   return [start, end];
 }
 
+/**
+ * The lowest match score at which a nearest source sentence may stand in for a finding quote that
+ * could not be located exactly. PROVISIONAL, and the specification says so (OBLIGATION_SPEC.md
+ * section 12.1 E). Measured on the eight candidates the old finding check rejected on the MIMIC
+ * development and test runs: six snapped to a sentence stating the labelled finding, scoring 0.63 to
+ * 1.00, one was correctly refused, and none snapped to a wrong finding. This threshold admits every
+ * correct snap seen. Eight cases cannot rule a wrong snap out, which is why a nearest-match finding
+ * is shown to the verifier as such and never drives supersession until confirmed.
+ */
+export const NEAREST_SENTENCE_MIN_SCORE = 0.6;
+
+// Words, and decimals kept whole ("4.9", "1.2"), so measurements match as measurements. A full stop
+// is never part of a word: if it were, the last word of every sentence would fail to match itself.
+const tokens = (s) => new Set((String(s).toLowerCase().replace(/___/g, ' ')
+  .match(/[a-z0-9]+(?:\.\d+)?/g) ?? []).filter((t) => t.length > 1));
+
+/**
+ * Find the source sentence that best matches a finding quote which could not be located exactly.
+ *
+ * Returns {span, score} for the best candidate, or null. The span points at source characters, so
+ * whatever the caller stores is verbatim source text: the model's own wording is only ever used to
+ * choose which sentence, never kept (R5). Two kinds of sentence are never candidates:
+ *
+ *   - the one containing the recommendation. A model quoting the request as its own finding has
+ *     made a recognisable error, not a near miss, and on real reports that error scored 1.00.
+ *   - sentences under a heading that cannot hold a recommendation (LABELLING.md 7.4): the
+ *     indication describes why the study was requested, not what it found.
+ *
+ * Score is the share of the quote's words found in the sentence. A quote under three words carries
+ * too little to match on and returns null.
+ */
+export function nearestSentence(source, quote, recSpan) {
+  const want = tokens(quote);
+  if (want.size < 3) return null;
+  let best = null;
+  for (const seg of splitSentences(source)) {
+    if (sectionCannotRecommend(seg.section)) continue;
+    const span = tightSpan(source, seg.span);
+    if (span[1] - span[0] < 3) continue;
+    if (recSpan && span[0] < recSpan[1] && recSpan[0] < span[1]) continue;
+    const have = tokens(source.slice(...span));
+    const score = [...want].filter((t) => have.has(t)).length / want.size;
+    if (!best || score > best.score) best = { span, score };
+  }
+  return best;
+}
+
 /** Validate and repair one recommendation. Returns {ok, value, reason}. */
 export function validateRecommendation(rec, source) {
   const recVerbatim = nn(rec.recommendation_verbatim);
@@ -312,11 +365,34 @@ export function validateRecommendation(rec, source) {
     return { ok: false, reason: 'fabricated_recommendation_quote' };
   }
 
-  const findVerbatim = nn(rec.finding_verbatim);
+  // The finding. A quote located exactly is kept as it is. A quote that misses is never kept, and
+  // never discards the recommendation with it: the recommendation was located character for
+  // character and is real whatever happened to the finding. It is replaced by the nearest source
+  // sentence when one matches well enough, and otherwise recorded as absent with the reason.
+  // OBLIGATION_SPEC.md v0.5, section 2 field notes and section 12.1 E.
+  let findVerbatim = nn(rec.finding_verbatim);
   let findingSpan = null;
-  if (findVerbatim) {
+  let findingLocation = null;
+  let findingMatchScore = null;
+  let findingAbsence = null;
+  if (!findVerbatim) {
+    findingAbsence = 'not_stated';
+  } else {
     findingSpan = locateSpan(source, findVerbatim);
-    if (!findingSpan) return { ok: false, reason: 'fabricated_finding_quote' };
+    if (findingSpan) {
+      findingLocation = 'exact';
+    } else {
+      const near = nearestSentence(source, findVerbatim, recSpan);
+      if (near && near.score >= NEAREST_SENTENCE_MIN_SCORE) {
+        findingSpan = near.span;
+        findVerbatim = source.slice(...near.span);
+        findingLocation = 'nearest_sentence';
+        findingMatchScore = Math.round(near.score * 100) / 100;
+      } else {
+        findVerbatim = null;
+        findingAbsence = 'not_located';
+      }
+    }
   }
 
   // An interval only survives if the source actually contains the words it was read from.
@@ -342,6 +418,9 @@ export function validateRecommendation(rec, source) {
     value: {
       finding_verbatim: findVerbatim,
       finding_span: findingSpan,
+      finding_location: findingLocation,
+      finding_match_score: findingMatchScore,
+      finding_absence: findingAbsence,
       recommendation_verbatim: recVerbatim,
       recommendation_span: recSpan,
       finding: FINDING_CATEGORIES.includes(rec.finding) ? rec.finding : 'other',

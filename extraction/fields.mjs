@@ -11,9 +11,12 @@
 // 27% recall while field-filling was never the problem.
 //
 // Every quoted string is validated against the source by validateRecommendation, which is the same
-// function extract.mjs uses. A quote that cannot be located character for character is treated as
-// fabricated and the whole candidate is rejected. That check is what enforces R5, and reusing it
-// rather than reimplementing it is deliberate: three copies of a rule is how PROMPT.md drifted.
+// function extract.mjs uses. An interval quote that cannot be located rejects the candidate. A
+// finding quote that cannot be located no longer does: until specification v0.5 it discarded a
+// recommendation detection had already located, which happened to four real recommendations in
+// five on the MIMIC test split. It is now replaced by the nearest source sentence or recorded as
+// absent. That check is what enforces R5, and reusing it rather than reimplementing it is
+// deliberate: three copies of a rule is how PROMPT.md drifted.
 //
 // WHAT THIS CANNOT DO ON MIMIC. Every date in the corpus is de-identified, so no obligation can be
 // created from it whatever this stage returns. See CORPUS.md section 8. Intervals cannot be

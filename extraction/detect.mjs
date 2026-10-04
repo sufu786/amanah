@@ -23,7 +23,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 import {
-  splitSentences, sectionCannotRecommend, spanAfterHeading, SECTION_FILTER_VERSION,
+  splitSentences, sectionCannotRecommend, tightSpan, SECTION_FILTER_VERSION,
 } from './sentences.mjs';
 
 export const DETECT_VERSION = '0.2';
@@ -173,18 +173,9 @@ export function dedupeRepeats(candidates) {
   return candidates.filter((c) => keep.has(c));
 }
 
-/**
- * Trim a segment span to the sentence itself: no surrounding whitespace, and no section header
- * carried over from a heading that shares the line. The quote must round-trip exactly, and it must
- * be the thing being judged rather than the label above it.
- */
-export function tightSpan(text, span) {
-  const [afterHeading, end] = spanAfterHeading(text, span);
-  const raw = text.slice(afterHeading, end);
-  const lead = raw.length - raw.trimStart().length;
-  const start = afterHeading + lead;
-  return [start, start + raw.trim().length];
-}
+// tightSpan moved to sentences.mjs so the finding-location step in extract.mjs can share it.
+// Re-exported here because callers and tests import it from this module.
+export { tightSpan };
 
 /**
  * Detect in one report. `sectionFilter` applies LABELLING.md 7.4 and 7.8 as a rule; passing false

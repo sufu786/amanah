@@ -88,6 +88,22 @@
           "description": "The finding exactly as written in the report. Copied, never paraphrased (R5). Null when a recommendation is made without a stated finding."
         },
         "finding_span": { "$ref": "#/$defs/span" },
+        "finding_location": {
+          "type": ["string", "null"],
+          "enum": ["exact", "nearest_sentence", null],
+          "description": "How finding_verbatim was found in the source. exact: located character for character. nearest_sentence: the extractor's quote could not be located and the closest source sentence was taken instead, verbatim; it must be shown to the verifier as a nearest match. Null when there is no finding. Specification v0.5, section 2."
+        },
+        "finding_match_score": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Share of the extractor's quoted words found in the chosen sentence. Present only when finding_location is nearest_sentence."
+        },
+        "finding_absence": {
+          "type": ["string", "null"],
+          "enum": ["not_stated", "not_located", null],
+          "description": "Why there is no finding. not_stated: the report names none. not_located: one was quoted but no source sentence matched well enough to stand in for it. Null when a finding is present."
+        },
 
         "recommendation_verbatim": {
           "type": "string",
