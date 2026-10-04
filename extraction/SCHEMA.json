@@ -41,6 +41,12 @@
       "items": { "$ref": "#/$defs/recommendation" }
     },
 
+    "second_tier": {
+      "type": "array",
+      "description": "Candidates the extraction layer found and then doubted, kept rather than deleted (specification v0.5, section 3.2). Never an obligation, a reminder or an alert until a person confirms one. Absent or empty when nothing was doubted.",
+      "items": { "$ref": "#/$defs/recommendation" }
+    },
+
     "extraction": {
       "type": "object",
       "additionalProperties": false,
@@ -88,6 +94,11 @@
           "description": "The finding exactly as written in the report. Copied, never paraphrased (R5). Null when a recommendation is made without a stated finding."
         },
         "finding_span": { "$ref": "#/$defs/span" },
+        "doubt_reason": {
+          "type": ["string", "null"],
+          "enum": ["verification", null],
+          "description": "Set only on second_tier candidates: the stage that doubted the candidate. verification: a whole-report verification pass judged that it asks for nothing."
+        },
         "finding_location": {
           "type": ["string", "null"],
           "enum": ["exact", "nearest_sentence", null],

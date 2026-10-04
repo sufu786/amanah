@@ -11,10 +11,11 @@
 // So this pass restores exactly what the split threw away. One call per candidate, whole report in
 // view, asking whether the duty is real and still outstanding.
 //
-// A verification pass can only remove. That is the point and it is also the risk: if it removes
-// true positives, recall falls and the gain from detecting per sentence goes with it. Both numbers
-// are reported together for that reason, and RESULTS.md records the failure condition set before
-// this was run.
+// A verification pass can only demote. Until specification v0.5 it deleted what it doubted, and on
+// the MIMIC test split 22 of the 71 candidates it deleted were real follow-up recommendations. It now
+// moves them to output.second_tier, where a person can still see them (section 3.2) but where they
+// create no obligation and no alert. First-tier recall and precision are unchanged by this, and are
+// still reported together.
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
@@ -136,6 +137,7 @@ if (isMain) {
     deduped += candidates.length - unique.length;
 
     const kept = [];
+    const doubted = [];
     for (const { section, ...rec } of unique) {
       checked++;
       let keep = true;
@@ -151,11 +153,15 @@ if (isMain) {
       if (keep) kept.push(rec);
       else {
         removed++;
-        console.log(`  removed  ${p.report_id}: `
+        doubted.push({ ...rec, doubt_reason: 'verification' });
+        console.log(`  doubted  ${p.report_id}: `
           + JSON.stringify(rec.recommendation_verbatim.replace(/\s+/g, ' ').slice(0, 80)));
       }
     }
     p.output.recommendations = kept;
+    // Specification v0.5, section 3.2. A doubted candidate is kept at the second tier, never
+    // deleted: on the MIMIC test split this pass doubted 71 candidates and 22 were real duties.
+    p.output.second_tier = [...(p.output.second_tier ?? []), ...doubted];
     p.output.extraction.no_recommendation_found = kept.length === 0;
     p.output.extraction.prompt_version = `${p.output.extraction.prompt_version}+verify${VERIFY_VERSION}`;
   }
@@ -172,7 +178,8 @@ if (isMain) {
   pred.prompt_version = `${pred.prompt_version}+verify${VERIFY_VERSION}`;
   writeFileSync(outPath, JSON.stringify(pred, null, 2) + '\n', 'utf8');
 
-  console.log(`\n${deduped} collapsed as repeats (7.6), ${checked} verified, ${removed} removed, `
-    + `${checked - removed} kept, ${((Date.now() - started) / 1000).toFixed(0)}s`);
-  console.log('A verification pass can only remove. Read recall and precision together.');
+  console.log(`\n${deduped} collapsed as repeats (7.6), ${checked} verified, ${removed} doubted and `
+    + `kept at the second tier, ${checked - removed} first tier, `
+    + `${((Date.now() - started) / 1000).toFixed(0)}s`);
+  console.log('Doubted candidates are demoted, not deleted (specification v0.5, section 3.2).');
 }

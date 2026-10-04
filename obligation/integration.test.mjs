@@ -317,3 +317,44 @@ describe('specification v0.5  a finding that is absent, or located by nearest ma
     }
   });
 });
+
+describe('specification v0.5 section 3.2  a doubted candidate is demoted, never deleted', () => {
+  const doubted = (over = {}) => ({
+    ...extraction().recommendations[0],
+    recommendation_verbatim: 'Annual mammography.', recommendation_span: [300, 319],
+    finding_verbatim: null, finding_span: null, finding: 'other', action: 'unclear', modality: null,
+    interval: null, confidence: 0, doubt_reason: 'verification', ...over,
+  });
+  const withSecond = (second) => extraction({ second_tier: second });
+
+  test('second-tier candidates are accounted for, and none becomes a proposal', () => {
+    const r = run(withSecond([doubted(), doubted()]), { reviewer: 'professional' });
+    assert.equal(r.proposals.length, 1, 'the first-tier recommendation only');
+    assert.equal(r.second_tier.length, 2);
+    assert.ok(r.second_tier.every((x) => x.flags.includes('second_tier')));
+  });
+
+  test('a professional reviewer gets a review queue; a patient alone gets a quiet list', () => {
+    assert.equal(run(withSecond([doubted()]), { reviewer: 'professional' }).second_tier[0].route, 'review_queue');
+    assert.equal(run(withSecond([doubted()]), { reviewer: 'patient_only' }).second_tier[0].route, 'listed_quietly');
+  });
+
+  test('who reviews must be stated when there is a second tier, because no default is honest', () => {
+    assert.throws(() => run(withSecond([doubted()])), /reviewer is required/);
+    assert.doesNotThrow(() => run(extraction()), 'no second tier, nothing to route');
+  });
+
+  test('an unfilled second-tier candidate cannot become an obligation', () => {
+    const [item] = run(withSecond([doubted()]), { reviewer: 'professional' }).second_tier;
+    assert.equal(item.fields_filled, false);
+    assert.throws(() => acceptProposal(item, {
+      subject_ref: 'opaque-local-1', owner: { kind: 'patient', ref: 'local-1' },
+      actor: { kind: 'clinician', ref: 'dr-1' }, at: '2026-03-20T10:00:00Z', extraction: {},
+    }), /fields have not been filled/);
+  });
+
+  test('a conditional second-tier candidate stays conditional', () => {
+    const [item] = run(withSecond([doubted({ conditional: true })]), { reviewer: 'professional' }).second_tier;
+    assert.ok(item.flags.includes('conditional'));
+  });
+});
