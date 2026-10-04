@@ -1292,3 +1292,43 @@ the carina, and could be advanced". Under precedent 7.21, a written device adjus
 instance. The label may be wrong. It is recorded here and left as it is, because the test split is
 spent and a gold label changed after scoring is a number changed after scoring; it belongs in the
 next relabelling pass with the reason attached.
+
+---
+
+# Is location a model limit? Recorded before the run
+
+Location accuracy is about a quarter on the test split and about a third on development, and
+location is half of `identity_key`. Every prompt attempt so far has been one change to one prompt on
+one 7B model, so nothing yet says whether the ceiling is the model or the task as posed. This run
+changes the model and nothing else.
+
+```
+input          the first-tier candidates of the development split, as verified on 2026-09-18
+               (detect 0.2, sectionfilter 0.2, verify 0.1); verified-A-dev.json sha256
+               c67626bb6d237d21..., verified-B-dev.json sha256 1db5e6274d87657a...
+stage rerun    fields.mjs only, fields prompt 0.1 unchanged
+baseline       qwen2.5:7b-instruct-q4_K_M, the frozen configuration
+comparison     qwen3:14b, 14.8B parameters, Q4_K_M, with reasoning switched off (--no-think), so
+               that the comparison is model against model and not reasoning against none
+gold           the current development split, after the 2026-10-04 relabel
+```
+
+Baseline on that input: location correct on **9 of 26** matched instances (5 of 14 in stratum A, 4 of
+12 in B), 34.6%. Action 14 of 26, category 22 of 26.
+
+**The decision rule, fixed now.** Twenty-six instances is small, and the same 26 are scored both
+times, so the comparison is per instance.
+
+| 14B locates correctly | Reading |
+|---|---|
+| 15 or more of 26 | Location is substantially a model limit; a larger model is a real lever |
+| 6 to 12 of 26 | No effect beyond noise; the limit is in the prompt, the vocabulary, or the task |
+| 13 or 14 | Inconclusive |
+| 5 or fewer | The larger model is worse at this task |
+
+If the 14B changes which candidates pass the validator, the matched set changes and the comparison is
+reported on the instances both runs matched, with the difference stated.
+
+**What this cannot say.** It is development data the pipeline was built against, it is one larger
+model and not models in general, and it says nothing about recall, which this stage does not affect.
+It cannot reach a held-out figure, because there is no unspent split.

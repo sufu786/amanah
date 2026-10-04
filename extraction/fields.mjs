@@ -137,13 +137,17 @@ const FORMAT = {
  * string could not be located in the source. The recommendation quote is supplied rather than
  * asked for, so it cannot be fabricated here.
  */
-export async function fillFields(reportText, sentence, { model = DEFAULT_MODEL } = {}) {
+export async function fillFields(reportText, sentence, { model = DEFAULT_MODEL, think } = {}) {
   const res = await fetch(`${OLLAMA}/api/chat`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       model,
       stream: false,
+      // Some models reason in text before answering unless told not to. Left unset, the model's own
+      // default applies, which is how every run before this option existed was made. Set false to
+      // compare a reasoning model with one that does not reason, changing one thing at a time.
+      ...(think === undefined ? {} : { think }),
       format: FORMAT,
       options: { temperature: 0, num_ctx: 8192 },
       messages: [
@@ -171,10 +175,11 @@ if (isMain) {
   const predPath = get('--predictions');
   const outPath = get('--out');
   const model = get('--model', DEFAULT_MODEL);
+  const think = args.includes('--no-think') ? false : undefined;
 
   if (!corpusPath || !predPath || !outPath) {
     console.error('usage: node fields.mjs --corpus <reports.json> --predictions <verified.json> '
-      + '--out <filled.json> [--model M]');
+      + '--out <filled.json> [--model M] [--no-think]');
     process.exit(2);
   }
 
@@ -193,7 +198,7 @@ if (isMain) {
     for (const rec of p.output.recommendations ?? []) {
       let v;
       try {
-        v = await fillFields(text, rec.recommendation_verbatim, { model });
+        v = await fillFields(text, rec.recommendation_verbatim, { model, think });
       } catch (err) {
         console.error(`  ${p.report_id}: ${err.message}`);
         unreachable++;
@@ -225,7 +230,10 @@ if (isMain) {
     process.exit(1);
   }
 
-  pred.prompt_version += `+fields${FIELDS_VERSION}`;
+  pred.prompt_version += `+fields${FIELDS_VERSION}${think === false ? '+nothink' : ''}`;
+  // score.mjs prints the predictions file's model above every table. Detection and verification
+  // ran on one model; if fields ran on another, the header must say so or the table is misattributed.
+  if (pred.model !== model) pred.model = `${pred.model}; fields ${model}`;
   writeFileSync(outPath, JSON.stringify(pred, null, 2) + '\n', 'utf8');
 
   console.log(`\n${filled} filled, ${rejected} rejected by the verbatim check, `
