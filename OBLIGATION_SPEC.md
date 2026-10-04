@@ -1,9 +1,21 @@
-# Portable Clinical Obligation, specification v0.4
+# Portable Clinical Obligation, specification v0.5
 
 **Status:** draft for public comment
 **Licence:** CC BY 4.0
-**Date:** 2026-08-10
+**Date:** 2026-10-05
 **Concept DOI:** [10.5281/zenodo.21706768](https://doi.org/10.5281/zenodo.21706768)
+
+**Changes since v0.4.** An obligation may now exist without a quoted finding, when the report names
+none or when no sentence in it can be located as the finding. Every finding records how its quote
+was located, and a finding located by nearest match must be confirmed by a person before it can
+supersede anything. The identity key gains a rule for obligations with no finding. Section 12.1 E
+records what was found and weighed: in a hand-labelled corpus of 500 radiology reports, 14 of 130
+follow-up recommendations named no finding, and the v0.4 rule refused every one of them.
+
+**The object format changes, for the first time since v0.2.** The `schema` string becomes
+`cor.obligation/0.3`. The change is additive: every valid `cor.obligation/0.2` object is a valid
+`cor.obligation/0.3` object with `finding.location` read as `exact`, so stored obligations need no
+migration.
 
 **Changes since v0.3.** Section 3.1 is new. A terminal decision that was wrong can be reopened to
 `acknowledged` by an actor with a documented reason, and no evidence. Closing needs evidence,
@@ -16,9 +28,9 @@ reference implementation against it, were corrected in v0.3: `not_indicated` is 
 and not a route to `resolved`, terminal exits are available from every non-terminal state, and
 exhausting the escalation ladder is recorded by a named actor rather than happening by itself.
 
-**The object format is unchanged.** The `schema` string stays `cor.obligation/0.2`, because nothing
-about the object itself moved. A document revision is not a data format revision, and bumping the
-format string would invalidate stored obligations for no reason.
+The object format was unchanged from v0.2 through v0.4, and the `schema` string stayed
+`cor.obligation/0.2` across those revisions, because a document revision is not a data format
+revision.
 
 Companion to `CONCEPT_NOTE.md`. This document specifies the data object, its state machine, closure
 rules and escalation ladder. It is deliberately transport-agnostic: the object can be carried in
@@ -41,7 +53,7 @@ These constrain every decision below.
 | R2 | **No time-based closure.** Elapsed time never closes an obligation. | As above. |
 | R3 | **Exactly one owner at all times.** Ownership transfer is an explicit, logged event. | Unowned obligations are the root cause. |
 | R4 | **Closure requires evidence** of a declared type. | "Notified" is not the same as "done". |
-| R5 | **Verbatim source is retained in the object**, never paraphrased. | Non-interpretive guarantee, patient verification, auditability. |
+| R5 | **Verbatim source is retained in the object**, never paraphrased. A field may be absent; it may never be invented. | Non-interpretive guarantee, patient verification, auditability. |
 | R6 | **Every recommendation traces to a guideline rule and version.** | Explains why, and allows retrospective correction when guidance changes. |
 | R7 | **Confidence is a first-class field, never hidden.** | Below-threshold extraction must be visibly unverified. |
 | R8 | **The object is complete without the source document.** | Enables zero retention (constraint C5). |
@@ -52,15 +64,19 @@ These constrain every decision below.
 
 ```jsonc
 {
-  "schema": "cor.obligation/0.2",
+  "schema": "cor.obligation/0.3",
   "id": "uuid-v4",                       // stable, client-generated
   "subject_ref": "opaque-local-id",      // never a national or medical identifier
 
   "finding": {
-    "text_verbatim": "8 mm nodule in the right upper lobe",
+    "text_verbatim": "8 mm nodule in the right upper lobe",   // null only with an absence reason
     "category": "pulmonary_nodule",      // controlled vocabulary, see section 7
     "anatomy": "lung.right.upper_lobe",  // optional
+    "laterality": "right",               // optional: left, right, bilateral, midline
     "measurement": { "value": 8, "unit": "mm" },   // optional
+    "location": "exact",                 // exact, nearest_sentence; see field notes
+    "match_score": null,                 // 0 to 1, present only when location is nearest_sentence
+    "absence": null,                     // null, not_stated, not_located; see field notes
     "identity_key": "sha256(...)"        // finding identity, see section 6
   },
 
@@ -118,6 +134,24 @@ These constrain every decision below.
   from two years ago must produce an obligation that is already overdue, not one due in six months.
 - **`language_validated: false`** does not block operation. It changes the interface. See C3 in the
   concept note.
+- **`finding.location`** says how the quote was found in the source. `exact` means the quote was
+  located character for character. `nearest_sentence` means an extractor's quote could not be
+  located, and the closest sentence in the source was taken in its place, verbatim, with
+  `match_score` recording how close. The extractor's own wording is never retained: R5 is about what
+  the object holds, and it holds source text either way. What `nearest_sentence` adds is that a
+  machine chose which source text, and could have chosen wrongly, which section 6 rule 4 and
+  conformance item 8 deal with. The sentence containing `recommendation.text_verbatim` is never a
+  candidate: an extractor returning the recommendation as its own finding has made a recognisable
+  error, not a near miss, and the result is `absence: not_located`.
+- **`finding.absence`** is set when there is no finding to quote, and `text_verbatim` is then null
+  and `category` is `none`. `not_stated` means the report names no abnormality: a benign screening
+  mammogram recommending the next annual round, or a normal study recommending further imaging if
+  symptoms persist. `not_located` means the report does name one but no sentence could be located
+  with enough confidence to stand as the quote. The two are kept apart because the second is an
+  extraction failure a person can repair and the first is not. Where there is no finding,
+  `finding.anatomy` and `finding.laterality` carry the body part and side the recommendation itself
+  names, if any: "annual mammography of the left breast" gives `breast` and `left`. They are null
+  where the recommendation names neither, and are never inferred from the type of study.
 - **`patient_corrections`** is the highest-value training signal the system generates. It should be
   retained at field level, de-identified, even under zero retention of source documents.
 
@@ -314,6 +348,24 @@ Resolution rules:
    lobe specified, the obligations are not merged automatically. They are flagged for human
    disambiguation. Merging on weak evidence is more dangerous than a duplicate, because it can
    silently discharge a real obligation.
+4. A finding whose `location` is `nearest_sentence` does not take part in automatic supersession
+   until a person has confirmed it, in either direction: it neither supersedes an existing
+   obligation nor is superseded by an incoming one. The quote was chosen by a machine and may be the
+   wrong sentence, and a wrong finding produces a wrong identity key, which is the silent merge rule 3
+   exists to prevent.
+5. **Obligations with no finding.** Where `finding.absence` is set there is no finding category to
+   key on, so the tuple uses the recommendation instead:
+
+   ```
+   sha256( subject_ref | "none" | recommendation.action | modality_normalised
+           | anatomy_normalised | laterality )
+   ```
+
+   Without this, every findingless obligation held by one person would share a key and the first
+   would be superseded by the next, whatever each asked for. Rule 3 applies unchanged, so a
+   findingless obligation with no anatomy is never merged automatically. That is deliberate: two
+   annual screening recommendations a year apart should usually supersede one another, and a person
+   confirming that costs less than a rule that occasionally merges two different duties.
 
 ---
 
@@ -340,6 +392,11 @@ Resolution rules:
 Unrecognised findings map to `other`, with `text_verbatim` preserved. Obligations of category
 `other` are tracked and reminded, but generate no guideline-derived interval. The interval must come
 verbatim from the report, or be absent.
+
+**`none`** is reserved for obligations with no finding, and is valid only when `finding.absence` is
+set. It is distinct from `other`: `other` says a finding exists and falls outside the list, `none`
+says there is no finding to categorise. Folding the two together would make a benign screening
+return indistinguishable from an unusual lesion.
 
 ---
 
@@ -379,7 +436,10 @@ converts knowing into done.
 
 Required contents:
 
-1. The finding, quoted verbatim from the patient's own report.
+1. The finding, quoted verbatim from the patient's own report. Where `finding.absence` is set, a
+   plain statement instead that the report names no specific finding for this follow-up, or that one
+   could not be identified and the report should be checked. Never a description of the finding in
+   other words.
 2. The recommendation, quoted verbatim.
 3. The source: document date and locator.
 4. The due date, and how many days overdue if applicable.
@@ -430,6 +490,11 @@ An implementation conforms to this specification if all of the following hold.
 5. Extraction confidence and language-validation status are surfaced rather than hidden.
 6. A full trajectory is reconstructable from `history` alone.
 7. The system operates without retaining source documents.
+8. A finding located by nearest match is shown to the person verifying the obligation as located by
+   nearest match, with its score, and is never presented as an exact quote. It takes no part in
+   automatic supersession until confirmed (section 6 rule 4).
+9. No finding text is ever produced that is not a verbatim span of the source. An obligation whose
+   finding cannot be located carries `absence: not_located` rather than a paraphrase.
 
 ---
 
@@ -438,7 +503,9 @@ An implementation conforms to this specification if all of the following hold.
 ### 12.1 Contradictions found by implementing this specification
 
 Four places where v0.2 disagreed with itself, found by writing the reference implementation against
-it in August 2026. Three were corrected in v0.3 and the fourth in v0.4. All are now settled.
+it in August 2026. Three were corrected in v0.3 and the fourth in v0.4. A fifth, E, is of a
+different kind: it was found by measuring the extraction layer on real reports, not by implementing
+the text, and it was corrected in v0.5. All five are now settled.
 
 They are recorded rather than quietly fixed because an independent implementer meets the same
 places, and a specification that silently changes underneath its readers is worse than one that
@@ -504,6 +571,46 @@ the residual case where reopening is happening too often for a different reason.
 said `resolved`. Systems that cached the earlier answer will be stale. This is the ordinary cost of
 a state machine that admits correction, and it is preferable to a registry that cannot be corrected
 at all.
+
+**E. R5 refused real obligations with no finding to quote. RESOLVED in v0.5.** v0.4 required every
+obligation to carry `finding.text_verbatim`, on the reasoning that an obligation with no quoted
+source is a paraphrase of one. The reasoning holds. The requirement did not, because it was found to
+reject two kinds of real duty when the extraction layer was measured on 500 hand-labelled
+MIMIC-IV-Note radiology reports in September and October 2026.
+
+The first kind names no finding at all. Of 130 labelled follow-up recommendations, 14 had nothing to
+quote: five were routine mammography rounds after a benign result, eight were requests for further
+imaging after a normal study if symptoms persisted. Each is a real duty and the annual screening
+return is among the ones people most often lose. v0.4 could hold none of them.
+
+The second kind names a finding the extractor could not quote exactly. On the held-out test split,
+five candidates were discarded because the model's finding quote could not be located in the
+source, and four of the five carried correctly located recommendations. A rule written to stop a
+fabricated quote was discarding real recommendations along with it.
+
+Three designs were weighed for the first kind. **Quoting a negative statement as the finding**, for
+example "No specific evidence of malignancy", satisfies R5 literally and was rejected, because an
+identity key built from it means nothing and the prepared summary would present a reassurance as
+though it were an abnormality. **Declaring findingless obligations out of scope** was rejected
+because it drops a tenth of the real duties in the corpus, including the screening returns. **An
+absent finding with a stated reason** was adopted. R5 now reads that a field may be absent and may
+never be invented, which is what it always meant.
+
+For the second kind, keeping the recommendation with the finding absent was the conservative choice
+and is what `not_located` provides. A better one is usually available: the model's quote is most
+often a near miss, a word changed or a phrase tidied, and the closest sentence in the source is the
+right one. Eight development and test candidates were rejected this way, and seven of them had a
+labelled finding. In five of the seven the nearest source sentence was the labelled finding. In one
+the model had quoted the recommendation itself as the finding, which the field notes now exclude. In
+the last the nearest sentence was wrong, at a match score indistinguishable from the correct ones,
+and no threshold would have separated it. So `nearest_sentence` is permitted, never as an exact
+quote, never driving supersession until a person confirms it, and never as the recommendation's own
+sentence. Eight cases establish that the approach recovers real findings. They do not establish a
+threshold, and an implementation should treat its threshold as provisional.
+
+**Found while writing this.** Section 6 has keyed identity on `laterality` since v0.2, and the
+object in section 2 never defined the field. v0.5 adds it to `finding`, with the four values the
+extraction layer already uses.
 
 ### 12.2 Design questions still open
 
