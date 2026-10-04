@@ -686,7 +686,7 @@ system extracts arrives needing a person before it can become a duty at all.
 **It measures extraction, not linkage.** Nothing here says anything about whether an obligation, once
 created, gets closed. That is Phase 2 and it needs a deployment, not a corpus.
 
-**Its de-identification is not complete.** One report in stratum B names a clinician by first name in
+**Its de-identification is not complete.** One report in stratum A names a clinician by first name in
 its communication line. The name is a member of staff, not the patient, and it is not quoted in any
 label span or in any file in this repository. The PhysioNet data use agreement asks credentialed users
 to report identifying information they find, and this is to be reported with the report identifier
