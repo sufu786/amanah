@@ -10,7 +10,10 @@ none or when no sentence in it can be located as the finding. Every finding reco
 was located, and a finding located by nearest match must be confirmed by a person before it can
 supersede anything. The identity key gains a rule for obligations with no finding. Section 12.1 E
 records what was found and weighed: in a hand-labelled corpus of 500 radiology reports, 14 of 130
-follow-up recommendations named no finding, and the v0.4 rule refused every one of them.
+follow-up recommendations named no finding, and the v0.4 rule refused every one of them. Section
+3.2 is also new: a candidate the extraction layer doubts is kept at a second tier rather than
+deleted, routed by whether a professional or only the patient will see it. Section 12.1 F records
+why.
 
 **The object format changes, for the first time since v0.2.** The `schema` string becomes
 `cor.obligation/0.3`. The change is additive: every valid `cor.obligation/0.2` object is a valid
@@ -259,6 +262,35 @@ place. See section 12.1 B.
 obligation may sit in `created` indefinitely. It still generates reminders, but the prepared summary
 is marked as unverified.
 
+### 3.2 Before an obligation exists: candidates an extractor doubted
+
+An extraction layer may doubt a sentence it found: a verification pass judging that it asks for
+nothing, or a confidence below threshold. A doubted candidate is never deleted. Concept note C6 is
+explicit that uncertain extractions are never silently dropped, and a candidate removed before any
+person sees it is dropped as silently as anything can be.
+
+It is kept as a **second-tier candidate**. It is not an obligation and has no state in section 3. It
+generates no reminder, no escalation and no prepared summary, and it is never presented as
+something owed. What happens to it depends on who is present.
+
+- **Where a clinician or coordinator reviews extractions**, second-tier candidates are shown to them
+  in a queue kept apart from first-tier ones, with the reason each was doubted. Confirming one
+  creates an obligation in `created`, by the ordinary path. Dismissing one is recorded with the
+  actor.
+- **Where the patient is alone**, for example with a photographed report, a second-tier candidate is
+  never an alert. It may be listed quietly with the document, as a sentence the system was unsure
+  about and the patient may wish to ask about. Nothing is pushed to the patient about it.
+
+The distinction is the reason this section exists. A false obligation pushed to a patient alone is
+the harm a strict false-positive rule protects against, and a real duty deleted before anyone saw
+it is the harm C2 calls the one by which this system could kill someone. Routing by who is present
+avoids both: a professional absorbs the second tier's noise, and a patient alone is never alarmed by
+it but can still see it.
+
+A conformance claim about false positives applies to first-tier output, which is what becomes an
+obligation or an alert. Second-tier volume is reported beside it, never folded into it and never
+omitted.
+
 ---
 
 ## 4. Closure
@@ -495,6 +527,9 @@ An implementation conforms to this specification if all of the following hold.
    automatic supersession until confirmed (section 6 rule 4).
 9. No finding text is ever produced that is not a verbatim span of the source. An obligation whose
    finding cannot be located carries `absence: not_located` rather than a paraphrase.
+10. No extracted candidate is deleted before a person could see it. A doubted candidate is kept at
+    the second tier of section 3.2, and never generates a reminder or alert until a person confirms
+    it.
 
 ---
 
@@ -503,9 +538,9 @@ An implementation conforms to this specification if all of the following hold.
 ### 12.1 Contradictions found by implementing this specification
 
 Four places where v0.2 disagreed with itself, found by writing the reference implementation against
-it in August 2026. Three were corrected in v0.3 and the fourth in v0.4. A fifth, E, is of a
-different kind: it was found by measuring the extraction layer on real reports, not by implementing
-the text, and it was corrected in v0.5. All five are now settled.
+it in August 2026. Three were corrected in v0.3 and the fourth in v0.4. Two more, E and F, are of a
+different kind: they were found by measuring the extraction layer on real reports, not by
+implementing the text, and both were corrected in v0.5. All six are now settled.
 
 They are recorded rather than quietly fixed because an independent implementer meets the same
 places, and a specification that silently changes underneath its readers is worse than one that
@@ -621,6 +656,28 @@ provisional and keep the protections above.
 **Found while writing this.** Section 6 has keyed identity on `laterality` since v0.2, and the
 object in section 2 never defined the field. v0.5 adds it to `finding`, with the four values the
 extraction layer already uses.
+
+**F. Doubted candidates were deleted before anyone saw them. RESOLVED in v0.5.** Concept note C6
+says uncertain extractions are never silently dropped. The reference extraction pipeline ran a
+verification pass that deleted every candidate it judged not to ask for anything, before the stage
+that applies C6 ever saw it. On the held-out MIMIC test split that pass deleted 71 candidates, and 22
+of them were labelled follow-up recommendations.
+
+What it deleted rightly was mostly one shape: the title of a procedure report, or a sentence
+describing a procedure already done, which a single sentence cannot distinguish from a request
+because it carries no tense. What it deleted wrongly was mostly shapes the labelling protocol
+defines and its prompt predated: routine annual screening, conditional requests, device
+adjustments, correlation with a named test. Three were explicit requests of the form "Recommend CT
+chest to further evaluate".
+
+Two prompt revisions to make the pass judge better had already been measured and had not helped.
+The defect was not the pass's judgement but what its judgement did. Three designs were weighed.
+**Keeping deletion** keeps the false-positive rate low by losing real duties invisibly, which is the
+trade C2 forbids. **Dropping the pass** keeps every real duty but sends roughly three times as many
+false candidates to whoever sees first-tier output, including a patient alone. **Keeping the pass and
+changing what its verdict means** was adopted: a doubted candidate is kept at a second tier, shown to
+a professional where one is present and never pushed to a patient alone. On the unbiased stratum
+that is about fifteen second-tier candidates per hundred reports, about a quarter of them real.
 
 ### 12.2 Design questions still open
 
