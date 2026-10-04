@@ -19,7 +19,9 @@ import {
   createObligation, transition, verify, transferOwner, record, reconstruct, tally,
   supersede, supersessionDecision, identityKey, computeDueDate, reopen, wasReopened,
   permittedTransitions, STATES, TERMINAL_STATES, CLOSURE_STATES, NOT_A_CLOSURE, EVIDENCE_TYPES,
+  SCHEMA, NO_FINDING,
 } from './obligation.mjs';
+import { createHash } from 'node:crypto';
 
 const PATIENT = { kind: 'patient', ref: 'local-1' };
 const CLINICIAN = { kind: 'clinician', ref: 'dr-2' };
@@ -465,5 +467,113 @@ describe('reopen  when a terminal decision was wrong (section 12.1 B, resolved i
     o = transition(o, { to: 'resolved', actor: CLINICIAN, at: T(6), evidence: { type: 'matching_study' } });
     assert.equal(tally([o]).closed, 1);
     assert.equal(tally([o]).ever_reopened, 1, 'the first closure was still wrong, and that stays visible');
+  });
+});
+
+describe('v0.5  findings that are absent, or located by nearest match', () => {
+  const noFinding = (over = {}) => ({
+    text_verbatim: null, category: NO_FINDING, absence: 'not_stated', anatomy: null, laterality: null, ...over,
+  });
+  const annual = (over = {}) => make({
+    finding: noFinding(),
+    recommendation: { text_verbatim: 'Annual mammography.', action: 'imaging', modality: 'mammography',
+      interval: { value: 1, unit: 'year' } },
+    ...over,
+  });
+  const nearest = (over = {}) => make({
+    finding: {
+      text_verbatim: '8 mm nodule in the right upper lobe', category: 'pulmonary_nodule',
+      anatomy: 'lung', laterality: 'right', location: 'nearest_sentence', match_score: 0.71,
+    },
+    ...over,
+  });
+
+  test('the object format is cor.obligation/0.3', () => {
+    assert.equal(SCHEMA, 'cor.obligation/0.3');
+    assert.equal(make().schema, 'cor.obligation/0.3');
+  });
+
+  test('an exactly quoted finding records its location, and nothing else changes', () => {
+    const o = make();
+    assert.equal(o.finding.location, 'exact');
+    assert.equal(o.finding.match_score, null);
+    assert.equal(o.finding.absence, null);
+  });
+
+  test('an obligation may exist with no finding, when the reason is stated', () => {
+    const o = annual();
+    assert.equal(o.finding.text_verbatim, null);
+    assert.equal(o.finding.category, NO_FINDING);
+    assert.equal(o.finding.absence, 'not_stated');
+    assert.equal(o.finding.location, null, 'there is no quote to have located');
+    assert.equal(o.due_date, '2027-03-14');
+  });
+
+  test('R5: a finding is either quoted or absent with a reason, never neither', () => {
+    assert.throws(() => make({ finding: { text_verbatim: null, category: 'pulmonary_nodule' } }), /absence reason/);
+    assert.throws(() => make({ finding: noFinding({ text_verbatim: 'a nodule' }) }), /absent, never invented/);
+    assert.throws(() => make({ finding: noFinding({ category: 'other' }) }), /category "none"/);
+    assert.throws(() => make({ finding: noFinding({ absence: 'unclear' }) }), /absence must be one of/);
+    assert.throws(
+      () => make({ finding: { text_verbatim: 'a nodule', category: NO_FINDING } }),
+      /valid only with an absence reason/,
+    );
+  });
+
+  test('laterality is one of the four values, or absent', () => {
+    assert.throws(() => make({ finding: { ...base().finding, laterality: 'upper' } }), /laterality must be one of/);
+    assert.equal(make({ finding: { ...base().finding, laterality: 'left' } }).finding.laterality, 'left');
+  });
+
+  test('conformance 8: a nearest-match finding must carry its score, and an exact one must not', () => {
+    assert.equal(nearest().finding.match_score, 0.71);
+    assert.throws(() => nearest({ finding: { ...nearest().finding, match_score: null } }), /match_score between 0 and 1/);
+    assert.throws(() => nearest({ finding: { ...nearest().finding, match_score: 1.4 } }), /match_score between 0 and 1/);
+    assert.throws(() => make({ finding: { ...base().finding, match_score: 0.9 } }), /only when location is nearest_sentence/);
+    assert.throws(() => make({ finding: { ...base().finding, location: 'guessed' } }), /location must be one of/);
+  });
+
+  test('identity keys for every existing category are byte-for-byte unchanged', () => {
+    const v02 = createHash('sha256').update('s|pulmonary_nodule|lung.right.upper_lobe|', 'utf8').digest('hex');
+    assert.equal(
+      identityKey({ subject_ref: 's', category: 'pulmonary_nodule', anatomy: 'lung.right.upper_lobe' }),
+      v02,
+      'a stored 0.2 obligation must keep its key, or supersession silently stops working for it',
+    );
+  });
+
+  test('rule 5: obligations with no finding are keyed on the recommendation', () => {
+    const k = (over) => identityKey({ subject_ref: 's', category: NO_FINDING, action: 'imaging', ...over });
+    assert.equal(k({ modality: 'mammography' }), k({ modality: 'Mammography ' }), 'normalised');
+    assert.notEqual(k({ modality: 'mammography' }), k({ modality: 'MRI' }),
+      'two findingless duties asking for different tests are different duties');
+    assert.notEqual(k({ modality: 'mammography', laterality: 'left' }), k({ modality: 'mammography' }));
+    assert.throws(() => identityKey({ subject_ref: 's', category: NO_FINDING }), /requires the recommendation action/);
+  });
+
+  test('rule 3 still applies: a findingless obligation with no anatomy goes to a human', () => {
+    const older = annual();
+    const newer = annual({ id: 'ob-2', source: { kind: 'photo', document_date: '2027-03-14' } });
+    assert.equal(older.finding.identity_key, newer.finding.identity_key);
+    assert.equal(supersessionDecision(older, newer).decision, 'flag_for_human');
+  });
+
+  test('rule 4: an unconfirmed nearest-match finding neither supersedes nor is superseded', () => {
+    const later = { source: { kind: 'photo', document_date: '2026-09-14' } };
+    const sameKeyOld = nearest();
+    const sameKeyNew = make({
+      id: 'ob-2', ...later,
+      finding: { text_verbatim: '9 mm nodule, right upper lobe', category: 'pulmonary_nodule', anatomy: 'lung', laterality: 'right' },
+    });
+    assert.equal(sameKeyOld.finding.identity_key, sameKeyNew.finding.identity_key);
+    assert.equal(supersessionDecision(sameKeyOld, sameKeyNew).decision, 'flag_for_human', 'existing unconfirmed');
+
+    const confirmedOld = verify(nearest(), { actor: PATIENT, at: T(1) });
+    const unconfirmedNew = nearest({ id: 'ob-2', ...later });
+    assert.equal(supersessionDecision(confirmedOld, unconfirmedNew).decision, 'flag_for_human', 'incoming unconfirmed');
+
+    const confirmedNew = verify(nearest({ id: 'ob-2', ...later }), { actor: PATIENT, at: T(2) });
+    assert.equal(supersessionDecision(confirmedOld, confirmedNew).decision, 'supersede',
+      'once a person has confirmed both, the ordinary rules apply');
   });
 });

@@ -77,6 +77,11 @@ export const EN = {
     'My report did not say when this should happen, so there is no date here. The wording above '
     + 'is copied from the report.',
   no_guideline: 'None referenced',
+  // Section 9 item 1, v0.5. Where the obligation has no finding, a plain statement in place of the
+  // quote, never a description of the finding in other words.
+  finding_not_stated: 'My report does not name a specific finding for this follow-up.',
+  finding_not_located:
+    'The finding this follow-up is about could not be identified automatically. Please check my report for it.',
   document_date_label: 'Report dated',
 };
 
@@ -129,8 +134,15 @@ export function preparedSummary(obligation, { now, copy = EN } = {}) {
   // Labels are system copy in all three cases, so labels are always scanned.
   const add = (id, label, text, origin) => parts.push({ id, label, text, origin, verbatim: origin === 'report' });
 
-  // 1 and 2. Quoted verbatim from the patient's own report. Never scanned, never reworded.
-  add('finding', copy.finding_label, obligation.finding.text_verbatim, 'report');
+  // 1 and 2. Quoted verbatim from the patient's own report. Never scanned, never reworded. Where
+  // there is no finding, the line says so in system copy, which is scanned like any other.
+  const absence = obligation.finding.absence ?? null;
+  if (absence) {
+    add('finding', copy.finding_label,
+      absence === 'not_located' ? copy.finding_not_located : copy.finding_not_stated, 'system');
+  } else {
+    add('finding', copy.finding_label, obligation.finding.text_verbatim, 'report');
+  }
   add('recommendation', copy.recommendation_label, obligation.recommendation.text_verbatim, 'report');
 
   // 3. The source: document date and locator.

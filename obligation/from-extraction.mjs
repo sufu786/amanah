@@ -29,6 +29,41 @@ export const NOTHING_FOUND_NOTICE =
 const nn = (v) => (v === null || v === undefined || v === '' ? null : v);
 
 /**
+ * The finding, in the shape section 2 of the specification gives it.
+ *
+ * Extraction output from before specification v0.5 has no location or absence fields. A finding
+ * quote in that output was located exactly, because the validator then rejected anything else, and
+ * a missing quote meant the report named none. Both readings are what the format change promises:
+ * a 0.2 object is a 0.3 object with location read as `exact`.
+ */
+function findingFrom(rec) {
+  const text = nn(rec.finding_verbatim);
+  const absence = nn(rec.finding_absence) ?? (text ? null : 'not_stated');
+  if (absence) {
+    return {
+      text_verbatim: null,
+      category: 'none',
+      anatomy: nn(rec.anatomy),
+      laterality: nn(rec.laterality),
+      measurement: null,
+      location: null,
+      match_score: null,
+      absence,
+    };
+  }
+  return {
+    text_verbatim: text,
+    category: rec.finding,
+    anatomy: nn(rec.anatomy),
+    laterality: nn(rec.laterality),
+    measurement: rec.measurement ?? null,
+    location: nn(rec.finding_location) ?? 'exact',
+    match_score: rec.finding_match_score ?? null,
+    absence: null,
+  };
+}
+
+/**
  * Turn one extraction result into proposals, review items and blocked items.
  *
  * `threshold` is required. There is no sensible default: the right value depends on measured
@@ -77,13 +112,7 @@ export function proposalsFromExtraction(result, {
       // C3: the verification screen highlights the source sentence, so the span travels with the
       // proposal. Without it there is nothing to highlight and the patient cannot validate.
       source_span: rec.recommendation_span ?? null,
-      finding: {
-        text_verbatim: nn(rec.finding_verbatim),
-        category: rec.finding,
-        anatomy: nn(rec.anatomy),
-        laterality: nn(rec.laterality),
-        measurement: rec.measurement ?? null,
-      },
+      finding: findingFrom(rec),
       recommendation: {
         text_verbatim: rec.recommendation_verbatim,
         action: rec.action,
@@ -116,6 +145,13 @@ export function proposalsFromExtraction(result, {
       });
       continue;
     }
+
+    // Conformance 8, specification v0.5. A finding chosen by nearest match may be the wrong
+    // sentence, so the person verifying is told rather than shown it as though it were quoted. A
+    // finding that could not be located at all is a gap a person can fill, and they are told that
+    // too. A report that names no finding is not flagged: nothing is missing.
+    if (item.finding.location === 'nearest_sentence') item.flags.push('finding_located_by_nearest_match');
+    if (item.finding.absence === 'not_located') item.flags.push('finding_not_located');
 
     if (item.recommendation.conditional) {
       // Section 9 of SCHEMA.json: conditional recommendations are flagged rather than converted

@@ -264,3 +264,56 @@ describe('10  graceful degradation is mandatory', () => {
     assert.equal(r.match, 'fallback', 'a pack that fails validation must not reach a patient');
   });
 });
+
+describe('specification v0.5  a finding that is absent, or located by nearest match', () => {
+  const accept = (p) => acceptProposal(p, {
+    subject_ref: 'opaque-local-1', owner: { kind: 'patient', ref: 'local-1' }, actor: PATIENT,
+    at: '2026-03-20T10:00:00Z', extraction: { model: 'qwen2.5:7b' },
+  });
+  const withRec = (over) => extraction({ recommendations: [{ ...extraction().recommendations[0], ...over }] });
+
+  test('extraction output from before v0.5 reads as an exactly located finding', () => {
+    const [p] = run(extraction()).proposals;
+    assert.equal(p.finding.location, 'exact');
+    assert.equal(p.finding.absence, null);
+    assert.equal(accept(p).finding.location, 'exact');
+  });
+
+  test('a report naming no finding becomes an obligation with no finding, and is not flagged', () => {
+    const [p] = run(withRec({
+      finding_verbatim: null, finding_span: null, finding: 'other', finding_absence: 'not_stated',
+      recommendation_verbatim: 'Annual mammography.', modality: 'mammography',
+    })).proposals;
+    assert.equal(p.finding.category, 'none');
+    assert.deepEqual(p.flags, []);
+    const o = accept(p);
+    assert.equal(o.finding.text_verbatim, null);
+    assert.equal(o.finding.absence, 'not_stated');
+  });
+
+  test('a nearest-match finding is flagged for the person verifying it (conformance 8)', () => {
+    const [p] = run(withRec({ finding_location: 'nearest_sentence', finding_match_score: 0.71 })).proposals;
+    assert.ok(p.flags.includes('finding_located_by_nearest_match'));
+    assert.equal(p.finding.match_score, 0.71);
+    assert.equal(accept(p).finding.location, 'nearest_sentence');
+  });
+
+  test('a finding that could not be located is flagged, and the recommendation still becomes a duty', () => {
+    const [p] = run(withRec({ finding_verbatim: null, finding_span: null, finding_absence: 'not_located' })).proposals;
+    assert.ok(p.flags.includes('finding_not_located'));
+    const o = accept(p);
+    assert.equal(o.recommendation.text_verbatim, 'Recommend CT follow-up in 6 months.');
+    assert.equal(o.finding.absence, 'not_located');
+  });
+
+  test('the summary says there is no finding, in words that pass the language check', () => {
+    const [stated] = run(withRec({ finding_verbatim: null, finding_absence: 'not_stated' })).proposals;
+    const [missing] = run(withRec({ finding_verbatim: null, finding_absence: 'not_located' })).proposals;
+    for (const [p, re] of [[stated, /does not name a specific finding/], [missing, /could not be identified/]]) {
+      const line = preparedSummary(accept(p), { now: '2026-09-20' }).parts.find((x) => x.id === 'finding');
+      assert.match(line.text, re);
+      assert.equal(line.origin, 'system', 'system copy, so it is scanned like any other');
+      assert.equal(line.verbatim, false, 'it is never presented as a quote from the report');
+    }
+  });
+});

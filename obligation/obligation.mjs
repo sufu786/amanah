@@ -21,7 +21,18 @@
 
 import { createHash } from 'node:crypto';
 
-export const SCHEMA = 'cor.obligation/0.2';
+// 0.3 is additive over 0.2: every valid 0.2 object is a valid 0.3 object with finding.location read
+// as `exact`. Specification v0.5, header.
+export const SCHEMA = 'cor.obligation/0.3';
+
+// Section 2 field notes, v0.5. How a finding's quote was found, and why there may be none.
+export const FINDING_LOCATIONS = ['exact', 'nearest_sentence'];
+export const FINDING_ABSENCE = ['not_stated', 'not_located'];
+export const LATERALITY = ['left', 'right', 'bilateral', 'midline'];
+
+// Section 7. Reserved for obligations with no finding, and distinct from `other`, which says a
+// finding exists and falls outside the list.
+export const NO_FINDING = 'none';
 
 // Section 3. The live path, and the terminal exits.
 export const STATES = [
@@ -105,14 +116,78 @@ function requireAt(at) {
  * Measurement is deliberately excluded from the key: the whole point is that a nodule changes
  * size between studies, and keying on size would make every follow-up a different finding.
  */
-export function identityKey({ subject_ref, category, anatomy = null, laterality = null }) {
+export function identityKey({
+  subject_ref, category, anatomy = null, laterality = null, action = null, modality = null,
+}) {
   if (!subject_ref) throw new Error('identityKey requires subject_ref');
   if (!category) throw new Error('identityKey requires a finding category');
-  const normalisedAnatomy = anatomy ? String(anatomy).trim().toLowerCase() : '';
-  const normalisedLaterality = laterality ? String(laterality).trim().toLowerCase() : '';
+  const norm = (v) => (v ? String(v).trim().toLowerCase() : '');
+
+  // Rule 5, v0.5. With no finding there is no category to key on, and keying every findingless
+  // obligation on "none" alone would let the first be superseded by the next whatever each asked
+  // for. The recommendation stands in for the finding. Every other category keeps the v0.2 tuple
+  // exactly, so no stored identity_key changes.
+  if (category === NO_FINDING) {
+    if (!action) throw new Error('identityKey for an obligation with no finding requires the recommendation action');
+    return createHash('sha256')
+      .update([subject_ref, NO_FINDING, norm(action), norm(modality), norm(anatomy), norm(laterality)].join('|'), 'utf8')
+      .digest('hex');
+  }
+
   return createHash('sha256')
-    .update([subject_ref, category, normalisedAnatomy, normalisedLaterality].join('|'), 'utf8')
+    .update([subject_ref, category, norm(anatomy), norm(laterality)].join('|'), 'utf8')
     .digest('hex');
+}
+
+/**
+ * Section 2 field notes, v0.5. A finding either quotes the source, located exactly or by nearest
+ * match, or says why it does not. Returns the finding with its provenance fields filled in, or
+ * throws naming the rule broken.
+ */
+function validateFinding(finding) {
+  if (!isPlainObject(finding) || !finding.category) {
+    throw new Error('finding needs a category. R5: the verbatim source is retained, never paraphrased.');
+  }
+  if (finding.laterality != null && !LATERALITY.includes(finding.laterality)) {
+    throw new Error(`finding.laterality must be one of ${LATERALITY.join(', ')}, or null`);
+  }
+
+  const absence = finding.absence ?? null;
+  if (absence !== null) {
+    if (!FINDING_ABSENCE.includes(absence)) {
+      throw new Error(`finding.absence must be one of ${FINDING_ABSENCE.join(', ')}, or null`);
+    }
+    if (finding.text_verbatim) {
+      throw new Error('a finding with an absence reason carries no text. R5: absent, never invented.');
+    }
+    if (finding.category !== NO_FINDING) {
+      throw new Error(`a finding with an absence reason has category "${NO_FINDING}" (section 7)`);
+    }
+    // Location and score describe a quote, and there is none.
+    return { ...finding, text_verbatim: null, location: null, match_score: null, absence };
+  }
+
+  if (!finding.text_verbatim) {
+    throw new Error('finding needs text_verbatim, or an absence reason saying why there is none. '
+      + 'R5: the verbatim source is retained, never paraphrased.');
+  }
+  if (finding.category === NO_FINDING) {
+    throw new Error(`category "${NO_FINDING}" is valid only with an absence reason (section 7)`);
+  }
+
+  const location = finding.location ?? 'exact';
+  if (!FINDING_LOCATIONS.includes(location)) {
+    throw new Error(`finding.location must be one of ${FINDING_LOCATIONS.join(', ')}`);
+  }
+  const score = finding.match_score ?? null;
+  if (location === 'nearest_sentence' && !(typeof score === 'number' && score >= 0 && score <= 1)) {
+    throw new Error('a finding located by nearest match needs match_score between 0 and 1, so the '
+      + 'person verifying it can see how close the match was (conformance 8)');
+  }
+  if (location === 'exact' && score !== null) {
+    throw new Error('match_score is present only when location is nearest_sentence');
+  }
+  return { ...finding, location, match_score: score, absence: null };
 }
 
 /**
@@ -166,9 +241,7 @@ export function createObligation({
   requireAt(at);
   if (!id) throw new Error('id is required and is client-generated, so an obligation can be created offline');
   if (!subject_ref) throw new Error('subject_ref is required');
-  if (!isPlainObject(finding) || !finding.text_verbatim || !finding.category) {
-    throw new Error('finding needs {text_verbatim, category}. R5: the verbatim source is retained, never paraphrased.');
-  }
+  const checkedFinding = validateFinding(finding);
   if (!isPlainObject(recommendation) || !recommendation.text_verbatim || !recommendation.action) {
     throw new Error('recommendation needs {text_verbatim, action}');
   }
@@ -190,12 +263,14 @@ export function createObligation({
     id,
     subject_ref,
     finding: {
-      ...finding,
+      ...checkedFinding,
       identity_key: identityKey({
         subject_ref,
-        category: finding.category,
-        anatomy: finding.anatomy ?? null,
-        laterality: finding.laterality ?? null,
+        category: checkedFinding.category,
+        anatomy: checkedFinding.anatomy ?? null,
+        laterality: checkedFinding.laterality ?? null,
+        action: recommendation.action,
+        modality: recommendation.modality ?? null,
       }),
     },
     recommendation,
@@ -384,6 +459,17 @@ export function supersessionDecision(existing, incoming) {
   }
   if (TERMINAL_STATES.includes(existing.state)) {
     return { decision: 'distinct', reason: `existing obligation is already ${existing.state}` };
+  }
+  // Rule 4, v0.5. A finding located by nearest match was chosen by a machine and may be the wrong
+  // sentence, and a wrong finding produces a wrong identity key. Until a person has confirmed it,
+  // which is what leaving `created` means, it neither supersedes nor is superseded.
+  const unconfirmedNearest = (o) => o.finding.location === 'nearest_sentence' && o.state === 'created';
+  if (unconfirmedNearest(existing) || unconfirmedNearest(incoming)) {
+    return {
+      decision: 'flag_for_human',
+      reason: 'a finding located by nearest match has not been confirmed by a person (section 6, '
+        + 'rule 4). Not merged automatically: the match may be the wrong sentence.',
+    };
   }
   if (!(incoming.source.document_date > existing.source.document_date)) {
     return {
