@@ -1096,3 +1096,123 @@ stratum A and 60.0% in B, with 1 false positive in 88 clean reports. The test sp
 lower rather than higher: the development reports include the fifty the pipeline was debugged
 against, and every prompt rule was written with development text in view. A test result materially
 above development would be a reason to look for a fault in the harness rather than to celebrate.
+
+---
+
+# The test split, scored once
+
+Run 2026-10-04 under the frozen configuration above, against the gold standard whose hashes are
+recorded there. Stratum A positions 106 to 350 and stratum B positions 46 to 150, as `CORPUS.md` 6.1
+assigned them before the draw. Nothing was changed after seeing these numbers.
+
+| Stratum A, 245 reports, 37 instances | Detect | Verify | Fields |
+|---|---|---|---|
+| False positives on clean reports | 18 of 214 | 6 of 214 | **6 of 214 (2.8%)** |
+| Detection recall | 86.5% | 64.9% | **62.2% (23/37)** |
+| Detection precision | 47.1% | 75.0% | **74.2%** |
+| Category accuracy | | | 73.9% (17/23) |
+| Action accuracy | | | 73.9% (17/23) |
+| Location accuracy | | | **26.1% (6/23)** |
+| Interval accuracy | | | 90.9% (20/22), 3 of 3 where gold states one |
+| Span validity, exact | 100% | 100% | 100% (31/31) |
+
+| Stratum B, 105 reports, 54 instances | Detect | Verify | Fields |
+|---|---|---|---|
+| Detection recall | 92.6% | 68.5% | **63.0% (34/54)** |
+| Category accuracy | | | 79.4% (27/34) |
+| Action accuracy | | | 61.8% (21/34) |
+| Location accuracy | | | **23.5% (8/34)** |
+| Interval accuracy | | | 87.9% (29/33), 5 of 6 where gold states one |
+| Span validity, exact | 100% | 100% | 100% (49/49) |
+
+No precision or false-positive figure is given for stratum B. `CORPUS.md` section 4: those reports
+were selected for containing recommendation-shaped words, and a precision figure over them would be
+higher than the truth by an amount nobody could estimate afterwards.
+
+## The acceptance rule fails
+
+Zero false positives on clean reports, or the extractor is rejected whatever recall does. The result
+is 6 in 214. **The extractor is rejected as a shippable component.** The rule was fixed before any
+model ran and is not renegotiated now that a number exists.
+
+What the six are matters less than that there are six, but it is recorded: each is a sentence in a
+report the labeller read and found nothing to act on. None is a fabricated quote. Span validity is
+100% across all 80 extractions in both strata, which is the one safety property this pipeline has
+held at every scale from ten synthetic fixtures to 350 held-out reports.
+
+## The prediction held, which is the reason to trust the rest
+
+The freeze predicted the test split would land below development's 73.7%, because the development
+reports include the fifty the pipeline was debugged against and every prompt rule was written with
+development text in view. Stratum A recall came in at 62.2%, 11.5 points lower. Stratum B at 63.0%
+against 60.0% is three points higher, on 54 instances against 20, where one instance is worth 1.9
+points.
+
+A development figure on this pipeline is therefore optimistic by roughly ten points, and every
+development table above should be read with that correction applied.
+
+## Verification is where recall dies
+
+| | Detect | After verify | True instances removed |
+|---|---|---|---|
+| Stratum A | 86.5% | 64.9% | 8 |
+| Stratum B | 92.6% | 68.5% | 13 |
+
+Detection finds 82 of 91 instances across both strata. Verification returns 61. It removes 71
+candidates in total, of which 21 are real.
+
+This is the same trade RESULTS.md recorded on the pilot, now measured held-out and much worse. The
+pass exists because detection per sentence cannot see tense, and it does catch that: among what it
+removed are a procedure report's own title and an examination name, exactly the shape it was built
+for. It also removes requests it should keep, including "Correlate with hematology labs for anemia,
+systemic disease, myeloproliferative or infiltrative changes", which precedent 7.19 counts and which
+the frozen verify 0.1 prompt predates.
+
+The verify 0.2 attempt recorded above was worse still, for different reasons, and was reverted. What
+the two attempts together establish is that this stage is the binding constraint on recall and that
+neither prompt written so far handles it. That is a finding, not a tuning problem.
+
+## Location is 26% and 24%, and that is the serious one
+
+`anatomy` and `laterality` are two of the four components of `identity_key`, which is how the system
+recognises that two reports concern the same finding. At a quarter correct, serial studies of one
+nodule will not resolve to one obligation. Section 6 of `OBLIGATION_SPEC.md` calls that the most
+dangerous silent failure available, and this measurement says the extraction layer has it.
+
+The development split said 36% and 33% on 14 and 12 instances. The test split says 26% and 23.5% on
+23 and 34. The direction is consistent and the held-out figures are lower.
+
+Action is 73.9% in A and 61.8% in B. Category is 73.9% and 79.4% against a majority-class baseline
+of 73.8%, so category accuracy still carries almost no information, exactly as `CORPUS.md` 9.3 said
+it would until the vocabulary is expanded.
+
+## What Phase 1 can claim
+
+**Measured, held out, one institution, one labeller:** a two-stage extractor over 350 unseen MIMIC
+radiology reports detects 62% to 63% of hand-labelled follow-up recommendations, with 74% precision
+and 2.8% false positives on clean reports in the unbiased stratum. Every quoted span round-trips to
+the source. It fails its own acceptance rule.
+
+**Not claimed, and not claimable from this work:** that the system creates, tracks or closes
+obligations. Not one obligation can be built from this corpus, because every date is de-identified;
+`CORPUS.md` section 8 records the arithmetic. The obligation layer has never seen a real report.
+
+**Also not claimable:** anything about a second reader, since no inter-annotator agreement exists;
+anything outside English or outside this institution; and anything about a model other than
+qwen2.5:7b-instruct-q4_K_M on local hardware.
+
+## What the next measurement should be
+
+Not another prompt. Three questions, in the order their answers would change the design.
+
+1. **Is the verification stage worth keeping?** It costs 21 true instances to remove 50 false ones.
+   A precision-weighted decision belongs to the product, and the alternative, shipping detection
+   output with a human triage step, has never been measured.
+2. **Does a larger model move location?** Everything here is a 7B on CPU. Location at a quarter is
+   the failure that breaks identity resolution, and no evidence exists about whether it is a model
+   capability limit or a prompt limit.
+3. **What does a dated corpus do?** Until one exists, the obligation layer is tested on fixtures and
+   the registry's central claim is unevaluated.
+
+The test split is now spent. Any of the three needs a new corpus, a new split, or a clearly labelled
+development-only figure.
