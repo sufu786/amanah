@@ -2,7 +2,7 @@
 
 **Status:** draft for public comment
 **Licence:** CC BY 4.0
-**Date:** 2026-10-05
+**Date:** 2026-10-06
 **Concept DOI:** [10.5281/zenodo.21706768](https://doi.org/10.5281/zenodo.21706768)
 
 **Changes since v0.4.** An obligation may now exist without a quoted finding, when the report names
@@ -13,7 +13,9 @@ records what was found and weighed: in a hand-labelled corpus of 500 radiology r
 follow-up recommendations named no finding, and the v0.4 rule refused every one of them. Section
 3.2 is also new: a candidate the extraction layer doubts is kept at a second tier rather than
 deleted, routed by whether a professional or only the patient will see it. Section 12.1 F records
-why.
+why. Section 4.5 is new as well: a study found automatically only proposes closure, and closes an
+obligation on its own only when its modality, region and timing leave nothing in doubt. Section
+12.1 G records the measurement behind it.
 
 **The object format changes, for the first time since v0.2.** The `schema` string becomes
 `cor.obligation/0.3`. The change is additive: every valid `cor.obligation/0.2` object is a valid
@@ -333,6 +335,39 @@ It terminates the escalation ladder. It does not discharge the obligation. It mu
 separately in every metric, and never aggregated into "closed". A system that quietly folds
 `lost_to_followup` into its closure rate has recreated the problem it was built to solve.
 
+### 4.5 A study found automatically proposes closure; it closes only when nothing is in doubt
+
+A `matching_study` found by a machine, from a feed or a registry with no person involved, is a
+proposal. It is decided in one of three ways.
+
+**Not evidence.** The study is not of the recommended modality, or it is known not to cover the
+finding's anatomy, or it is dated before `document_date`. It has no bearing on this obligation and is
+not offered to anyone as closing it.
+
+**Closes automatically**, only when all of the following hold:
+
+1. it is of the recommended modality;
+2. it covers the finding's anatomy, and the finding has anatomy recorded, so that coverage can be
+   checked at all;
+3. it is not dated the same day as `document_date`, because a same-day study belongs to the episode
+   of care that produced the report;
+4. the obligation has a `due_date`, and the study is no earlier than `document_date` plus half the
+   stated interval.
+
+**Proposed to a person** in every other case. A same-day or early study, a study against a finding
+with no recorded anatomy, or a study against an obligation with no stated interval may well be the
+follow-up, and often is: a short-interval recheck can legitimately come early. It may equally be
+unrelated care that happened to use the same scanner. Only a person can tell, and the obligation
+stays open until one does. The confirmation is recorded with its actor, like any closure.
+
+**Why the rule is this strict.** Closure is the dangerous direction. A false closure discharges a real
+duty silently, which section 6 already treats as worse than a duplicate. Measured on 500 MIMIC
+reports, a later study of the recommended modality existed for 70 of 103 observable
+recommendations, and most were not the follow-up: 21 were on the same day as the report, and 30 of 64
+whose region could be checked did not cover the finding at all. Section 12.1 G records the
+measurement. The half-interval floor in item 4 is provisional, set from eleven cases, and an
+implementation should treat it so.
+
 ---
 
 ## 5. History
@@ -530,6 +565,8 @@ An implementation conforms to this specification if all of the following hold.
 10. No extracted candidate is deleted before a person could see it. A doubted candidate is kept at
     the second tier of section 3.2, and never generates a reminder or alert until a person confirms
     it.
+11. No study found automatically closes an obligation unless every condition in section 4.5 holds.
+    Otherwise it is proposed to a person, and the obligation stays open until they confirm it.
 
 ---
 
@@ -538,9 +575,9 @@ An implementation conforms to this specification if all of the following hold.
 ### 12.1 Contradictions found by implementing this specification
 
 Four places where v0.2 disagreed with itself, found by writing the reference implementation against
-it in August 2026. Three were corrected in v0.3 and the fourth in v0.4. Two more, E and F, are of a
-different kind: they were found by measuring the extraction layer on real reports, not by
-implementing the text, and both were corrected in v0.5. All six are now settled.
+it in August 2026. Three were corrected in v0.3 and the fourth in v0.4. Three more, E, F and G, are
+of a different kind: they were found by measuring the system against real reports, not by
+implementing the text, and all three were corrected in v0.5. All seven are now settled.
 
 They are recorded rather than quietly fixed because an independent implementer meets the same
 places, and a specification that silently changes underneath its readers is worse than one that
@@ -678,6 +715,36 @@ false candidates to whoever sees first-tier output, including a patient alone. *
 changing what its verdict means** was adopted: a doubted candidate is kept at a second tier, shown to
 a professional where one is present and never pushed to a patient alone. On the unbiased stratum
 that is about fifteen second-tier candidates per hundred reports, about a quarter of them real.
+
+**G. A matching study could close an obligation it had nothing to do with. RESOLVED in v0.5.**
+Section 4.1 defined `matching_study` as a subsequent study of the recommended modality covering the
+finding's anatomy, after `document_date`. It set no timing window, and it assumed the anatomy would
+be known.
+
+Both assumptions were measured on the 500-report MIMIC-IV-Note corpus, using each report's own
+de-identified date and every later radiology study for the same patient. Of 126 recommendations
+that were not negated, 103 asked for something radiology could show. A later study of the
+recommended modality existed for 70 of them, and the first such study came a median of nine days
+after the report. Most were not the follow-up. Twenty-one were on the same day. Of 64 whose body
+region could be compared with the finding, 30 did not cover it. Of 11 with a stated interval, three
+came before half of it had passed. These were inpatients scanned repeatedly for other reasons, and
+under v0.4 any of those scans could have discharged a six-month follow-up.
+
+The anatomy assumption fails for a second reason found the same week: the extraction layer locates
+the finding correctly about a quarter of the time on held-out reports. A closure rule that checks
+anatomy cannot be applied automatically when the anatomy is absent or likely wrong.
+
+Two designs were weighed. **A tighter automatic rule**, matching on modality, region and a window
+around the due date, was rejected as the whole answer, because each condition depends on a field
+that is often missing or wrong, and an error in any of them closes a duty silently. **Automatic
+matches as proposals**, with automatic closure reserved for the case where every condition holds and
+can be checked, was adopted as section 4.5. Under it, most matches in this corpus would go to a
+person, which is the measured cost of not closing duties that were never met.
+
+**This also corrects a claim in `extraction/CORPUS.md`,** that no obligation could be built from
+MIMIC because every date in the text is removed. The dates in the text are removed. The date of each
+report is not: it is shifted for de-identification, consistently within each patient, so intervals
+between one patient's reports are real.
 
 ### 12.2 Design questions still open
 
