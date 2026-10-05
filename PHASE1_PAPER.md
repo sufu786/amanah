@@ -503,8 +503,7 @@ author's own machine.
 During labelling, excerpts of report text were shown to a general-purpose language model hosted by a
 third party, to discuss individual calls (section 2.2). PhysioNet does not permit credentialed data
 to be shared with third-party language model services of this kind. It is disclosed here so that a
-reader can weigh it. The author reported this to PhysioNet by email and, at the time of writing, has
-received no reply.
+reader can weigh it.
 
 The collection of patient information for MIMIC and the creation of the research resource were
 reviewed by the Institutional Review Board at the Beth Israel Deaconess Medical Center, which granted
