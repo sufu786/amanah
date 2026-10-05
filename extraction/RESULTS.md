@@ -1370,3 +1370,36 @@ in this file.
 **What follows is one experiment, not a fix.** Rewrite the anatomy and laterality instructions to
 match 7.13, change nothing else, and run it on both models over the same input, with the decision
 rule recorded first. The development split is the only data available, and that limit stands.
+
+---
+
+# Fields prompt 0.2, anatomy from the finding. Recorded before the run
+
+The one change: the anatomy and laterality instructions now say what `LABELLING.md` 7.13 says,
+that they locate the finding rather than the test, and that the finding is usually a different
+sentence from the recommendation. Where the report names no finding, the body part the
+recommendation names is used, as specification v0.5 section 2 requires. Nothing else in the prompt
+changed.
+
+```
+fields prompt   0.2, prompt sha256 9640934954d19ca7b8cc62640b642414
+input           the same development first-tier candidates as the 14B run above
+runs            qwen2.5:7b-instruct-q4_K_M, and qwen3:14b with --no-think, over identical input
+baselines       fields prompt 0.1: location 9 of 26 on the 7B, 3 of 26 on the 14B
+```
+
+**The decision rule, fixed now,** on instances matched by every run being compared.
+
+| Location correct under prompt 0.2 | Reading, for each model separately |
+|---|---|
+| 15 or more of 26 | The prompt was the main defect, and this fixes it on that model |
+| within 3 of its own 0.1 baseline | No effect on that model |
+| anything else | Partial; reported with the per-instance detail |
+
+**A guard on the other fields.** The change is to two instructions only. If action or category
+falls by more than three instances on either model, the change has broken something it was not
+meant to touch, and that is reported as a regression whatever location does.
+
+**Even a clear success here is a development figure.** These are the reports this pipeline was built
+on, and a third prompt version is being measured on them. A held-out location figure needs data that
+does not exist yet.

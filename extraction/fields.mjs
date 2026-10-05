@@ -31,7 +31,7 @@ import {
   FINDING_CATEGORIES, ACTIONS, ANATOMY, LATERALITY, validateRecommendation,
 } from './extract.mjs';
 
-export const FIELDS_VERSION = '0.1';
+export const FIELDS_VERSION = '0.2';
 
 const OLLAMA = process.env.OLLAMA_HOST || 'http://127.0.0.1:11434';
 const DEFAULT_MODEL = 'qwen2.5:7b-instruct-q4_K_M';
@@ -79,17 +79,21 @@ HOW TO FILL EACH FIELD
                    ultrasound guidance has modality "ultrasound" and action "procedure". Use
                    "none" when no test is named.
 
-  anatomy          The organ or structure, chosen from the list the schema allows and nothing else.
-                   A nodule in the left lower lobe is "lung". A lesion in the left thyroid lobe is
-                   "thyroid". Where several findings are described and only one is located, the
-                   location belongs to that one and not to the group, so the group is "none". If
-                   the recommendation names no body part at all, it is "none". Do not infer the
-                   body part from what kind of study this was.
+  anatomy          WHERE THE FINDING IS, not where the test is aimed. Read it from the finding, which
+                   is usually a different sentence from the recommendation: "Recommend CT in 6
+                   months" names no body part, and the finding above it, "8 mm nodule in the right
+                   upper lobe", does. Choose from the list the schema allows and nothing else. A
+                   nodule in the left lower lobe is "lung". A lesion in the left thyroid lobe is
+                   "thyroid". Where the recommendation covers several findings in different places,
+                   it is "none". Where the report names no finding at all, use the body part the
+                   recommendation itself names, or "none" if it names none. Do not infer the body
+                   part from what kind of study this was.
 
-  laterality       left, right, bilateral or midline, and only when the report says so. This is a
-                   separate field from anatomy: a left thyroid lesion is anatomy "thyroid" and
-                   laterality "left", never anatomy "thyroid.left". Use "none" when no side is
-                   stated or the structure has no side.
+  laterality       The side OF THE FINDING: left, right, bilateral or midline, read from the words
+                   describing the finding. This is a separate field from anatomy: a left thyroid
+                   lesion is anatomy "thyroid" and laterality "left", never anatomy
+                   "thyroid.left". Use "none" when no side is stated for the finding, when the
+                   findings covered sit on different sides, or when the structure has no side.
 
   interval_value   The number of time units stated. Use 0 when no time is stated.
   interval_unit    day, week, month or year. Use "none" when no time is stated.
