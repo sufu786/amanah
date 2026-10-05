@@ -1461,3 +1461,52 @@ measurement, and specification section 12.1 G has the closure rule it forced.
 The claim about Phase 1 changes accordingly. It can now include what the obligation layer does with
 real reports, once that run is made. It still cannot include whether follow-up happened outside this
 one institution, which no record here can show.
+
+---
+
+# The obligation layer on real reports
+
+The first run of the obligation layer against real reports. Every labelled recommendation in the
+500-report MIMIC corpus was put through the reference implementation's own path:
+`proposalsFromExtraction`, `acceptProposal`, then every later radiology study for the same patient
+through the section 4.5 closure rule, and the section 8 ladder as of the patient's last recorded
+study. The input is the gold labels, not the extractor, so what follows is the obligation layer's
+behaviour on correct extraction and not a compound of two error rates. Report dates are each note's
+de-identified `charttime`; `CORPUS.md` section 8 explains why that is the report's own date.
+
+| Of the labelled recommendations | Stratum A, 56 | Stratum B, 74 |
+|---|---|---|
+| Closed automatically | 4 | 2 |
+| Proposed to a person | 20 | 24 |
+| Conditional, so a person must resolve the condition first | 14 | 18 |
+| Open, no evidence in later radiology | 9 | 16 |
+| Not observable in radiology: laboratory, referral, echocardiography | 7 | 12 |
+| Negated, kept as evidence for `not_indicated` | 2 | 2 |
+
+**Automatic closure is rare, and that is mostly the design working.** Of the 44 proposals, 39 were
+proposed rather than closed because the report stated no interval, so there is no due date to judge
+the study's timing against, and section 4.5 will not close on timing it cannot check. The others
+were same-day studies, early studies, findings with no recorded anatomy, or recommendations naming
+no modality. The system is more dependent on people than the concept note implies: a quarter of
+recommendations are conditional and a third need a closure confirmed.
+
+**The run found two defects in the specification, both fixed in v0.5 before publication.**
+
+| | Before the fix | After |
+|---|---|---|
+| Closure prompts for one obligation, worst case | 31 in A, 51 in B, one per scan | 1, listing every candidate study together |
+| Open obligations held at L0, stratum A | 26 of 29 | 7 |
+| Open obligations held at L0, stratum B | 37 of 40 | 19 |
+
+The first is section 4.5's one-proposal rule: a heavily imaged inpatient produced a prompt per scan.
+The second is section 8's ladder for obligations with no due date, which v0.4 held at L0 for as long
+as the record ran. Those still at L0 after the fix are patients whose record ends within 30 days of
+the report, before the ladder's first request falls due. Specification sections 12.1 G and H record
+both.
+
+**What this cannot say.** "Open, no evidence" means unobserved here, not missed: MIMIC holds one
+institution's admissions and emergency care, and follow-up done anywhere else leaves no trace. Body
+region was read from exam names by a mapping written for this run, and about a dozen proposals
+arose because that mapping could not place a study, which is the harness and not the system. The
+recommended modality and the study's class were harmonised by the run, because the specification has
+no modality vocabulary; that is a real gap, and a deployment comparing "MRI" with "MR" would need one.
