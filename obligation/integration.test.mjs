@@ -184,6 +184,14 @@ describe('10  locale packs', () => {
     assert.ok(v.ok, v.errors.join('; '));
   });
 
+  test('section 8 v0.5: undated intervals may be set, and must be two increasing day counts', () => {
+    assert.ok(validatePack({ ...good, undated_escalation_intervals: { L2: 14, L3: 60 } }).ok);
+    assert.equal(validatePack({ ...good, undated_escalation_intervals: { L2: 60, L3: 14 } }).ok, false);
+    assert.equal(validatePack({ ...good, undated_escalation_intervals: { L2: 14 } }).ok, false);
+    assert.deepEqual(resolvePack('en-NG', [good]).undated_escalation_intervals, { L2: 30, L3: 90 },
+      'a pack that sets none gets the defaults');
+  });
+
   test('a pack cannot smuggle in interpretation, risk or urgency through translation', () => {
     const bad = { ...good, copy: { ...good.copy, title: 'Your result is serious, attend urgently' } };
     const v = validatePack(bad);

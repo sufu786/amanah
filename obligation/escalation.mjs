@@ -19,6 +19,24 @@ export const LEVELS = ['L0', 'L1', 'L2', 'L3', 'L4'];
 /** Days relative to due_date. Negative is before. Section 8, overridable per locale. */
 export const DEFAULT_INTERVALS = { L1: -30, L2: 0, L3: 30, L4: 90 };
 
+/**
+ * Days after document_date at which an obligation with NO due date reaches the rungs that ask for
+ * one. Section 8, v0.5, overridable per locale. These defaults are choices, not measurements: what
+ * was measured is that without them 63 of 72 open obligations in the MIMIC run never left L0.
+ */
+export const DEFAULT_UNDATED_INTERVALS = { L2: 30, L3: 90 };
+
+const UNDATED = {
+  L2: {
+    action: 'A due date is requested: the report stated none, and someone has to say when this is due',
+    target: 'owner and registered clinician',
+  },
+  L3: {
+    action: 'Appears on the coordinator worklist as having no due date established',
+    target: 'coordinator',
+  },
+};
+
 const LADDER = {
   L0: {
     action: 'Confirmation and prepared summary issued',
@@ -51,7 +69,9 @@ const isIsoDate = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
  * `now` is injected. Nothing here reads a clock, for the same reason nothing in obligation.mjs
  * does: a module that cannot see the time cannot let time move anything on its own.
  */
-export function escalationLevel(obligation, { now, intervals = DEFAULT_INTERVALS } = {}) {
+export function escalationLevel(obligation, {
+  now, intervals = DEFAULT_INTERVALS, undatedIntervals = DEFAULT_UNDATED_INTERVALS,
+} = {}) {
   if (!isIsoDate(now)) throw new Error('now must be a YYYY-MM-DD date, injected by the caller');
 
   if (TERMINAL.includes(obligation.state)) {
@@ -64,18 +84,23 @@ export function escalationLevel(obligation, { now, intervals = DEFAULT_INTERVALS
     };
   }
 
-  // Section 3: an obligation may sit in `created` indefinitely and still generates reminders. An
-  // obligation with no stated interval has no due date (R6), so the rungs that are defined
-  // relative to a due date cannot be computed. It stays at L0 rather than being dropped, because
-  // silently ceasing to remind is the failure this system exists to fix.
+  // Section 8, v0.5. An obligation with no stated interval has no due date (R6), so the ordinary
+  // rungs cannot be computed. Until v0.5 it stayed at L0 indefinitely, and in the MIMIC run that was
+  // almost every real obligation. Its rungs are now measured from document_date and ask for the
+  // missing date. It never reaches L4: lost_to_followup presupposes a due date that was missed.
   if (!obligation.due_date) {
+    const since = daysBetween(obligation.source.document_date, now);
+    const level = since >= undatedIntervals.L3 ? 'L3' : since >= undatedIntervals.L2 ? 'L2' : 'L0';
     return {
-      level: 'L0',
-      ...LADDER.L0,
+      level,
+      ...(level === 'L0' ? LADDER.L0 : UNDATED[level]),
       exhausted: false,
       days_from_due: null,
-      reason: 'no due date: the report stated no interval, so the ladder cannot advance past L0. '
-        + 'This obligation needs a human to establish a date, and it keeps reminding meanwhile.',
+      days_since_report: since,
+      no_due_date: true,
+      reason: level === 'L0'
+        ? `no due date: the report stated no interval. A date will be requested ${undatedIntervals.L2} days after the report.`
+        : `no due date ${since} days after the report: a person has to establish one`,
     };
   }
 

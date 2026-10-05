@@ -19,7 +19,7 @@
 // support is worth shipping.
 
 import { EN, findForbiddenLanguage } from './summary.mjs';
-import { DEFAULT_INTERVALS, LEVELS } from './escalation.mjs';
+import { DEFAULT_INTERVALS, DEFAULT_UNDATED_INTERVALS, LEVELS } from './escalation.mjs';
 
 const REQUIRED_COPY_KEYS = Object.keys(EN).filter((k) => k !== 'locale');
 
@@ -80,6 +80,17 @@ export function validatePack(pack) {
     }
   }
 
+  // Section 8, v0.5: the rungs for an obligation with no due date, days after the report.
+  const undated = pack.undated_escalation_intervals;
+  if (undated) {
+    const keys = Object.keys(undated);
+    if (keys.length !== 2 || !('L2' in undated) || !('L3' in undated)) {
+      errors.push('undated_escalation_intervals must define exactly L2 and L3 (section 8)');
+    } else if (!(Number.isInteger(undated.L2) && undated.L2 > 0 && Number.isInteger(undated.L3) && undated.L3 > undated.L2)) {
+      errors.push('undated_escalation_intervals must be whole days after the report, with L3 later than L2');
+    }
+  }
+
   if (pack.extraction_validated === true) {
     // Nothing in this repository has measured extraction for any language, English included.
     // A pack asserting otherwise is claiming evidence that does not exist.
@@ -132,6 +143,7 @@ export function resolvePack(requested, packs = []) {
     signposting: match === 'exact' ? (chosen.signposting ?? {}) : {},
     signposting_omitted: match !== 'exact',
     escalation_intervals: chosen.escalation_intervals ?? DEFAULT_INTERVALS,
+    undated_escalation_intervals: chosen.undated_escalation_intervals ?? DEFAULT_UNDATED_INTERVALS,
     guideline_overrides: chosen.guideline_overrides ?? {},
     date_format: chosen.date_format ?? 'YYYY-MM-DD',
     channels: chosen.channels ?? ['sms'],

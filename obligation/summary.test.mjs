@@ -187,12 +187,37 @@ describe('8  the escalation ladder', () => {
     assert.deepEqual(Object.keys(DEFAULT_INTERVALS), ['L1', 'L2', 'L3', 'L4']);
   });
 
-  test('an obligation with no due date keeps reminding at L0 instead of being dropped', () => {
-    const noDate = make({ recommendation: { text_verbatim: 'follow-up advised', action: 'imaging' } });
-    const l = escalationLevel(noDate, { now: '2030-01-01' });
+  // Section 8, v0.5. Until v0.5 an undated obligation stayed at L0 forever, which on real reports
+  // meant almost all of them. Report dated 2026-03-14; requests fall due 30 and 90 days later.
+  const noDate = () => make({ recommendation: { text_verbatim: 'follow-up advised', action: 'imaging' } });
+
+  test('an obligation with no due date starts at L0 and says when a date will be asked for', () => {
+    const l = escalationLevel(noDate(), { now: '2026-04-01' });
     assert.equal(l.level, 'L0');
     assert.equal(l.days_from_due, null);
-    assert.match(l.reason, /needs a human to establish a date/);
+    assert.equal(l.no_due_date, true);
+    assert.match(l.reason, /requested 30 days after the report/);
+  });
+
+  test('30 days after the report, a due date is requested from the owner and clinician', () => {
+    const l = escalationLevel(noDate(), { now: '2026-04-13' });
+    assert.equal(l.level, 'L2');
+    assert.match(l.action, /due date is requested/);
+    assert.equal(escalationLevel(noDate(), { now: '2026-04-12' }).level, 'L0', 'not a day early');
+  });
+
+  test('90 days after, still undated, it reaches the coordinator worklist and goes no further', () => {
+    const l = escalationLevel(noDate(), { now: '2026-06-12' });
+    assert.equal(l.level, 'L3');
+    assert.match(l.action, /no due date established/);
+    const years = escalationLevel(noDate(), { now: '2030-01-01' });
+    assert.equal(years.level, 'L3', 'never L4: lost_to_followup needs a due date that was missed');
+    assert.equal(years.exhausted, false);
+  });
+
+  test('the undated intervals are configurable, as the spec allows', () => {
+    const l = escalationLevel(noDate(), { now: '2026-03-24', undatedIntervals: { L2: 7, L3: 14 } });
+    assert.equal(l.level, 'L2');
   });
 
   test('the ladder does not apply to a terminal obligation', () => {

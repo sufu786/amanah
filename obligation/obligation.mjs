@@ -550,6 +550,34 @@ export function matchingStudyDecision(obligation, study) {
     : { decision: 'close', reasons: ['modality, region and timing all match'] };
 }
 
+/**
+ * Section 4.5, one proposal at a time. Every later study for an obligation, judged together.
+ *
+ * `studies` are as for matchingStudyDecision, each with an `id`. `rejected` lists study ids a person
+ * has already rejected for this obligation; they are never offered again. Returns one of
+ *
+ *   {decision: 'close', study, reasons}     a study that closes it on its own
+ *   {decision: 'propose', studies: [...]}   ONE proposal listing every doubtful candidate, each with
+ *                                           its reasons, for a person to look at together
+ *   {decision: 'none'}                      nothing bears on this obligation
+ *
+ * One proposal rather than one per study, because in the MIMIC run a single obligation would
+ * otherwise have raised 51 prompts, and a prompt repeated fifty times stops being read.
+ */
+export function closureProposal(obligation, studies, { rejected = [] } = {}) {
+  const skip = new Set(rejected);
+  const pending = [];
+  const ordered = [...studies].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  for (const study of ordered) {
+    if (!study.id) throw new Error('each study needs an id, so a rejection can be remembered');
+    if (skip.has(study.id)) continue;
+    const d = matchingStudyDecision(obligation, study);
+    if (d.decision === 'close') return { decision: 'close', study, reasons: d.reasons };
+    if (d.decision === 'propose') pending.push({ study, reasons: d.reasons });
+  }
+  return pending.length ? { decision: 'propose', studies: pending } : { decision: 'none' };
+}
+
 /** Apply a `supersede` decision, moving the older obligation to its terminal state. */
 export function supersede(existing, incoming, { actor, at }) {
   const { decision, reason } = supersessionDecision(existing, incoming);

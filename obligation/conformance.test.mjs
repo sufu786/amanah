@@ -19,7 +19,7 @@ import {
   createObligation, transition, verify, transferOwner, record, reconstruct, tally,
   supersede, supersessionDecision, identityKey, computeDueDate, reopen, wasReopened,
   permittedTransitions, STATES, TERMINAL_STATES, CLOSURE_STATES, NOT_A_CLOSURE, EVIDENCE_TYPES,
-  SCHEMA, NO_FINDING, matchingStudyDecision,
+  SCHEMA, NO_FINDING, matchingStudyDecision, closureProposal,
 } from './obligation.mjs';
 import { createHash } from 'node:crypto';
 
@@ -623,5 +623,40 @@ describe('4.5  a study found automatically proposes closure, and closes only whe
     assert.equal(matchingStudyDecision(o, study()).decision, 'close');
     const cta = ob({ recommendation: { ...base().recommendation, modality: 'CTA' } });
     assert.equal(matchingStudyDecision(cta, study()).decision, 'not_evidence', 'CTA is not CT');
+  });
+});
+
+describe('4.5  one proposal at a time', () => {
+  const ob = () => make({ finding: { ...base().finding, anatomy: 'lung', laterality: 'right' } });
+  const st = (id, date, over = {}) => ({ id, date, modality: 'CT', anatomy_covered: ['lung'], ...over });
+  // Same-day and early studies are doubtful; 2026-09-01 is past the floor and closes.
+  const many = Array.from({ length: 50 }, (_, i) => st(`early-${i}`, `2026-04-${String(1 + (i % 28)).padStart(2, '0')}`));
+
+  test('fifty doubtful studies make one proposal, not fifty', () => {
+    const d = closureProposal(ob(), many);
+    assert.equal(d.decision, 'propose');
+    assert.equal(d.studies.length, 50, 'all of them, together, for one person to look at once');
+    assert.ok(d.studies.every((x) => x.reasons.length > 0));
+  });
+
+  test('a study that closes on its own still closes, whatever was pending before it', () => {
+    const d = closureProposal(ob(), [...many, st('good', '2026-09-01')]);
+    assert.equal(d.decision, 'close');
+    assert.equal(d.study.id, 'good');
+  });
+
+  test('a study a person rejected is never offered again', () => {
+    const d = closureProposal(ob(), [st('a', '2026-04-01'), st('b', '2026-04-02')], { rejected: ['a'] });
+    assert.deepEqual(d.studies.map((x) => x.study.id), ['b']);
+    assert.equal(closureProposal(ob(), [st('a', '2026-04-01')], { rejected: ['a'] }).decision, 'none');
+  });
+
+  test('studies of another modality or region raise nothing at all', () => {
+    assert.equal(closureProposal(ob(), [st('mr', '2026-09-01', { modality: 'MR' })]).decision, 'none');
+  });
+
+  test('order of arrival does not matter; studies are judged by date', () => {
+    const d = closureProposal(ob(), [st('good', '2026-09-01'), st('early', '2026-04-01')]);
+    assert.equal(d.decision, 'close');
   });
 });
