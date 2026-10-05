@@ -1403,3 +1403,42 @@ meant to touch, and that is reported as a regression whatever location does.
 **Even a clear success here is a development figure.** These are the reports this pipeline was built
 on, and a third prompt version is being measured on them. A held-out location figure needs data that
 does not exist yet.
+
+## What fields prompt 0.2 showed, and a claim withdrawn
+
+Run 2026-10-05 as pre-registered above, both models over identical input. All four runs matched the
+same 26 instances.
+
+| On the 26 instances all four runs matched | Location | Anatomy | Laterality | Action | Category |
+|---|---|---|---|---|---|
+| 7B, prompt 0.1 | 9 | 13 | 15 | 14 | 22 |
+| 7B, prompt 0.2 | 10 | 12 | 15 | 14 | 21 |
+| 14B, prompt 0.1 | 3 | 4 | 11 | 22 | 20 |
+| 14B, prompt 0.2 | 4 | 5 | 13 | 22 | 21 |
+
+**By the rule fixed before the run: no effect on either model.** Each moved by one instance, inside
+the band of three. The guard is not triggered: action is unchanged on both, category moved by one.
+
+**The section above this one claimed too much, and the claim is withdrawn.** It said location "is not
+mainly a model limit. It is the prompt asking a question the gold standard does not ask." That was
+read from one run. The experiment designed to test it does not support it: told in plain words to
+read anatomy from the finding, the 14B still returns none for most instances. The instruction that
+pointed at the recommendation may be wrong, and 0.2 corrects it to match 7.13, but it is not what
+holds location down. The earlier reversion of the same change, which this file reconsidered above,
+is also back where it was: the evidence for it was thin, and it remains thin.
+
+**What is left is a hypothesis, recorded and not tested.** The same prompt also says: "Do not guess.
+Every field has a 'none' and it is the right answer more often than not." A model that follows
+instructions closely may read that as licence to answer none whenever it is less than sure, and the
+14B's pattern fits that. Testing it means a fourth fields prompt on the same development reports.
+That is not done here, because a fourth iteration on 150 reports already used three times measures
+the reports more than the prompt.
+
+**Prompt 0.2 is kept.** It now says what the protocol says, it measured no worse on either model, and
+the same reasoning kept detect 0.2 above. It is not credited with any improvement.
+
+**Where location stands.** About a third on development and a quarter on the test split, on both
+models and both prompts. Neither a larger model nor a corrected instruction moved it. The next
+evidence has to come from somewhere other than these reports: a different model family, a different
+approach to location such as reading it deterministically from the finding span against the
+anatomy vocabulary, or new labelled data.
