@@ -14,8 +14,10 @@ follow-up recommendations named no finding, and the v0.4 rule refused every one 
 3.2 is also new: a candidate the extraction layer doubts is kept at a second tier rather than
 deleted, routed by whether a professional or only the patient will see it. Section 12.1 F records
 why. Section 4.5 is new as well: a study found automatically only proposes closure, and closes an
-obligation on its own only when its modality, region and timing leave nothing in doubt. Section
-12.1 G records the measurement behind it.
+obligation on its own only when its modality, region and timing leave nothing in doubt, and an
+obligation holds one pending proposal at a time. Section 12.1 G records the measurement behind it.
+Section 8 now gives an obligation with no due date its own rungs, which ask for the missing date,
+and section 12.1 H records why.
 
 **The object format changes, for the first time since v0.2.** The `schema` string becomes
 `cor.obligation/0.3`. The change is additive: every valid `cor.obligation/0.2` object is a valid
@@ -360,6 +362,14 @@ follow-up, and often is: a short-interval recheck can legitimately come early. I
 unrelated care that happened to use the same scanner. Only a person can tell, and the obligation
 stays open until one does. The confirmation is recorded with its actor, like any closure.
 
+**One proposal at a time.** An obligation has at most one pending closure proposal. Every later study
+that would be proposed attaches to the pending proposal as a list the person sees together, rather
+than raising a new prompt. When a person rejects a study, it is never offered again for that
+obligation, and later studies may form a new proposal, still one at a time. Without this rule a
+patient scanned repeatedly produces a prompt per scan: one obligation in the MIMIC run would have
+raised 51. A person asked the same question fifty times stops reading it, and that is how a real
+follow-up gets waved through.
+
 **Why the rule is this strict.** Closure is the dangerous direction. A false closure discharges a real
 duty silently, which section 6 already treats as worse than a duplicate. Measured on 500 MIMIC
 reports, a later study of the recommended modality existed for 70 of 103 observable
@@ -479,6 +489,23 @@ return indistinguishable from an unusual lesion.
 
 Intervals are configurable per locale pack. The ladder structure is not.
 
+**Obligations with no due date.** A report that states no interval gives no `due_date`, and the rungs
+above are defined relative to one. Such an obligation does not sit at L0 indefinitely. Its rungs are
+measured from `document_date` instead, and ask for the missing date rather than for the follow-up.
+
+| Level | Trigger | Action | Target |
+|---|---|---|---|
+| L0 | Obligation created | Confirmation and prepared summary issued | Patient |
+| L2 | `document_date` plus 30 days | A due date is requested: the report stated none, and someone has to say when this is due | Owner and registered clinician |
+| L3 | `document_date` plus 90 days, still no date | Appears on the coordinator worklist as having no due date established | Coordinator |
+
+It never reaches L4, because `lost_to_followup` presupposes a due date that was missed. Once a person
+sets a date, by correction, the ordinary ladder applies from it. The two intervals are configurable
+per locale pack, and their defaults are choices, not measurements. What was measured is the cost of
+having no rule: in the MIMIC run, 63 of 72 open obligations had no due date and would have stayed at
+L0 for as long as the record runs, which is the silence the ladder exists to break. Section 12.1 H
+records it.
+
 **No rung moves an obligation by itself.** The ladder reports which rung an obligation is on and
 who should act. Exhausting it at L4 does not transition anything: a named actor records
 `lost_to_followup`, and the history then says who accepted that outcome. R1 admits no implicit
@@ -567,6 +594,10 @@ An implementation conforms to this specification if all of the following hold.
     it.
 11. No study found automatically closes an obligation unless every condition in section 4.5 holds.
     Otherwise it is proposed to a person, and the obligation stays open until they confirm it.
+12. An obligation has at most one pending closure proposal, and a study a person rejected is never
+    offered again for it (section 4.5).
+13. An obligation with no due date advances to the rungs of section 8 that request one. It is never
+    held silent at L0 for longer than the configured interval.
 
 ---
 
@@ -575,9 +606,9 @@ An implementation conforms to this specification if all of the following hold.
 ### 12.1 Contradictions found by implementing this specification
 
 Four places where v0.2 disagreed with itself, found by writing the reference implementation against
-it in August 2026. Three were corrected in v0.3 and the fourth in v0.4. Three more, E, F and G, are
-of a different kind: they were found by measuring the system against real reports, not by
-implementing the text, and all three were corrected in v0.5. All seven are now settled.
+it in August 2026. Three were corrected in v0.3 and the fourth in v0.4. Four more, E to H, are of a
+different kind: they were found by measuring the system against real reports, not by implementing
+the text, and all four were corrected in v0.5. All eight are now settled.
 
 They are recorded rather than quietly fixed because an independent implementer meets the same
 places, and a specification that silently changes underneath its readers is worse than one that
@@ -745,6 +776,26 @@ person, which is the measured cost of not closing duties that were never met.
 MIMIC because every date in the text is removed. The dates in the text are removed. The date of each
 report is not: it is shifted for de-identification, consistently within each patient, so intervals
 between one patient's reports are real.
+
+**H. Most real obligations could never escalate. RESOLVED in v0.5.** The section 8 ladder is
+defined relative to `due_date`. An obligation with no stated interval has none, and v0.4 held it at
+L0, reminding, until a person established a date. Nothing asked anyone to.
+
+The retrospective run of the reference implementation over the 130 labelled MIMIC recommendations
+made the consequence concrete. Only 17 of 130 state an interval the schema can store. Of the 72
+obligations still open at each patient's last recorded study, 63 had no due date and sat at L0 for
+the whole of the record, some for years. The ladder, which is the part of the system that stops a
+duty being lost quietly, did not move for almost any of them.
+
+R6 rules out the obvious fix: the extraction layer may not supply an interval from a guideline the
+report did not cite. So the missing date has to come from a person, and the change is that the
+ladder now asks for it, at 30 days and again at 90, instead of waiting to be told. The defaults are
+choices. A deployment with measured turnaround should set its own.
+
+The same run found the proposal burden described in section 4.5. Most obligations produced two or
+three closure proposals, but heavily imaged patients produced up to 51, one per scan. The
+one-proposal-at-a-time rule is the fix, and it is recorded here because it came from the same
+measurement.
 
 ### 12.2 Design questions still open
 
