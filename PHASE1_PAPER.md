@@ -133,7 +133,11 @@ already scheduled. Anatomy and laterality come from closed vocabularies. The pro
 precedents for the cases that were hard to call, most of them added during or just after labelling.
 The protocol and every precedent, each with the wording it turned on, are in the repository.
 
-I labelled all 500 reports myself, finishing on 2026-09-15. There was no second labeller: a second
+I labelled all 500 reports myself, finishing on 2026-09-15. I have no clinical or medical training.
+The task was designed with that in mind: the labeller decides whether a report asks for something
+further to be done, which the protocol defines in terms of what the report says, and never whether
+the recommendation is clinically right. Where the wording left the call open, the protocol's
+precedents decided it rather than clinical judgement. There was no second labeller: a second
 person on MIMIC needs their own PhysioNet credential, and none was available. While labelling I
 discussed individual hard calls with a general-purpose language model run by a third party
 (Claude, from Anthropic), and showed it the report text in question. Every label was decided and entered by me, and the model saw
@@ -489,8 +493,9 @@ moved it.
 
 - *One institution, one language.* These are reports from one Boston hospital, in English.
   Recommendation phrasing and dictation habits are local.
-- *One labeller.* Agreement between people was not measured, and the relabel measures only my
-  consistency with myself. A third-party language model was consulted on hard calls during
+- *One labeller, without clinical training.* Agreement between people was not measured, and the
+  relabel measures only my consistency with myself. A radiologist might read some hedged or
+  conditional sentences differently, and how often is unknown. A third-party language model was consulted on hard calls during
   labelling. The relabel had a disclosed leak.
 - *Small test counts.* The random stratum's 37 test instances give a recall interval about thirty points
   wide.

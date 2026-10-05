@@ -11,7 +11,7 @@ fine-tuned, so items marked for methods (M) or de novo development (D) only are 
 **LLM task:** extraction of follow-up recommendations from radiology reports. The guideline has no
 extraction category. Detection, a yes or no per sentence, is treated as classification (C).
 
-Two items are open and marked as such.
+One item is open and marked as such.
 
 | Item | What it asks for | Where, or why not applicable |
 |---|---|---|
@@ -33,11 +33,11 @@ Two items are open and marked as such.
 | 7a | Quality metrics for generative output | Not applicable to this task type; span validity is reported in 3.2 regardless |
 | 7b | Relevance of metrics to deployment | 2.5, 3.4 (why location matters), 5 |
 | 7c | Outcome definition and how predictions were computed | 2.2 (instance definition), 2.5 (matching and metrics); open model, no inference date needed |
-| 7d | Assessors' qualifications and agreement | 2.2, 3.1 (one labeller, intra-rater kappa). **Open:** the labeller's background is not yet stated |
+| 7d | Assessors' qualifications and agreement | 2.2, 3.1: one labeller, without clinical or medical training; intra-rater kappa 0.870; no inter-rater figure; limitation stated in 6 |
 | 7e | Comparison with other LLMs, humans, benchmarks | 3.5 (7B against 14B), 5 (published work, and why not compared) |
 | 8a | How text was labelled, guidelines with examples | 2.2; protocol and precedents in extraction/LABELLING.md |
 | 8b | Number of annotators, double annotation, agreement | 2.2, 3.1: one labeller; 100 of 500 relabelled blind; kappa 0.870 intra-rater; no inter-rater figure |
-| 8c | Annotator background, and any model used in labelling | 2.2 (Claude consulted on hard calls). **Open:** labeller background, as 7d |
+| 8c | Annotator background, and any model used in labelling | 2.2: the labeller has no clinical or medical training; Claude (Anthropic) was consulted on hard calls |
 | 9a | Prompt design process | 2.4 |
 | 9b | Data used to develop prompts | 2.4 (development split only) |
 | 10 | Preprocessing before summarisation | Not applicable (no summarisation) |
