@@ -19,7 +19,7 @@ import {
   createObligation, transition, verify, transferOwner, record, reconstruct, tally,
   supersede, supersessionDecision, identityKey, computeDueDate, reopen, wasReopened,
   permittedTransitions, STATES, TERMINAL_STATES, CLOSURE_STATES, NOT_A_CLOSURE, EVIDENCE_TYPES,
-  SCHEMA, NO_FINDING,
+  SCHEMA, NO_FINDING, matchingStudyDecision,
 } from './obligation.mjs';
 import { createHash } from 'node:crypto';
 
@@ -575,5 +575,53 @@ describe('v0.5  findings that are absent, or located by nearest match', () => {
     const confirmedNew = verify(nearest({ id: 'ob-2', ...later }), { actor: PATIENT, at: T(2) });
     assert.equal(supersessionDecision(confirmedOld, confirmedNew).decision, 'supersede',
       'once a person has confirmed both, the ordinary rules apply');
+  });
+});
+
+describe('4.5  a study found automatically proposes closure, and closes only when nothing is in doubt', () => {
+  // base(): CT in 6 months from 2026-03-14, so due 2026-09-14, 184 days, and the floor 92 days in: 2026-06-14.
+  const ob = (over = {}) => make({ finding: { ...base().finding, anatomy: 'lung', laterality: 'right' }, ...over });
+  const study = (over = {}) => ({ date: '2026-09-01', modality: 'CT', anatomy_covered: ['lung', 'mediastinum'], ...over });
+
+  test('closes when modality, region and timing all match and can be checked', () => {
+    assert.equal(matchingStudyDecision(ob(), study()).decision, 'close');
+  });
+
+  test('a study before the report, of another modality, or of another region is not evidence', () => {
+    assert.equal(matchingStudyDecision(ob(), study({ date: '2026-03-01' })).decision, 'not_evidence');
+    assert.equal(matchingStudyDecision(ob(), study({ modality: 'MR' })).decision, 'not_evidence');
+    assert.equal(matchingStudyDecision(ob(), study({ anatomy_covered: ['brain'] })).decision, 'not_evidence');
+  });
+
+  test('a same-day study is proposed to a person, never closed', () => {
+    const d = matchingStudyDecision(ob(), study({ date: '2026-03-14' }));
+    assert.equal(d.decision, 'propose');
+    assert.ok(d.reasons.some((r) => /same day/.test(r)));
+  });
+
+  test('an early study is proposed: it may be a legitimate recheck, or unrelated care', () => {
+    const d = matchingStudyDecision(ob(), study({ date: '2026-04-20' }));
+    assert.equal(d.decision, 'propose');
+    assert.ok(d.reasons.some((r) => /half the stated interval/.test(r)));
+    assert.equal(matchingStudyDecision(ob(), study({ date: '2026-06-14' })).decision, 'close', 'the floor itself is not early');
+    assert.equal(matchingStudyDecision(ob(), study({ date: '2026-06-13' })).decision, 'propose', 'the day before it is');
+  });
+
+  test('without recorded anatomy, coverage cannot be checked, so a person decides', () => {
+    const d = matchingStudyDecision(make({ finding: { ...base().finding, anatomy: null } }), study());
+    assert.equal(d.decision, 'propose');
+    assert.ok(d.reasons.some((r) => /no recorded anatomy/.test(r)));
+  });
+
+  test('without a stated interval there is no due date, so timing cannot be judged', () => {
+    const noInterval = ob({ recommendation: { ...base().recommendation, interval: null } });
+    assert.equal(matchingStudyDecision(noInterval, study()).decision, 'propose');
+  });
+
+  test('a recommended modality written in words still matches its study class', () => {
+    const o = ob({ recommendation: { ...base().recommendation, modality: 'multi phasic CT' } });
+    assert.equal(matchingStudyDecision(o, study()).decision, 'close');
+    const cta = ob({ recommendation: { ...base().recommendation, modality: 'CTA' } });
+    assert.equal(matchingStudyDecision(cta, study()).decision, 'not_evidence', 'CTA is not CT');
   });
 });

@@ -488,6 +488,68 @@ export function supersessionDecision(existing, incoming) {
   return { decision: 'supersede', reason: 'same finding, later document' };
 }
 
+/**
+ * Section 4.5, v0.5. What a study found automatically means for an obligation.
+ *
+ * `study` is {date: 'YYYY-MM-DD', modality, anatomy_covered: [anatomy...] | null}. Returns
+ * {decision, reasons}, where decision is
+ *
+ *   not_evidence  a different modality, a known different region, or dated before the report
+ *   close         every condition holds and could be checked
+ *   propose       anything else: it may be the follow-up, and only a person can tell
+ *
+ * Returns a decision rather than closing, like supersessionDecision, because the dangerous outcome is
+ * a closure nobody chose. Measured on MIMIC, most automatic matches were unrelated inpatient scans:
+ * section 12.1 G.
+ */
+export function matchingStudyDecision(obligation, study) {
+  if (!isPlainObject(study) || !isIsoDate(study.date)) {
+    throw new Error('study needs a date in YYYY-MM-DD');
+  }
+  const docDate = obligation.source.document_date;
+  const words = (v) => new Set(String(v ?? '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
+
+  // Not evidence at all.
+  if (study.date < docDate) {
+    return { decision: 'not_evidence', reasons: ['the study is dated before the report'] };
+  }
+  const wanted = words(obligation.recommendation.modality);
+  const got = words(study.modality);
+  const modalityKnown = wanted.size > 0 && got.size > 0;
+  // A study matches when every word of the shorter name appears in the longer, so "CT" matches a
+  // recommended "multi phasic CT" and "CTA" does not match "CT". A near miss is not evidence: the
+  // obligation stays open, which is the safe direction.
+  const sameModality = modalityKnown
+    && ([...got].every((w) => wanted.has(w)) || [...wanted].every((w) => got.has(w)));
+  if (modalityKnown && !sameModality) {
+    return { decision: 'not_evidence', reasons: ['the study is not of the recommended modality'] };
+  }
+  const anatomy = obligation.finding.anatomy ?? null;
+  const covered = Array.isArray(study.anatomy_covered) ? study.anatomy_covered : null;
+  if (anatomy && covered && !covered.includes(anatomy)) {
+    return { decision: 'not_evidence', reasons: [`the study does not cover ${anatomy}`] };
+  }
+
+  // Possibly evidence. Close only if nothing is in doubt.
+  const reasons = [];
+  if (!modalityKnown) reasons.push('the modality could not be compared');
+  if (!anatomy) reasons.push('the finding has no recorded anatomy, so coverage cannot be checked');
+  else if (!covered) reasons.push('the region the study covers is not known');
+  if (study.date === docDate) reasons.push('the study is from the same day as the report');
+  if (!obligation.due_date) {
+    reasons.push('no interval was stated, so there is no due date to judge timing against');
+  } else {
+    const DAY = 86400000;
+    const doc = Date.parse(`${docDate}T00:00:00Z`);
+    const half = (Date.parse(`${obligation.due_date}T00:00:00Z`) - doc) / 2;
+    const floor = new Date(doc + Math.floor(half / DAY) * DAY).toISOString().slice(0, 10);
+    if (study.date < floor) reasons.push(`the study is earlier than half the stated interval (${floor})`);
+  }
+  return reasons.length
+    ? { decision: 'propose', reasons }
+    : { decision: 'close', reasons: ['modality, region and timing all match'] };
+}
+
 /** Apply a `supersede` decision, moving the older obligation to its terminal state. */
 export function supersede(existing, incoming, { actor, at }) {
   const { decision, reason } = supersessionDecision(existing, incoming);
