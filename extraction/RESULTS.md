@@ -1442,3 +1442,22 @@ models and both prompts. Neither a larger model nor a corrected instruction move
 evidence has to come from somewhere other than these reports: a different model family, a different
 approach to location such as reading it deterministically from the finding span against the
 anatomy vocabulary, or new labelled data.
+
+---
+
+# A correction: obligations can be built from MIMIC
+
+Two earlier sections of this file say no obligation can be built from this corpus, because every date
+in it is de-identified: the stage-three section, and "What Phase 1 can claim" under the test split.
+Both are wrong, and are left as written with this correction recorded after them.
+
+The dates in the report text are removed. The date of each report is not. MIMIC-IV-Note stores it as
+`charttime`, shifted consistently within each patient, and every one of the 126 non-negated labelled
+recommendations has one. The same file holds every later radiology study for each patient. So the
+obligation layer, which the test-split section said "has never seen a real report", can be run
+retrospectively against these reports and their real follow-up. `CORPUS.md` section 8 has the
+measurement, and specification section 12.1 G has the closure rule it forced.
+
+The claim about Phase 1 changes accordingly. It can now include what the obligation layer does with
+real reports, once that run is made. It still cannot include whether follow-up happened outside this
+one institution, which no record here can show.

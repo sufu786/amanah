@@ -655,28 +655,45 @@ at least one other language is a separate piece of work and should be planned as
 **It is one institution.** Recommendation phrasing is institutional and dictation habits are local.
 Numbers from BIDMC radiology are numbers from BIDMC radiology.
 
-**It cannot produce a single obligation.** Not one of the 500 drawn reports contains a date, which
-labelling confirmed report by report. Every
-one is de-identified to `___`, so `date_found` is null for all of them, and `acceptProposal` refuses
-a proposal with no document date because every due date derives from one.
+**Its report text carries no dates, but its reports do. Corrected 2026-10-06.** This section first
+said the corpus "cannot produce a single obligation", because every date in the report text is
+de-identified to `___`, so `date_found` is null and `acceptProposal` refuses a proposal with no
+document date. The text is as described. The conclusion was wrong.
 
-This was checked against the hand labels rather than the extractor, which is the most favourable
-input available: 11 instances a person read and confirmed. Of the 10 that reach acceptance, 7 are
-blocked for the missing date and 3 are refused as conditional, which section 7 of the specification
-requires a person to resolve first. **Zero obligations are created.**
+Every MIMIC-IV-Note radiology note carries its own `charttime` as a separate column. It is shifted
+for de-identification, into the 2100s, and the shift is consistent within each patient, so the
+interval between one patient's reports is real. Every one of the 126 non-negated labelled
+recommendations has one. Section 2 of the specification already allows the document date to come
+from a record the report is attached to rather than from its text, and this is that record. The
+draw in 6.1 kept `subject_id` and dropped `charttime`, which is how the date was missed.
 
-Nothing here is broken. The system is refusing correctly in both cases, and the refusals are two of
-the rules the project exists to enforce. But it means MIMIC is a benchmark for the extraction layer
-and cannot exercise the obligation layer at all. The state machine, the escalation ladder, the
-prepared summary and the closure rules are tested against synthetic fixtures in `obligation/` and
-have never seen a real report, because on this corpus they cannot.
+**So MIMIC can exercise the obligation layer, retrospectively.** The same file holds every later
+radiology study for each patient, 2.3 million notes in all, which is the evidence section 4.1 of the
+specification closes obligations on. Measured on 2026-10-06:
 
-Two consequences worth planning around rather than discovering later.
+| Of 126 non-negated recommendations | |
+|---|---|
+| Report has a usable date | 126 |
+| Follow-up observable in radiology at all | 103; the other 23 are laboratory, referral or echocardiography |
+| Same patient has later radiology | 95 of 103 |
+| A later study of the recommended modality | 70 of 103, a median of 9 days after the report |
 
-**A due date needs something this corpus cannot give.** Either a source of reports with real dates,
-or a decision that the date comes from outside the document, from the moment a patient photographs
-it or from a record the report is attached to. That is a specification question and section 12 of
-`OBLIGATION_SPEC.md` is where it belongs.
+**Most of those 70 were not the follow-up**, and that is a finding about the specification rather
+than about the corpus. Twenty-one were on the same day as the report, 30 of the 64 whose region could
+be compared did not cover the finding, and 3 of the 11 with a stated interval came before half of it
+had passed. These are inpatients scanned repeatedly. Under the closure rule as it stood, any of
+those scans could have discharged a duty it had nothing to do with. Specification v0.5 section 4.5
+now makes an automatic match a proposal unless modality, region and timing all hold and can be
+checked, and section 12.1 G records this measurement.
+
+**What it still cannot say.** MIMIC records one institution's admissions and emergency care.
+Follow-up done in an outpatient clinic, or anywhere else, leaves no trace in it. An obligation with
+no matching study here is unobserved, never evidence that the follow-up did not happen, and any
+retrospective figure from this corpus is a floor on completion and not an estimate of it.
+
+**A due date also needs a stated interval.** 17 of 130 instances state one the schema can store, so
+most obligations built from this corpus will have a document date and no due date, which the
+specification handles and which leaves the escalation ladder with little to escalate against.
 
 **Conditional recommendations are a quarter of the real ones here.** Three of eleven in the pilot,
 32 of 132 across the full draw. The specification refuses all of them pending human resolution,
