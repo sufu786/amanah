@@ -91,7 +91,9 @@ real later imaging, and that run changed the specification.
 ### 2.1 Reports
 
 The source is MIMIC-IV-Note v2.2 [10, 11, 12], which holds 2,321,355 de-identified radiology reports
-from one academic medical centre in Boston. Access was through PhysioNet under its data use
+from one academic medical centre in Boston, covering admissions between 2008 and 2019 [11]. Dates in the
+data are shifted for de-identification, so the true year of any one report is unknown. Access was
+through PhysioNet under its data use
 agreement, after CITI training. Every model in the extraction pipeline ran on the author's machine,
 and neither report text nor labels are in the project repository. Excerpts of some reports did leave
 the machine during labelling, as 2.2 and the ethics statement describe.
@@ -129,11 +131,12 @@ instance the label records the recommendation's span, the finding it concerns if
 one, the action, modality, anatomy, laterality, interval, and flags for conditional, negated and
 already scheduled. Anatomy and laterality come from closed vocabularies. The protocol grew 27 written
 precedents for the cases that were hard to call, most of them added during or just after labelling.
+The protocol and every precedent, each with the wording it turned on, are in the repository.
 
 I labelled all 500 reports myself, finishing on 2026-09-15. There was no second labeller: a second
 person on MIMIC needs their own PhysioNet credential, and none was available. While labelling I
-discussed individual hard calls with a general-purpose language model run by a third party, and
-showed it the report text in question. Every label was decided and entered by me, and the model saw
+discussed individual hard calls with a general-purpose language model run by a third party
+(Claude, from Anthropic), and showed it the report text in question. Every label was decided and entered by me, and the model saw
 only what I chose to show it.
 
 After labelling and before any scoring, a consistency check against the new precedents listed
@@ -164,7 +167,20 @@ Model: qwen2.5:7b-instruct at Q4_K_M quantisation [13], served by Ollama on a la
    anatomy, laterality, interval, flags, and a quote of the finding.
 
 Every string the model quotes must be found in the source, character for character after whitespace
-normalisation, or it is refused. The same check refuses any date the source does not contain.
+normalisation, or it is refused. The same check refuses any date the source does not contain. A
+report the model cannot read is recorded as a failure to read it, never as a report with nothing in
+it.
+
+Detection and verification each return yes or no. Field filling returns the fields as JSON. Every
+call uses temperature 0, with output constrained to a JSON schema and a context window of 2,048
+tokens for detection and 8,192 for the other stages. No seed is set. Three repeated runs on the same
+input gave identical answers; the one source of variation found is the ordering effect in 2.4. The
+model was used as released, with no fine-tuning, and its training data and dates are as its
+developers report them [13]. Each prompt is in the repository, versioned, with its hash recorded at
+the freeze.
+
+Detection on the test split made 5,399 sentence calls in 8.3 hours of wall-clock time, about 5.5
+seconds a call. The later stages were not timed.
 
 ### 2.4 How the design was reached, and the freeze
 
@@ -462,6 +478,13 @@ model that runs on the machine where the reports already are, under a protocol a
 written down first, and a measurement of what that output does once it becomes a duty with a clock
 on it.
 
+*Next steps.* Four pieces of work would change these conclusions most. A second labeller with their
+own credential, so that agreement between people exists. A corpus from another institution, and one
+in another language. A way to catch an invented field behind a genuine quote, the error no check
+here detects. And a different approach to location, such as reading it deterministically from the
+finding sentence against the anatomy vocabulary, since neither a larger model nor a corrected prompt
+moved it.
+
 ## 6. Limitations
 
 - *One institution, one language.* These are reports from one Boston hospital, in English.
@@ -473,6 +496,9 @@ on it.
   wide.
 - *Reused development data.* The 150 development reports were used for every design decision, and
   the first fifty were used many times. The ten-point drop to the test split shows what that costs.
+- *No subgroup analysis.* Results were not broken down by patient age, sex, race or ethnicity, or by
+  imaging modality, so it is not known whether the extractor does worse for some patients or some
+  kinds of report.
 - *One run.* The test split was scored once, and about 3% of verification answers depend on the
   order candidates are asked in.
 - *One small model.* A quantised 7B, plus a 14B comparison on development data only.
@@ -494,6 +520,15 @@ of each report's text, so a credentialed reader can rebuild the exact corpus fro
 and the loader will refuse the labels if any report differs. The SHA-256 hashes of both unredacted
 label files are recorded in extraction/CORPUS.md.
 
+The sampling plan (extraction/CORPUS.md) and the labelling protocol (extraction/LABELLING.md) served
+as the study protocol. The study was not registered in a public registry. Instead each draw, the
+acceptance rule and the frozen configuration were committed to the repository before the step they
+governed, and the commit history shows the order.
+
+## Patient and public involvement
+
+None. Patients and the public were not involved in the design, conduct or reporting of this study.
+
 ## Ethics
 
 MIMIC-IV-Note is de-identified and was used under the PhysioNet credentialed data use agreement,
@@ -501,9 +536,10 @@ after CITI training. Every model in the extraction pipeline and the obligation r
 author's own machine.
 
 During labelling, excerpts of report text were shown to a general-purpose language model hosted by a
-third party, to discuss individual calls (section 2.2). PhysioNet does not permit credentialed data
-to be shared with third-party language model services of this kind. It is disclosed here so that a
-reader can weigh it.
+third party, to discuss individual calls (section 2.2). PhysioNet's guidance permits such services
+only when they retain none of the data, use none of it for training, and allow no human review [18].
+Those conditions were not confirmed before the excerpts were shared, so the sharing cannot be shown
+to have met them. It is disclosed here so that a reader can weigh it.
 
 The collection of patient information for MIMIC and the creation of the research resource were
 reviewed by the Institutional Review Board at the Beth Israel Deaconess Medical Center, which granted
@@ -561,3 +597,5 @@ is the author's, and the author takes responsibility for all of it.
     https://doi.org/10.5281/zenodo.21706768
 17. Gallifant J. et al. The TRIPOD-LLM reporting guideline for studies using large language models.
     *Nature Medicine* 31, 60-69 (2025). https://doi.org/10.1038/s41591-024-03425-5
+18. PhysioNet. Use of MIMIC Data with Large Language Models and Online Services. 2025.
+    https://physionet.org/news/post/llm-responsible-use/
