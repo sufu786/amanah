@@ -88,14 +88,15 @@ These are load-bearing.
 
 ## Status
 
-Specification published. The registry core is built and tested. The extractor exists but has never
-been measured against a labelled corpus, so **its accuracy is unknown**, and there is no interface,
-no storage and no deployment. Nothing here is fit for clinical use by anyone.
+Specification published. The registry core is built and tested. The extractor has been measured
+once on held-out reports and **failed its own acceptance rule**: it finds about 62% of follow-up
+recommendations and puts a false one on about 3% of clean reports. There is no interface, no storage
+and no deployment. Nothing here is fit for clinical use by anyone.
 
 | Phase | Deliverable | Status |
 |---|---|---|
 | 0 | Specification, public repository, DOI | Complete |
-| 1 | Extractor validated on a public corpus | Under way, see below |
+| 1 | Extractor validated on a public corpus | Measured; rule failed, see below |
 | 2 | Upload-a-report path, patient verification, reminders, prepared summary | Partly built, see below |
 | 3 | Locale packs | Mechanism built, only English exists |
 | 4 | Patient FHIR connect (US Cures Act APIs, NHS App) | Not started |
@@ -106,12 +107,13 @@ no storage and no deployment. Nothing here is fit for clinical use by anyone.
 
 The obligation itself: the object, the state machine with permitted transitions only, closure that
 requires evidence of a declared type, the append-only history, finding identity across serial
-studies, the prepared summary, and the escalation ladder. 77 tests cover the seven conformance
+studies, the prepared summary, and the escalation ladder. 121 tests cover the thirteen conformance
 conditions in section 11 of the specification. No dependencies.
 
-Writing this found three places where the specification contradicts itself. They are recorded in
-section 12.1 of [`OBLIGATION_SPEC.md`](OBLIGATION_SPEC.md) so that anyone implementing it
-independently meets them with the reasoning already done.
+Writing it found four places where the specification contradicted itself, and running it against
+real reports found four more where it was wrong. All eight are recorded in section 12.1 of
+[`OBLIGATION_SPEC.md`](OBLIGATION_SPEC.md) so that anyone implementing it independently meets them
+with the reasoning already done.
 
 ### What is not
 
@@ -120,18 +122,26 @@ memory. The ladder works out which rung an obligation is on; nothing sends anyth
 
 ### Phase 1 in detail
 
-Built: an output schema, a versioned prompt, a runner that rejects any quote it cannot locate
-character-for-character in the source document, a ten-case smoke suite, and a gold-standard
-labelling protocol written before any model was run. A 50-report pilot on the Open-i chest X-ray
-collection selected `qwen2.5:7b`, on zero false positives and zero fabrications. See
-[`extraction/RESULTS.md`](extraction/RESULTS.md).
+The corpus is 500 radiology reports from MIMIC-IV-Note, every one labelled by hand under
+[`extraction/LABELLING.md`](extraction/LABELLING.md), with a blind relabel of 100 of them nineteen
+days later (intra-rater kappa 0.870). The extractor runs a 7B model locally in three stages. It was
+developed on 150 of the reports and scored once on the other 350.
 
-Not done, which is why this phase is nowhere near complete: **no corpus has been labelled.** The
-pilot corpus turned out to contain no follow-up recommendations at all, so recall, interval accuracy
-and category accuracy are entirely unmeasured, and three known extraction defects are documented and
-unfixed. *Validated* in the phase title means measured against hand labels under
-[`extraction/LABELLING.md`](extraction/LABELLING.md). That has not happened, and no number published
-so far should be read as though it had.
+| Held out, random stratum | |
+|---|---|
+| Recall | 62.2% (23 of 37) |
+| Precision | 74.2% |
+| False positives on clean reports | 6 of 214 |
+| Quoted spans found exactly in the source | 100% |
+| Finding location correct | 26% |
+
+The acceptance rule, fixed before the run, was zero false positives on clean reports. It failed.
+Location is too weak for the registry to recognise one finding across several reports. One labeller,
+one hospital, English only, and agreement between people is not measured. Report text and labels
+stay outside this repository under the MIMIC data use agreement.
+
+The write-up is [`PHASE1_PAPER.md`](PHASE1_PAPER.md). Every experiment, the reverted ones included,
+is in [`extraction/RESULTS.md`](extraction/RESULTS.md).
 
 ## Licensing
 
@@ -170,5 +180,5 @@ health-system signposting for your country. See section 10 of the specification.
 
 *This repository is a design disclosure, published to establish prior art and to prevent enclosure
 of the described system by patent. It describes intended architecture, together with early
-extraction code and pilot measurements on public research data, and is not a report of clinical
+extraction code and measurements on de-identified research data, and is not a report of clinical
 results. No claim of clinical efficacy is made.*

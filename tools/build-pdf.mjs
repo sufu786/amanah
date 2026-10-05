@@ -58,11 +58,31 @@ const md = new MarkdownIt({
   typographer: false, // See the note above. Do not enable this.
 });
 
+// Digits come from a different face than the letters. Georgia draws old-style figures, which sit
+// below the baseline (3, 4, 5, 7 and 9 descend like g and p), and it has no lining-figure feature to
+// switch them off. In a document made largely of measurements that reads as misalignment. The
+// unicode-range below takes only 0 to 9 from Cambria, whose figures are lining, and leaves every
+// letter in Georgia. Times New Roman is the fallback where Cambria is absent.
+const DIGIT_FACES = [
+  ['normal', 'normal', 'Cambria', 'Times New Roman'],
+  ['bold', 'normal', 'Cambria Bold', 'Times New Roman Bold'],
+  ['normal', 'italic', 'Cambria Italic', 'Times New Roman Italic'],
+  ['bold', 'italic', 'Cambria Bold Italic', 'Times New Roman Bold Italic'],
+].map(([weight, style, a, b]) => `@font-face {
+  font-family: "Lining Digits";
+  src: local("${a}"), local("${b}");
+  font-weight: ${weight};
+  font-style: ${style};
+  unicode-range: U+0030-0039;
+}`).join('\n');
+
 const CSS = `
+${DIGIT_FACES}
+
 @page { size: A4; margin: 20mm 18mm 22mm 18mm; }
 
 body {
-  font-family: Georgia, "Times New Roman", Tahoma, serif;
+  font-family: "Lining Digits", Georgia, "Times New Roman", Tahoma, serif;
   font-size: 10.5pt;
   line-height: 1.58;
   color: #1a1a1a;
@@ -84,6 +104,12 @@ h3 { font-size: 12pt; }
 h4, h5, h6 { font-size: 10.5pt; }
 
 p { margin: 0 0 0.85em; orphans: 2; widows: 2; }
+
+/* Running prose is justified. Headings, tables and code stay left-aligned, where stretched spaces
+   would hurt reading. Hyphenation keeps justified lines from opening wide gaps, and long URLs may
+   break so that the line before one is not stretched across the whole measure. */
+p, li, blockquote { text-align: justify; hyphens: auto; }
+a { overflow-wrap: anywhere; }
 a { color: #14507a; text-decoration: none; }
 strong { color: #000; }
 
