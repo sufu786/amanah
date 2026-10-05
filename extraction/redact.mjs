@@ -43,6 +43,7 @@ if (raw.redacted) {
 
 let stripped = 0;
 let missingSha = 0;
+let deidentifiedIntervals = 0;
 
 const out = {
   ...raw,
@@ -53,6 +54,14 @@ const out = {
       ...entry,
       recommendations: (entry.recommendations ?? []).map((rec) => {
         const clean = { ...rec };
+        // The scorer excludes an interval that de-identification replaced with ___ (LABELLING.md
+        // 7.1), and it finds those by reading interval_verbatim, which is about to be stripped.
+        // Without this flag a redacted file scores interval accuracy differently from the file it
+        // came from. The flag is a boolean and carries no report text.
+        if (/___/.test(rec.interval_verbatim ?? '')) {
+          clean.interval_deidentified = true;
+          deidentifiedIntervals++;
+        }
         for (const field of STRIP) {
           if (clean[field] != null) stripped++;
           delete clean[field];
@@ -78,6 +87,9 @@ writeFileSync(outPath, `${JSON.stringify(out, null, 2)}\n`, 'utf8');
 console.log(`${inPath} -> ${outPath}`);
 console.log(`  ${out.labels.length} report(s), ${stripped} quoted string(s) removed`);
 console.log('  spans, categories, intervals, flags and text_sha256 all kept');
+if (deidentifiedIntervals) {
+  console.log(`  ${deidentifiedIntervals} de-identified interval(s) marked interval_deidentified`);
+}
 console.log();
 console.log('Check it loads against the corpus before you publish it:');
 console.log(`  node score.mjs --corpus <reports.json> --gold ${outPath} --predictions <preds.json>`);

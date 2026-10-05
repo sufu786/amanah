@@ -750,7 +750,10 @@ people NOT measured` above every table it produces, and refuses to run without t
 a publishable copy of any label set with the quoted report text stripped, keeping spans, categories,
 intervals, flags and `text_sha256`. A credentialed reader rebuilds the corpus and the loader derives
 every quote from their own copy, refusing the labels if the text does not hash to what was labelled.
-Scoring a redacted gold standard gives numbers identical to the unredacted one, which is checked.
+Scoring a redacted gold standard gives numbers identical to the unredacted one. That was first
+claimed after a check by hand, and on 2026-10-06 it turned out to be false for interval accuracy:
+the scorer found de-identified intervals by reading `interval_verbatim`, which redaction strips.
+redact.mjs now carries the fact across as a boolean, and `redact.test.mjs` holds the claim to it.
 
 Still worth asking PhysioNet whether short quotations are permitted, because a permissive answer
 means publishing the fuller file. But nothing waits on the answer now. See `LABELLING.md` section 8a.

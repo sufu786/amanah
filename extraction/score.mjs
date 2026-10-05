@@ -138,7 +138,10 @@ export function computeMetrics(corpusData, gold, preds, ids) {
       // right for a reason that has nothing to do with its ability to read an interval. Counting
       // it as a correct null inflates the figure with cases where there was nothing to read. It
       // is an artefact of the corpus and would not occur in deployment. See LABELLING.md 7.1.
-      const deidentifiedInterval = /___/.test(g.interval_verbatim ?? '');
+      // A redacted gold standard has no interval_verbatim, so redact.mjs carries the fact across
+      // as interval_deidentified, and either one is enough.
+      const deidentifiedInterval = g.interval_deidentified === true
+        || /___/.test(g.interval_verbatim ?? '');
       if (deidentifiedInterval) {
         intervalDeidentified++;
       } else {

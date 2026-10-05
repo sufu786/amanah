@@ -172,6 +172,10 @@
           }
         },
         "interval_verbatim": { "type": ["string", "null"] },
+        "interval_deidentified": {
+          "type": "boolean",
+          "description": "Set by redact.mjs when interval_verbatim held a ___ placeholder, so that a redacted file still excludes that instance from interval accuracy (LABELLING.md 7.1). Carries no report text."
+        },
 
         "conditional": { "type": "boolean", "default": false },
         "negated": {
