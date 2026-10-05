@@ -692,7 +692,7 @@ source, and four of the five carried correctly located recommendations. A rule w
 fabricated quote was discarding real recommendations along with it.
 
 Three designs were weighed for the first kind. **Quoting a negative statement as the finding**, for
-example "No specific evidence of malignancy", satisfies R5 literally and was rejected, because an
+example a sentence saying that no malignancy was seen, satisfies R5 literally and was rejected, because an
 identity key built from it means nothing and the prepared summary would present a reassurance as
 though it were an abnormality. **Declaring findingless obligations out of scope** was rejected
 because it drops a tenth of the real duties in the corpus, including the screening returns. **An

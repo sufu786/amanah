@@ -189,10 +189,10 @@ already served as a pilot, so they were spent before the split existed.
 
 The design above is not where the work started. The first extractor asked the model to read the whole
 report and list the recommendations. On the 50-report pilot it found 3 of 11. All three contained the
-word "recommend", and none of the six instances without it came back. The prompt was rewritten to
-include, among its examples, the exact sentence "Additional imaging is needed." One pilot report
-contains that sentence under its own RECOMMENDATION heading, in a mammogram assessed BI-RADS 0. The
-model still returned nothing for it. The same model, asked about that sentence on its own, said yes.
+word "recommend", and none of the six instances without it came back. One of the six was a
+four-word sentence saying only that more imaging was needed, under its own RECOMMENDATION heading,
+in a mammogram assessed BI-RADS 0. The prompt was rewritten to include that exact sentence among its
+examples. The model still returned nothing for it. The same model, asked about that sentence on its own, said yes.
 That was the reason for detecting one sentence at a time: the failure was finding the sentence, not
 judging it. Recall on the pilot went from 27.3% to 90.9%.
 
