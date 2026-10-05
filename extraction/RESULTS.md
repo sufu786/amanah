@@ -1332,3 +1332,41 @@ reported on the instances both runs matched, with the difference stated.
 **What this cannot say.** It is development data the pipeline was built against, it is one larger
 model and not models in general, and it says nothing about recall, which this stage does not affect.
 It cannot reach a held-out figure, because there is no unspent split.
+
+## What the 14B run showed
+
+Run 2026-10-05 as pre-registered above. Both runs matched the same 26 instances, so the
+comparison is per instance on that set.
+
+| On the 26 instances both runs matched | 7B | 14B |
+|---|---|---|
+| Location correct | 9 | **3** |
+| Action correct | 14 | **22** |
+| Category correct | 22 | 20 |
+
+**By the rule fixed before the run, 3 of 26 reads as "the larger model is worse at this task".**
+That reading stands. The per-instance output says why, and it is not capability.
+
+The 14B returned no anatomy on 24 of the 26 instances and no laterality on any. The fields prompt
+says: "If the recommendation names no body part at all, it is 'none'. Do not infer the body part from
+what kind of study this was." It points the model at the recommendation sentence, and most
+recommendations name no body part: "Recommend CT chest in 6 months". `LABELLING.md` 7.13 says the
+opposite: anatomy locates the finding, not the test. The prompt and the protocol disagree. The 7B
+follows the instruction loosely and sometimes finds the location anyway. The 14B follows it closely
+and finds nothing.
+
+So location is not mainly a model limit. It is the prompt asking a question the gold standard does
+not ask. A larger model made that visible by being more obedient.
+
+**The attempt recorded earlier, which rewrote this same instruction, should be read again.** It was
+made on the 7B, measured one instance worse on ten, and was reverted as a prompt edit chasing a
+number. The reversion was the right discipline for that evidence. The evidence was too thin to show
+the instruction was the defect, and this run, on a model that follows instructions, shows that it is.
+
+**Action accuracy rose from 14 to 22 of 26.** No prediction was made about action, so this is a
+secondary observation rather than a tested claim, but it is the largest single-field change measured
+in this file.
+
+**What follows is one experiment, not a fix.** Rewrite the anatomy and laterality instructions to
+match 7.13, change nothing else, and run it on both models over the same input, with the decision
+rule recorded first. The development split is the only data available, and that limit stands.
