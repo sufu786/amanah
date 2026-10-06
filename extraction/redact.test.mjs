@@ -38,18 +38,7 @@ test('a redacted gold standard scores identically, including a de-identified int
   // The example gold standard, with its one stated interval turned into the MIMIC shape: the
   // number replaced by ___, the interval therefore null, and the placeholder kept (LABELLING.md 7.1).
   const gold = JSON.parse(readFileSync(join(fixtures, 'gold.json'), 'utf8'));
-
-  // The fixture predates the closed anatomy vocabulary and writes side inside anatomy, as in
-  // "lung.right.upper_lobe". The loader now refuses that, so map it to anatomy plus laterality.
-  for (const r of gold.labels.flatMap((e) => e.recommendations)) {
-    const [organ, side] = String(r.anatomy ?? '').split('.');
-    if (side) {
-      r.anatomy = organ;
-      r.laterality = side;
-    }
-  }
-
-  const rec =gold.labels.flatMap((e) => e.recommendations).find((r) => r.interval_verbatim === 'in 6 months');
+  const rec = gold.labels.flatMap((e) => e.recommendations).find((r) => r.interval_verbatim === 'in 6 months');
   assert.ok(rec, 'fixture changed: no instance with interval_verbatim "in 6 months"');
   rec.interval = null;
   rec.interval_verbatim = 'in ___ months';

@@ -33,7 +33,8 @@
             164,
             192
           ],
-          "anatomy": "lung.right.upper_lobe",
+          "anatomy": "lung",
+          "laterality": "right",
           "modality": "CT",
           "interval": {
             "value": 6,
@@ -64,7 +65,8 @@
             20,
             65
           ],
-          "anatomy": "lung.left.lower_lobe",
+          "anatomy": "lung",
+          "laterality": "left",
           "modality": "PET-CT",
           "interval": null,
           "interval_verbatim": null,
@@ -85,7 +87,8 @@
             20,
             65
           ],
-          "anatomy": "lung.left.lower_lobe",
+          "anatomy": "lung",
+          "laterality": "left",
           "modality": null,
           "interval": null,
           "interval_verbatim": null,

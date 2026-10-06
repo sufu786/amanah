@@ -12,6 +12,7 @@
 
 import { readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
+import { join } from 'node:path';
 
 // The deliberate Arabic in the name explanation.
 const ALLOWED_CHARS = new Set(['أ', 'م', 'ا', 'ن', 'ة']);
@@ -54,7 +55,12 @@ const BANNED_OPENERS = [
 // ignored. Plain `git ls-files` lists only the tracked, which meant a newly written file passed
 // this check right up to the moment it was committed and started failing immediately afterwards.
 // That is exactly backwards: the check is least useful on the files most likely to need it.
-const files = execSync('git ls-files --cached --others --exclude-standard', { encoding: 'utf8' })
+//
+// git lists files relative to the directory it runs in, and STYLE.md says to run this as
+// `cd tools && npm run prose`. Run from there, it saw tools/ and nothing else, and reported the whole
+// repository clean. So it lists from the repository root, wherever it is started.
+const root = execSync('git rev-parse --show-toplevel', { encoding: 'utf8' }).trim();
+const files = execSync('git ls-files --cached --others --exclude-standard', { encoding: 'utf8', cwd: root })
   .split('\n')
   .filter((f) => f && !/\.(pdf|png|jpg|jpeg|zip|cff)$/.test(f));
 
@@ -66,7 +72,7 @@ const report = (file, line, msg) => {
 
 for (const file of files) {
   let text;
-  try { text = readFileSync(file, 'utf8'); } catch { continue; }
+  try { text = readFileSync(join(root, file), 'utf8'); } catch { continue; }
   const lines = text.split('\n');
   const isMarkdown = file.endsWith('.md');
 
