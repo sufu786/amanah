@@ -1553,3 +1553,43 @@ not the same.
 **What this cannot say.** These are development reports, used three times already for location. The
 rule was not fitted to them, but a reader has only this paragraph's word for that, and the git
 history. A figure that counts needs new labelled data.
+
+## What the fixed rule showed
+
+Run 2026-10-07 as recorded above. The harness found the same 26 instances (14 in stratum A, 12 in
+B) and reproduced the baseline of 9 before anything else was read.
+
+| On the 26 instances | Correct | Stated and wrong |
+|---|---|---|
+| 7B, fields prompt 0.1 | 9 | 5 |
+| Run a, the rule on the 7B's finding quote | 8 | 3 |
+| Run b, the rule on the gold finding span | 13 | 4 |
+
+**By the rule fixed before the run: not adopted.** Run a is correct on 8, one fewer than the model.
+The rule replaces nothing.
+
+**How each one fails** is the more useful result, and it was counted without reading any text.
+
+| Failures | Model | Run a | Run b |
+|---|---|---|---|
+| No anatomy where gold has one | 12 | 15 | 9 |
+| Right anatomy, wrong or missing side | 4 | 2 | 3 |
+| A different anatomy from gold | 0 | 1 | 1 |
+| Anatomy where gold has none | 1 | 0 | 0 |
+
+The rule fails by abstaining. It named a structure the gold standard did not in one instance in each
+run. Its errors are mostly nulls, which section 6 rule 3 sends to a person, where the model's
+include a side or a structure stated with nothing behind it. That is the safer way to be wrong, and
+it is not enough to be right more often.
+
+**The finding quote is part of the location problem.** The same rule scores 8 on the model's finding
+quote and 13 on the gold finding span. On about five instances the location was in the right sentence
+and the model quoted a different one. No earlier experiment could see this, because each changed the
+model or the prompt and scored the result as a whole.
+
+**What is not done.** The nine abstentions in run b are where the rule would improve next, and
+finding out why means reading those sentences. Doing so and then changing the rule would fit it to
+these 26 instances, which is the failure this file has recorded three times. The rule stays as
+written. Whether it should feed location where it does speak, accepting one fewer correct for two
+fewer stated and wrong, is a judgement about which error costs more, and it waits for new labelled
+data rather than being settled on these.
