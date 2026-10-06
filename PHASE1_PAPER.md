@@ -60,7 +60,7 @@ models; loss to follow-up; patient safety; MIMIC-IV
 ## 1. Introduction
 
 Radiologists write follow-up recommendations constantly. Repeat this CT in six months. Ultrasound
-this thyroid nodule. Tissue diagnosis is recommended. A large fraction are never carried out.
+this thyroid nodule. Biopsy is advised. A large fraction are never carried out.
 Reported rates for actionable incidental findings in high-income settings run from roughly a quarter
 to a half [1-4]. The finding was seen and the recommendation was right. What failed was the step
 after.
@@ -130,7 +130,7 @@ is never reported.
 The labelling protocol was written before any model ran on MIMIC. An instance is a statement that a
 further test, procedure, referral, treatment or review should happen after this report. That
 includes conditional requests ("if symptoms persist, repeat the film") and negated ones ("no further
-follow-up is needed"), which are labelled because they are evidence that nothing is owed. For each
+imaging is required"), which are labelled because they are evidence that nothing is owed. For each
 instance the label records the recommendation's span, the finding it concerns if the report names
 one, the action, modality, anatomy, laterality, interval, and flags for conditional, negated and
 already scheduled. Anatomy and laterality come from closed vocabularies. The protocol grew 27 written
