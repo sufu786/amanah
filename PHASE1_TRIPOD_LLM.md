@@ -1,9 +1,13 @@
-# TRIPOD-LLM checklist for the Phase 1 paper
+# TRIPOD-LLM checklist
 
-Where each item of the TRIPOD-LLM reporting guideline (Gallifant et al., Nature Medicine 31, 60-69,
-2025) is answered in [`PHASE1_PAPER.md`](PHASE1_PAPER.md). The official checklist is completed at
-https://tripod-llm.vercel.app/ and submitted with the paper; this file is the working copy it is
-filled from.
+**Paper:** Finding follow-up recommendations in radiology reports with a small local model: a
+held-out evaluation and its consequences for a patient-held registry.
+
+**Author:** Dedrani Mohamedsarfaraz Mohamadfiroz. **Guideline:** TRIPOD-LLM, Gallifant et al.,
+Nature Medicine 31, 60-69 (2025), Table 2 for the full paper and Table 3 for the abstract.
+
+Each item is answered by the section of the paper given beside it. Section numbers are the paper's
+own.
 
 **Research design:** LLM evaluation (E), in a healthcare setting (H). No model was developed or
 fine-tuned, so items marked for methods (M) or de novo development (D) only are not applicable.
@@ -11,7 +15,7 @@ fine-tuned, so items marked for methods (M) or de novo development (D) only are 
 **LLM task:** extraction of follow-up recommendations from radiology reports. The guideline has no
 extraction category. Detection, a yes or no per sentence, is treated as classification (C).
 
-No item is open.
+Every item is either answered or marked not applicable, with the reason.
 
 | Item | What it asks for | Where, or why not applicable |
 |---|---|---|

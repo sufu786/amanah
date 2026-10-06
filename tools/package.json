@@ -9,8 +9,8 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "node build-pdf.mjs ../CONCEPT_NOTE.md ../OBLIGATION_SPEC.md ../PHASE1_PAPER.md",
-    "verify": "node verify-pdf.mjs ../CONCEPT_NOTE.pdf ../OBLIGATION_SPEC.pdf ../PHASE1_PAPER.pdf",
+    "build": "node build-pdf.mjs ../CONCEPT_NOTE.md ../OBLIGATION_SPEC.md ../PHASE1_PAPER.md ../PHASE1_TRIPOD_LLM.md",
+    "verify": "node verify-pdf.mjs ../CONCEPT_NOTE.pdf ../OBLIGATION_SPEC.pdf ../PHASE1_PAPER.pdf ../PHASE1_TRIPOD_LLM.pdf",
     "pdf": "npm run build && npm run verify",
     "prose": "node check-prose.mjs"
   },
