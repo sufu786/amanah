@@ -11,12 +11,12 @@ fine-tuned, so items marked for methods (M) or de novo development (D) only are 
 **LLM task:** extraction of follow-up recommendations from radiology reports. The guideline has no
 extraction category. Detection, a yes or no per sentence, is treated as classification (C).
 
-One item is open and marked as such.
+No item is open.
 
 | Item | What it asks for | Where, or why not applicable |
 |---|---|---|
 | 1 | Title names an LLM evaluation, the task, population and outcome | Title |
-| 2 | Abstract per TRIPOD-LLM for Abstracts | Structured abstract. **Open:** the separate abstract checklist has not been checked |
+| 2 | Abstract per TRIPOD-LLM for Abstracts | Structured abstract; checked item by item in the table below |
 | 3a | Healthcare context, rationale, existing approaches | Section 1 |
 | 3b | Target population, intended use, intended users | Sections 1 and 5 (who sees first-tier and second-tier output) |
 | 4 | Objectives, and whether development or validation | Section 1, last two paragraphs; abstract |
@@ -64,3 +64,22 @@ One item is open and marked as such.
 | 19e | Handling of poor or missing input | 2.3 (unreadable report is a failure, never a clean result); 3.6 (no due date, no anatomy) |
 | 19f | User interaction and expertise required | 3.5, 4 (second tier routed to a professional, never pushed to a patient alone) |
 | 19g | Next steps | 5, "Next steps" |
+
+## TRIPOD-LLM for Abstracts
+
+The separate checklist for abstracts (Table 3 of the guideline), against the paper's abstract.
+
+| Item | What it asks for | Where in the abstract |
+|---|---|---|
+| 2a | Title names an LLM evaluation, the task, population and outcome | Title |
+| 2b | Healthcare context and rationale | Background, first three sentences |
+| 2c | Objectives, and whether development, tuning or evaluation | Background, last sentence: an evaluation |
+| 2d | Key elements of the setting | Methods: MIMIC-IV-Note, one US academic medical centre |
+| 2e | Data used, splits, selective use | Methods: 350 random and 150 cue-enriched; developed on 150, scored on 350 |
+| 2f | Name and version of the LLM | Methods: qwen2.5:7b-instruct, as released |
+| 2g | LLM-building steps | Not applicable (M, D): no fine-tuning, stated in Methods |
+| 2h | Task, inputs and outputs | Methods: three stages, quotes checked against the source |
+| 2i | Evaluation data, held out, measures | Methods and Results: held-out 350, recall, precision, false positives |
+| 2j | Main results and interpretation | Results |
+| 2k | Broader implications or concerns | Conclusions |
+| 2l | Registration | Methods, last sentence: not registered |

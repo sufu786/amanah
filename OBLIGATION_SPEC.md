@@ -376,8 +376,8 @@ evidence: an unknown leaves the study possible, and possible goes to a person.
    study with more than one code, such as a PET-CT, may not have done the part asked for to a
    diagnostic standard;
 2. the recommendation's own words name no protocol a code cannot confirm, such as contrast phases,
-   angiography, a diagnostic rather than a screening mammogram, or a guided procedure. Section 7
-   lists the words;
+   angiography, a diagnostic rather than a screening mammogram, or a guided procedure. Section
+   7.1 lists the words;
 3. the recommendation's `action` is `imaging`. A diagnostic study is not the biopsy, the referral or
    the treatment, even when it uses the same scanner;
 4. it covers the finding's anatomy, and the finding has anatomy recorded, so that coverage can be

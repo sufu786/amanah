@@ -19,18 +19,21 @@
 **Background.** A follow-up recommendation in a radiology report is a duty owed to a patient, and a
 large share of them are never acted on. Amanah is an open-source registry that holds each such
 recommendation as a portable, patient-held obligation, closed only on evidence. Everything it does
-depends on an extractor that finds the recommendations in a report without inventing any.
+depends on an extractor that finds the recommendations in a report without inventing any. This study
+evaluates such an extractor built on an existing small model, and what its output does once it
+becomes an obligation.
 
-**Methods.** I drew 500 radiology reports from MIMIC-IV-Note v2.2, one per patient: 350 drawn at random and
-150 drawn from reports matching a broad list of cue words. I labelled all 500 by hand under a written
-protocol. A blind relabel of 100 of them nineteen days later gave an intra-rater kappa of 0.870. The
-extractor runs a 7-billion-parameter model on a laptop CPU in three stages: detection one sentence at
-a time, a verification pass with the whole report in view, and field filling. Every quoted string is
-checked against the source and refused if it cannot be found there. It was developed on 150 reports,
-frozen with its prompt hashes recorded, and scored once on the other 350, against an acceptance rule
-fixed in advance: no false positive on any clean report. Separately, the registry's obligation layer
-was run over the hand labels, using each report's de-identified date and the patient's later
-radiology to exercise closure and escalation.
+**Methods.** I drew 500 radiology reports from MIMIC-IV-Note v2.2, from one US academic medical
+centre, one per patient: 350 at random and 150 from reports matching a broad list of cue words. I
+labelled all 500 by hand under a written protocol. A blind relabel of 100 of them nineteen days
+later gave an intra-rater kappa of 0.870. The extractor runs qwen2.5:7b-instruct, used as released
+with no fine-tuning, on a laptop CPU in three stages: detection one sentence at a time, a
+verification pass with the whole report in view, and field filling. Every quoted string is checked
+against the source and refused if it cannot be found there. It was developed on 150 reports, frozen
+with its prompt hashes recorded, and scored once on the other 350, against an acceptance rule fixed
+in advance: no false positive on any clean report. Separately, the registry's obligation layer was
+run over the hand labels, using each report's de-identified date and the patient's later radiology
+to exercise closure and escalation. The study was not registered.
 
 **Results.** On the random held-out stratum the extractor found 23 of 37 labelled recommendations
 (62.2%, 95% CI 46.1 to 75.9), with precision 74.2% and a false positive on 6 of 214 clean reports
