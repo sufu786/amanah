@@ -6,7 +6,9 @@ abstract: >-
   a clinician-recommended follow-up, tracked until evidence shows it happened. It detects no disease
   and makes no diagnostic claim. It carries detections that have already been made through to the
   treatment that should have followed. This repository holds the Portable Clinical Obligation
-  specification, the concept note, and the naming policy.
+  specification and concept note, the reference implementation of the obligation layer, and the
+  extraction pipeline, labelling protocol and evaluation harness used to measure it against 500
+  hand-labelled MIMIC-IV-Note radiology reports.
 type: software
 version: 1.1.0
 date-released: 2026-07-30
@@ -38,8 +40,8 @@ identifiers:
     value: "10.5281/zenodo.21708214"
     description: "Software concept DOI, all releases"
   - type: doi
-    value: "10.5281/zenodo.21708215"
-    description: "Software version DOI, v1.1.0"
+    value: "10.5281/zenodo.21871044"
+    description: "Software version DOI, v1.3.0"
 
 # The paper is the citable work. Cite this rather than the software unless you
 # specifically mean the code.
