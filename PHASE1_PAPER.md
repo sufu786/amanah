@@ -1,14 +1,15 @@
 # Finding follow-up recommendations in radiology reports with a small local model: a held-out evaluation and its consequences for a patient-held registry
 
-**Preprint draft, version 0.1**
+**Preprint, version 1**
 
 - **Author:** Dedrani Mohamedsarfaraz Mohamadfiroz, Independent Researcher
 - **ORCID:** [0009-0004-7645-7151](https://orcid.org/0009-0004-7645-7151)
 - **Contact:** s.dedrani786@gmail.com
 - **Date:** 2026-10-06
 - **Licence:** CC BY 4.0
-- **Related:** concept note [10.5281/zenodo.21706768](https://doi.org/10.5281/zenodo.21706768);
-  software [10.5281/zenodo.21708214](https://doi.org/10.5281/zenodo.21708214)
+- **Related:** concept note and specification [10.5281/zenodo.21706768](https://doi.org/10.5281/zenodo.21706768),
+  specification v0.6 [10.5281/zenodo.23197947](https://doi.org/10.5281/zenodo.23197947); software
+  [10.5281/zenodo.21708214](https://doi.org/10.5281/zenodo.21708214)
 - **Status:** Measurement of an extraction component and a retrospective run of a registry on
   de-identified records. Not a clinical study. No patient saw any output.
 
@@ -609,8 +610,8 @@ is the author's, and the author takes responsibility for all of it.
 14. Yang A. et al. Qwen3 Technical Report. arXiv:2505.09388 (2025).
 15. ACR AI Use Case: Ensure Patient Follow-Up of Radiology Report Recommendations.
     https://www.acr.org/Data-Science-and-Informatics/AI-in-Your-Practice/AI-Use-Cases/Use-Cases/Ensure-Patient-Follow-Up-of-Radiology-Report-Recommendations
-16. Dedrani M. M. Portable Clinical Obligation, specification v0.6. Zenodo, 2026. A version of
-    https://doi.org/10.5281/zenodo.21706768
+16. Dedrani M. M. Portable Clinical Obligation, specification v0.6. Zenodo, 2026.
+    https://doi.org/10.5281/zenodo.23197947
 17. Gallifant J. et al. The TRIPOD-LLM reporting guideline for studies using large language models.
     *Nature Medicine* 31, 60-69 (2025). https://doi.org/10.1038/s41591-024-03425-5
 18. PhysioNet. Use of MIMIC Data with Large Language Models and Online Services. 2025.
