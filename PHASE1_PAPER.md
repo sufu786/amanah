@@ -40,12 +40,12 @@ removed by the verification pass; when doubted candidates were kept at a second 
 deleted, the share reaching a reviewer rose to 86.5% and 92.6%. The finding's location was right
 about a quarter of the time, and neither a 14B model nor a corrected prompt moved it. In the
 retrospective run, 6 of 130 recommendations closed automatically, 44 needed a person to confirm a
-closure, and 32 were conditional. Two rules in the specification failed on real records and were
+closure, and 32 were conditional. Three rules in the specification failed on real records and were
 changed.
 
 **Conclusions.** A small model running locally can find most follow-up recommendations without
 fabricating text. It cannot yet do so without false positives, and it cannot reliably say where the
-finding is. Four parts of the specification changed because of these measurements, and the system
+finding is. Five parts of the specification changed because of these measurements, and the system
 turned out to depend on people far more than its design had assumed.
 
 **Keywords:** radiology reports; follow-up recommendations; information extraction; large language
@@ -249,7 +249,7 @@ recorded study. The input was the hand labels, not extractor output, so this mea
 layer given correct extraction rather than a compound of two error rates. To compare a recommended
 modality with a study, the run mapped both onto a shared set of classes, and it read the body region
 covered from each study's exam name. Both mappings were written for the run, because the
-specification has no modality vocabulary.
+specification then had no modality vocabulary. Section 4 describes the one it has now.
 
 ## 3. Results
 
@@ -424,8 +424,9 @@ and emergency care, and follow-up done in a clinic or anywhere else leaves no tr
 
 ## 4. What changed in the specification
 
-Specification v0.5 [16] carries four changes made because of these measurements. Its section 12.1
-records each with the designs that were weighed and rejected.
+Five changes to the specification were made because of these measurements, the first four in v0.5
+and the fifth in v0.6 [16]. Section 12.1 of the specification records each with the designs that
+were weighed and rejected.
 
 - A finding may be absent, but never invented. Of 130 recommendations, 14 named no finding: five
   routine screening mammograms after a benign result, and requests for further imaging if symptoms
@@ -439,6 +440,13 @@ records each with the designs that were weighed and rejected.
   is pending at a time.
 - Obligations with no due date get their own ladder, which asks for the date instead of waiting
   to be told.
+- Modalities are compared by code, not by words. The run in 2.6 mapped modalities onto shared
+  classes before comparing them. Run again without that mapping, with studies named by their DICOM
+  modality as imaging systems name them, the specification's word comparison lost four of the six
+  automatic closures, because "US" is not the word "ultrasound", and it accepted two studies of a
+  different modality. v0.6 gives each recommendation a code from a closed list aligned to DICOM,
+  read from the report's words by a fixed rule, and with it the same run gives the same six
+  closures.
 
 ## 5. Discussion
 
@@ -598,7 +606,7 @@ is the author's, and the author takes responsibility for all of it.
 14. Yang A. et al. Qwen3 Technical Report. arXiv:2505.09388 (2025).
 15. ACR AI Use Case: Ensure Patient Follow-Up of Radiology Report Recommendations.
     https://www.acr.org/Data-Science-and-Informatics/AI-in-Your-Practice/AI-Use-Cases/Use-Cases/Ensure-Patient-Follow-Up-of-Radiology-Report-Recommendations
-16. Dedrani M. M. Portable Clinical Obligation, specification v0.5. Zenodo, 2026. A version of
+16. Dedrani M. M. Portable Clinical Obligation, specification v0.6. Zenodo, 2026. A version of
     https://doi.org/10.5281/zenodo.21706768
 17. Gallifant J. et al. The TRIPOD-LLM reporting guideline for studies using large language models.
     *Nature Medicine* 31, 60-69 (2025). https://doi.org/10.1038/s41591-024-03425-5
