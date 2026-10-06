@@ -113,6 +113,21 @@ synthetic reports only. No real patient report is put through it until the safet
    reviewed. Then a small test with volunteers using synthetic reports, watching where they
    misunderstand. Only after this does a real report go through it.
 
+## 5a. What the stages have found so far
+
+**Stage 1, 2026-10-07.** `extractReport` and `findDates` are built, with tests that stub the model and
+run its answers through the real quote check and the real obligation layer. Run once with the real
+model on the invented nodule report from the smoke fixtures, the pipeline found the right sentence
+and offered the right report date in 108 seconds, and verification then doubted the recommendation
+itself, "Recommend CT follow-up in 6 months.", and put it in the second tier. Phase 1 measured this
+weakness on real reports: verification doubted 21 real recommendations on the test split.
+
+**What it changes for stage 2.** Section 3.2 of the specification lists second-tier candidates
+quietly when the patient is alone. On the checking screen, quietly must not mean out of sight: the
+second tier is shown in full beside the first, marked as items the app was less sure about, and the
+patient checks them the same way. What stays quiet is everything after: no reminder and no alert for
+a second-tier item until the patient confirms it.
+
 ## 6. Out of scope for Phase 2
 
 Photos and OCR. Phones. Any hosted version. SMS or email reminders. Any language but English. FHIR

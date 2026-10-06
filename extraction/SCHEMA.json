@@ -96,8 +96,8 @@
         "finding_span": { "$ref": "#/$defs/span" },
         "doubt_reason": {
           "type": ["string", "null"],
-          "enum": ["verification", null],
-          "description": "Set only on second_tier candidates: the stage that doubted the candidate. verification: a whole-report verification pass judged that it asks for nothing."
+          "enum": ["verification", "fields_unavailable", null],
+          "description": "Set only on second_tier candidates: why the candidate is there. verification: a whole-report verification pass judged that it asks for nothing. fields_unavailable: the model failed before filling its fields, so they are placeholders and a person must fill them (pipeline.mjs)."
         },
         "finding_location": {
           "type": ["string", "null"],
