@@ -42,6 +42,7 @@ const base = (over = {}) => ({
     text_verbatim: 'recommend CT follow-up in 6 months',
     action: 'imaging',
     modality: 'CT',
+    modality_code: 'ct',
     interval: { value: 6, unit: 'month' },
   },
   source: { kind: 'photo', document_date: '2026-03-14', locator: 'page 2, impression' },
@@ -477,7 +478,7 @@ describe('v0.5  findings that are absent, or located by nearest match', () => {
   const annual = (over = {}) => make({
     finding: noFinding(),
     recommendation: { text_verbatim: 'Annual mammography.', action: 'imaging', modality: 'mammography',
-      interval: { value: 1, unit: 'year' } },
+      modality_code: 'mammography', interval: { value: 1, unit: 'year' } },
     ...over,
   });
   const nearest = (over = {}) => make({
@@ -488,9 +489,9 @@ describe('v0.5  findings that are absent, or located by nearest match', () => {
     ...over,
   });
 
-  test('the object format is cor.obligation/0.3', () => {
-    assert.equal(SCHEMA, 'cor.obligation/0.3');
-    assert.equal(make().schema, 'cor.obligation/0.3');
+  test('the object format is cor.obligation/0.4, additive over 0.3', () => {
+    assert.equal(SCHEMA, 'cor.obligation/0.4');
+    assert.equal(make().schema, 'cor.obligation/0.4');
   });
 
   test('an exactly quoted finding records its location, and nothing else changes', () => {
@@ -544,11 +545,11 @@ describe('v0.5  findings that are absent, or located by nearest match', () => {
 
   test('rule 5: obligations with no finding are keyed on the recommendation', () => {
     const k = (over) => identityKey({ subject_ref: 's', category: NO_FINDING, action: 'imaging', ...over });
-    assert.equal(k({ modality: 'mammography' }), k({ modality: 'Mammography ' }), 'normalised');
-    assert.notEqual(k({ modality: 'mammography' }), k({ modality: 'MRI' }),
+    assert.notEqual(k({ modality_code: 'mammography' }), k({ modality_code: 'mr' }),
       'two findingless duties asking for different tests are different duties');
-    assert.notEqual(k({ modality: 'mammography', laterality: 'left' }), k({ modality: 'mammography' }));
+    assert.notEqual(k({ modality_code: 'mammography', laterality: 'left' }), k({ modality_code: 'mammography' }));
     assert.throws(() => identityKey({ subject_ref: 's', category: NO_FINDING }), /requires the recommendation action/);
+    assert.throws(() => k({ modality_code: 'MRI' }), /modality_code must be one of/, 'codes, never words, since v0.6');
   });
 
   test('rule 3 still applies: a findingless obligation with no anatomy goes to a human', () => {
@@ -581,7 +582,7 @@ describe('v0.5  findings that are absent, or located by nearest match', () => {
 describe('4.5  a study found automatically proposes closure, and closes only when nothing is in doubt', () => {
   // base(): CT in 6 months from 2026-03-14, so due 2026-09-14, 184 days, and the floor 92 days in: 2026-06-14.
   const ob = (over = {}) => make({ finding: { ...base().finding, anatomy: 'lung', laterality: 'right' }, ...over });
-  const study = (over = {}) => ({ date: '2026-09-01', modality: 'CT', anatomy_covered: ['lung', 'mediastinum'], ...over });
+  const study = (over = {}) => ({ date: '2026-09-01', modality_codes: ['ct'], anatomy_covered: ['lung', 'mediastinum'], ...over });
 
   test('closes when modality, region and timing all match and can be checked', () => {
     assert.equal(matchingStudyDecision(ob(), study()).decision, 'close');
@@ -589,7 +590,7 @@ describe('4.5  a study found automatically proposes closure, and closes only whe
 
   test('a study before the report, of another modality, or of another region is not evidence', () => {
     assert.equal(matchingStudyDecision(ob(), study({ date: '2026-03-01' })).decision, 'not_evidence');
-    assert.equal(matchingStudyDecision(ob(), study({ modality: 'MR' })).decision, 'not_evidence');
+    assert.equal(matchingStudyDecision(ob(), study({ modality_codes: ['mr'] })).decision, 'not_evidence');
     assert.equal(matchingStudyDecision(ob(), study({ anatomy_covered: ['brain'] })).decision, 'not_evidence');
   });
 
@@ -618,17 +619,89 @@ describe('4.5  a study found automatically proposes closure, and closes only whe
     assert.equal(matchingStudyDecision(noInterval, study()).decision, 'propose');
   });
 
-  test('a recommended modality written in words still matches its study class', () => {
-    const o = ob({ recommendation: { ...base().recommendation, modality: 'multi phasic CT' } });
-    assert.equal(matchingStudyDecision(o, study()).decision, 'close');
-    const cta = ob({ recommendation: { ...base().recommendation, modality: 'CTA' } });
-    assert.equal(matchingStudyDecision(cta, study()).decision, 'not_evidence', 'CTA is not CT');
+});
+
+describe('v0.6  modality is compared by code, never by words (conformance 14)', () => {
+  const ob = (rec = {}, over = {}) => make({
+    finding: { ...base().finding, anatomy: 'lung', laterality: 'right' },
+    recommendation: { ...base().recommendation, ...rec },
+    ...over,
+  });
+  const study = (over = {}) => ({ date: '2026-09-01', modality_codes: ['ct'], anatomy_covered: ['lung'], ...over });
+  const why = (d, re) => d.reasons.some((r) => re.test(r));
+
+  test('MRI and MR are the same modality; v0.5 judged them different and discarded the study', () => {
+    const d = matchingStudyDecision(ob({ modality: 'MRI', modality_code: 'mr' }), study({ modality_codes: ['mr'] }));
+    assert.equal(d.decision, 'close');
+  });
+
+  test('a plain CT is not the PET-CT that was asked for; v0.5 let it match', () => {
+    const pet = ob({ modality: 'PET-CT', modality_code: 'pet' });
+    assert.equal(matchingStudyDecision(pet, study()).decision, 'not_evidence');
+  });
+
+  test('a combined study never closes on its own', () => {
+    const d = matchingStudyDecision(ob(), study({ modality_codes: ['pet', 'ct'] }));
+    assert.equal(d.decision, 'propose');
+    assert.ok(why(d, /combines more than one modality/));
+  });
+
+  test('a named protocol goes to a person, whatever the code says', () => {
+    for (const words of ['CTA', 'multi phasic CT', 'CT with contrast', 'diagnostic mammogram']) {
+      const code = words.includes('mammo') ? 'mammography' : 'ct';
+      const d = matchingStudyDecision(ob({ modality: words, modality_code: code }), study({ modality_codes: [code] }));
+      assert.equal(d.decision, 'propose', words);
+      assert.ok(why(d, /names a protocol/), words);
+    }
+  });
+
+  test('a study closes an imaging recommendation, never a procedure or a referral', () => {
+    const biopsy = ob({ text_verbatim: 'Ultrasound-guided biopsy is recommended.', action: 'procedure',
+      modality: 'ultrasound', modality_code: 'ultrasound' });
+    const d = matchingStudyDecision(biopsy, study({ modality_codes: ['ultrasound'] }));
+    assert.equal(d.decision, 'propose', 'a diagnostic ultrasound is not the biopsy');
+    assert.ok(why(d, /asks for procedure/));
+  });
+
+  test('an unknown code on either side is proposed, never closed and never discarded', () => {
+    for (const [rec, codes] of [[null, ['ct']], ['other', ['ct']], ['ct', []], ['ct', ['other']]]) {
+      const d = matchingStudyDecision(ob({ modality_code: rec }), study({ modality_codes: codes }));
+      assert.equal(d.decision, 'propose', `${rec} against ${JSON.stringify(codes)}`);
+      assert.ok(why(d, /could not be compared/));
+    }
+  });
+
+  test('an object written before v0.6 has no code, and reads as one that cannot be compared', () => {
+    const { modality_code: _, ...v05 } = base().recommendation;
+    const o = make({ finding: { ...base().finding, anatomy: 'lung' }, recommendation: v05 });
+    assert.equal(o.recommendation.modality_code, null);
+    assert.equal(matchingStudyDecision(o, study()).decision, 'propose');
+  });
+
+  test('codes outside the vocabulary, and studies named in words, are refused', () => {
+    assert.throws(() => make({ recommendation: { ...base().recommendation, modality_code: 'CT' } }), /modality_code must be one of/);
+    assert.throws(() => matchingStudyDecision(ob(), study({ modality_codes: ['CT'] })), /not in section 7/);
+    assert.throws(() => matchingStudyDecision(ob(), { date: '2026-09-01', modality: 'CT', anatomy_covered: ['lung'] }),
+      /modality_codes from section 7/);
+  });
+
+  test('rule 5: findingless obligations with an unknown modality are not merged automatically', () => {
+    const annual = (code, over = {}) => make({
+      finding: { text_verbatim: null, category: NO_FINDING, absence: 'not_stated', anatomy: 'breast', laterality: null },
+      recommendation: { text_verbatim: 'Annual mammography.', action: 'imaging', modality: 'mammography',
+        modality_code: code, interval: { value: 1, unit: 'year' } },
+      ...over,
+    });
+    const later = { id: 'ob-2', source: { kind: 'photo', document_date: '2027-03-14' } };
+    assert.equal(supersessionDecision(annual('mammography'), annual('mammography', later)).decision, 'supersede');
+    assert.equal(supersessionDecision(annual(null), annual(null, later)).decision, 'flag_for_human');
+    assert.equal(supersessionDecision(annual('other'), annual('other', later)).decision, 'flag_for_human');
   });
 });
 
 describe('4.5  one proposal at a time', () => {
   const ob = () => make({ finding: { ...base().finding, anatomy: 'lung', laterality: 'right' } });
-  const st = (id, date, over = {}) => ({ id, date, modality: 'CT', anatomy_covered: ['lung'], ...over });
+  const st = (id, date, over = {}) => ({ id, date, modality_codes: ['ct'], anatomy_covered: ['lung'], ...over });
   // Same-day and early studies are doubtful; 2026-09-01 is past the floor and closes.
   const many = Array.from({ length: 50 }, (_, i) => st(`early-${i}`, `2026-04-${String(1 + (i % 28)).padStart(2, '0')}`));
 
@@ -652,7 +725,7 @@ describe('4.5  one proposal at a time', () => {
   });
 
   test('studies of another modality or region raise nothing at all', () => {
-    assert.equal(closureProposal(ob(), [st('mr', '2026-09-01', { modality: 'MR' })]).decision, 'none');
+    assert.equal(closureProposal(ob(), [st('mr', '2026-09-01', { modality_codes: ['mr'] })]).decision, 'none');
   });
 
   test('order of arrival does not matter; studies are judged by date', () => {

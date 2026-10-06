@@ -107,11 +107,11 @@ and no deployment. Nothing here is fit for clinical use by anyone.
 
 The obligation itself: the object, the state machine with permitted transitions only, closure that
 requires evidence of a declared type, the append-only history, finding identity across serial
-studies, the prepared summary, and the escalation ladder. 121 tests cover the thirteen conformance
+studies, the prepared summary, and the escalation ladder. 134 tests cover the fourteen conformance
 conditions in section 11 of the specification. No dependencies.
 
 Writing it found four places where the specification contradicted itself, and running it against
-real reports found four more where it was wrong. All eight are recorded in section 12.1 of
+real reports found five more where it was wrong. All nine are recorded in section 12.1 of
 [`OBLIGATION_SPEC.md`](OBLIGATION_SPEC.md) so that anyone implementing it independently meets them
 with the reasoning already done.
 

@@ -20,10 +20,12 @@
 //   record of what the obligation was.
 
 import { createHash } from 'node:crypto';
+import { MODALITIES, OTHER_MODALITY, protocolNamed } from './modality.mjs';
 
-// 0.3 is additive over 0.2: every valid 0.2 object is a valid 0.3 object with finding.location read
-// as `exact`. Specification v0.5, header.
-export const SCHEMA = 'cor.obligation/0.3';
+// 0.4 is additive over 0.3, as 0.3 was over 0.2: every valid 0.3 object is a valid 0.4 object with
+// recommendation.modality_code read as null, which section 4.5 treats as "cannot be compared".
+// Specification v0.6, header.
+export const SCHEMA = 'cor.obligation/0.4';
 
 // Section 2 field notes, v0.5. How a finding's quote was found, and why there may be none.
 export const FINDING_LOCATIONS = ['exact', 'nearest_sentence'];
@@ -117,7 +119,7 @@ function requireAt(at) {
  * size between studies, and keying on size would make every follow-up a different finding.
  */
 export function identityKey({
-  subject_ref, category, anatomy = null, laterality = null, action = null, modality = null,
+  subject_ref, category, anatomy = null, laterality = null, action = null, modality_code = null,
 }) {
   if (!subject_ref) throw new Error('identityKey requires subject_ref');
   if (!category) throw new Error('identityKey requires a finding category');
@@ -127,10 +129,17 @@ export function identityKey({
   // obligation on "none" alone would let the first be superseded by the next whatever each asked
   // for. The recommendation stands in for the finding. Every other category keeps the v0.2 tuple
   // exactly, so no stored identity_key changes.
+  //
+  // v0.6 keys on the modality code rather than the words. v0.5 said "modality_normalised" without
+  // defining it, so "MRI" and "MR" keyed differently and the same annual mammogram written two ways
+  // was two obligations. Findingless keys made under v0.5 change; section 12.1 I records it.
   if (category === NO_FINDING) {
     if (!action) throw new Error('identityKey for an obligation with no finding requires the recommendation action');
+    if (modality_code !== null && !MODALITIES.includes(modality_code)) {
+      throw new Error(`modality_code must be one of ${MODALITIES.join(', ')} or null`);
+    }
     return createHash('sha256')
-      .update([subject_ref, NO_FINDING, norm(action), norm(modality), norm(anatomy), norm(laterality)].join('|'), 'utf8')
+      .update([subject_ref, NO_FINDING, norm(action), modality_code ?? '', norm(anatomy), norm(laterality)].join('|'), 'utf8')
       .digest('hex');
   }
 
@@ -256,6 +265,14 @@ export function createObligation({
     throw new Error('extraction.confidence is required. R7: confidence is first-class and never hidden.');
   }
 
+  // Section 7, v0.6. The code beside the report's own words. Null when no test is named, and an
+  // object written before v0.6 has none, which reads the same way.
+  const modalityCode = recommendation.modality_code ?? null;
+  if (modalityCode !== null && !MODALITIES.includes(modalityCode)) {
+    throw new Error(`recommendation.modality_code must be one of ${MODALITIES.join(', ')} or null, `
+      + `got ${JSON.stringify(modalityCode)}. The report's own words stay in recommendation.modality.`);
+  }
+
   const dueDate = computeDueDate(source.document_date, recommendation.interval ?? null);
 
   return Object.freeze({
@@ -270,10 +287,10 @@ export function createObligation({
         anatomy: checkedFinding.anatomy ?? null,
         laterality: checkedFinding.laterality ?? null,
         action: recommendation.action,
-        modality: recommendation.modality ?? null,
+        modality_code: modalityCode,
       }),
     },
-    recommendation,
+    recommendation: { ...recommendation, modality_code: modalityCode },
     source: { retained: false, ...source },
     due_date: dueDate,
     due_date_basis: dueDate ? 'document_date+interval' : 'no_interval_stated',
@@ -485,13 +502,24 @@ export function supersessionDecision(existing, incoming) {
         + 'Not merged automatically: a wrong merge can silently discharge a real obligation.',
     };
   }
+  // Rule 5, v0.6. With no finding, the modality is half of what tells two duties apart. A code that
+  // is unknown or `other` cannot do that, so it goes to a person exactly as absent anatomy does.
+  const unknownModality = (o) => [null, undefined, OTHER_MODALITY].includes(o.recommendation.modality_code);
+  if (existing.finding.category === NO_FINDING && (unknownModality(existing) || unknownModality(incoming))) {
+    return {
+      decision: 'flag_for_human',
+      reason: 'an obligation with no finding is told apart by what it asks for, and the modality here '
+        + 'is unknown or outside the list (section 6, rule 5). Not merged automatically.',
+    };
+  }
   return { decision: 'supersede', reason: 'same finding, later document' };
 }
 
 /**
- * Section 4.5, v0.5. What a study found automatically means for an obligation.
+ * Section 4.5. What a study found automatically means for an obligation.
  *
- * `study` is {date: 'YYYY-MM-DD', modality, anatomy_covered: [anatomy...] | null}. Returns
+ * `study` is {date: 'YYYY-MM-DD', modality_codes: [code...], anatomy_covered: [anatomy...] | null}.
+ * The codes are from section 7; studyModalityCodes in modality.mjs reads them from DICOM. Returns
  * {decision, reasons}, where decision is
  *
  *   not_evidence  a different modality, a known different region, or dated before the report
@@ -500,28 +528,34 @@ export function supersessionDecision(existing, incoming) {
  *
  * Returns a decision rather than closing, like supersessionDecision, because the dangerous outcome is
  * a closure nobody chose. Measured on MIMIC, most automatic matches were unrelated inpatient scans:
- * section 12.1 G.
+ * section 12.1 G. v0.6 compares codes instead of words: section 12.1 I.
  */
 export function matchingStudyDecision(obligation, study) {
   if (!isPlainObject(study) || !isIsoDate(study.date)) {
     throw new Error('study needs a date in YYYY-MM-DD');
   }
+  if ('modality' in study && !('modality_codes' in study)) {
+    throw new Error('a study carries modality_codes from section 7, not a modality in words, since '
+      + 'specification v0.6. Words were compared by matching and failed both ways (section 12.1 I); '
+      + 'studyModalityCodes reads the codes from DICOM.');
+  }
+  const got = Array.isArray(study.modality_codes) ? [...new Set(study.modality_codes)] : [];
+  for (const c of got) {
+    if (!MODALITIES.includes(c)) throw new Error(`study modality code ${JSON.stringify(c)} is not in section 7`);
+  }
   const docDate = obligation.source.document_date;
-  const words = (v) => new Set(String(v ?? '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
 
   // Not evidence at all.
   if (study.date < docDate) {
     return { decision: 'not_evidence', reasons: ['the study is dated before the report'] };
   }
-  const wanted = words(obligation.recommendation.modality);
-  const got = words(study.modality);
-  const modalityKnown = wanted.size > 0 && got.size > 0;
-  // A study matches when every word of the shorter name appears in the longer, so "CT" matches a
-  // recommended "multi phasic CT" and "CTA" does not match "CT". A near miss is not evidence: the
-  // obligation stays open, which is the safe direction.
-  const sameModality = modalityKnown
-    && ([...got].every((w) => wanted.has(w)) || [...wanted].every((w) => got.has(w)));
-  if (modalityKnown && !sameModality) {
+  const rec = obligation.recommendation;
+  const wanted = rec.modality_code ?? null;
+  const wantedKnown = wanted !== null && wanted !== OTHER_MODALITY;
+  const gotKnown = got.length > 0 && !got.includes(OTHER_MODALITY);
+  // Only a comparison of two known codes can rule a study out. An unknown on either side leaves it
+  // possible, and possible goes to a person rather than being thrown away.
+  if (wantedKnown && gotKnown && !got.includes(wanted)) {
     return { decision: 'not_evidence', reasons: ['the study is not of the recommended modality'] };
   }
   const anatomy = obligation.finding.anatomy ?? null;
@@ -532,7 +566,18 @@ export function matchingStudyDecision(obligation, study) {
 
   // Possibly evidence. Close only if nothing is in doubt.
   const reasons = [];
-  if (!modalityKnown) reasons.push('the modality could not be compared');
+  if (!wantedKnown || !gotKnown) reasons.push('the modality could not be compared');
+  else if (got.length > 1) {
+    reasons.push('the study combines more than one modality, and the part asked for may not have been '
+      + 'done to a diagnostic standard');
+  }
+  if (protocolNamed(rec.modality)) {
+    reasons.push('the recommendation names a protocol, such as contrast phases or angiography, that a '
+      + 'modality code cannot confirm');
+  }
+  if (rec.action !== 'imaging') {
+    reasons.push(`a study closes an imaging recommendation, and this one asks for ${rec.action}`);
+  }
   if (!anatomy) reasons.push('the finding has no recorded anatomy, so coverage cannot be checked');
   else if (!covered) reasons.push('the region the study covers is not known');
   if (study.date === docDate) reasons.push('the study is from the same day as the report');

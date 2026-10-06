@@ -19,6 +19,7 @@
 // and it would be especially galling to reintroduce it in the plumbing.
 
 import { createObligation, verify } from './obligation.mjs';
+import { modalityCode } from './modality.mjs';
 
 // C2, in the concept note's own words. Where extraction finds nothing, this is what must be said.
 // It is not a formatting preference: a missed extraction producing false reassurance is described
@@ -121,6 +122,9 @@ export function proposalsFromExtraction(result, {
       text_verbatim: rec.recommendation_verbatim,
       action: rec.action,
       modality: nn(rec.modality),
+      // Section 7, v0.6. Read from the words by a fixed rule, never by the model, so the same words
+      // always give the same code and a person correcting the words can see why the code changed.
+      modality_code: modalityCode(rec.modality),
       interval: rec.interval ?? null,
       interval_verbatim: nn(rec.interval_verbatim),
       conditional: Boolean(rec.conditional),

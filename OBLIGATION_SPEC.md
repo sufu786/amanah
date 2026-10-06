@@ -1,9 +1,25 @@
-# Portable Clinical Obligation, specification v0.5
+# Portable Clinical Obligation, specification v0.6
 
 **Status:** draft for public comment
 **Licence:** CC BY 4.0
-**Date:** 2026-10-06
+**Date:** 2026-10-07
 **Concept DOI:** [10.5281/zenodo.21706768](https://doi.org/10.5281/zenodo.21706768)
+
+**Changes since v0.5.** The recommended modality now carries a code from a closed list in section 7,
+beside the report's own words, and a study found automatically is compared with it by code. v0.5
+compared the words, and that failed in both directions: "MRI" and "MR" were judged different
+modalities, so a real follow-up study was never offered to anyone, while a plain CT could count as
+the PET-CT that was asked for. The list follows the DICOM acquisition modalities, which is what an
+imaging system reports for a study. Section 4.5 gains two conditions for closing automatically: the
+recommendation names no protocol a code cannot confirm, and it asks for imaging. Section 6 rule 5
+now keys on the code, which v0.5 named as `modality_normalised` and never defined. Section 12.1 I
+records the measurement.
+
+**The object format changes again, additively.** The `schema` string becomes `cor.obligation/0.4`.
+Every valid `cor.obligation/0.3` object is a valid `cor.obligation/0.4` object with
+`recommendation.modality_code` read as null, which section 4.5 treats as a modality that cannot be
+compared. Stored obligations need no migration. Identity keys of obligations with no finding, which
+exist only since v0.5, are computed differently; section 12.1 I says why that is acceptable.
 
 **Changes since v0.4.** An obligation may now exist without a quoted finding, when the report names
 none or when no sentence in it can be located as the finding. Every finding records how its quote
@@ -91,7 +107,8 @@ These constrain every decision below.
     "text_verbatim": "recommend CT follow-up in 6 months",
     "action": "imaging",                 // imaging, laboratory, referral,
                                          // treatment_initiation, procedure, specialist_review
-    "modality": "CT",                    // free text where not codeable
+    "modality": "CT",                    // the report's own words, or null
+    "modality_code": "ct",               // section 7; null where no test is named
     "interval": { "value": 6, "unit": "month" },
     "guideline": {                       // null if the recommendation was clinician-stated only
       "id": "fleischner_2017",
@@ -159,6 +176,11 @@ These constrain every decision below.
   `finding.anatomy` and `finding.laterality` carry the body part and side the recommendation itself
   names, if any: "annual mammography of the left breast" gives `breast` and `left`. They are null
   where the recommendation names neither, and are never inferred from the type of study.
+- **`recommendation.modality_code`** is read from `recommendation.modality` by the fixed rule in
+  section 7, never chosen by a model, so the same words always give the same code. Null means the
+  recommendation names no test. `other` means it names one outside the list. Both mean the modality
+  cannot be compared, and neither is ever a reason to close or to discard a study. A person correcting
+  the words corrects the code with them.
 - **`patient_corrections`** is the highest-value training signal the system generates. It should be
   retained at field level, de-identified, even under zero retention of source documents.
 
@@ -305,7 +327,7 @@ An obligation may only enter `completed` with a `closure.evidence` of one of the
 
 | Type | Meaning | Source |
 |---|---|---|
-| `matching_study` | A subsequent study of the recommended modality covering the finding's anatomy exists after `document_date` | FHIR feed, patient upload, institution registry |
+| `matching_study` | A subsequent study of the recommended modality (section 7 code) covering the finding's anatomy exists after `document_date` | FHIR feed, patient upload, institution registry |
 | `matching_result` | A subsequent laboratory result of the recommended type exists | as above |
 | `treatment_started` | Documented initiation of the recommended treatment | programme record, patient upload, attestation |
 | `clinician_attestation` | A named clinician recorded that the action was performed | signed entry |
@@ -342,18 +364,27 @@ separately in every metric, and never aggregated into "closed". A system that qu
 A `matching_study` found by a machine, from a feed or a registry with no person involved, is a
 proposal. It is decided in one of three ways.
 
-**Not evidence.** The study is not of the recommended modality, or it is known not to cover the
-finding's anatomy, or it is dated before `document_date`. It has no bearing on this obligation and is
-not offered to anyone as closing it.
+**Not evidence.** The study's modality codes and the recommendation's are both known and the
+recommended code is not among the study's, or the study is known not to cover the finding's anatomy,
+or it is dated before `document_date`. It has no bearing on this obligation and is not offered to
+anyone as closing it. A code that is null or `other`, on either side, never makes a study not
+evidence: an unknown leaves the study possible, and possible goes to a person.
 
 **Closes automatically**, only when all of the following hold:
 
-1. it is of the recommended modality;
-2. it covers the finding's anatomy, and the finding has anatomy recorded, so that coverage can be
+1. the recommendation's `modality_code` is known, and the study carries exactly that one code. A
+   study with more than one code, such as a PET-CT, may not have done the part asked for to a
+   diagnostic standard;
+2. the recommendation's own words name no protocol a code cannot confirm, such as contrast phases,
+   angiography, a diagnostic rather than a screening mammogram, or a guided procedure. Section 7
+   lists the words;
+3. the recommendation's `action` is `imaging`. A diagnostic study is not the biopsy, the referral or
+   the treatment, even when it uses the same scanner;
+4. it covers the finding's anatomy, and the finding has anatomy recorded, so that coverage can be
    checked at all;
-3. it is not dated the same day as `document_date`, because a same-day study belongs to the episode
+5. it is not dated the same day as `document_date`, because a same-day study belongs to the episode
    of care that produced the report;
-4. the obligation has a `due_date`, and the study is no earlier than `document_date` plus half the
+6. the obligation has a `due_date`, and the study is no earlier than `document_date` plus half the
    stated interval.
 
 **Proposed to a person** in every other case. A same-day or early study, a study against a finding
@@ -375,7 +406,7 @@ duty silently, which section 6 already treats as worse than a duplicate. Measure
 reports, a later study of the recommended modality existed for 70 of 103 observable
 recommendations, and most were not the follow-up: 21 were on the same day as the report, and 30 of 64
 whose region could be checked did not cover the finding at all. Section 12.1 G records the
-measurement. The half-interval floor in item 4 is provisional, set from eleven cases, and an
+measurement. The half-interval floor in item 6 is provisional, set from eleven cases, and an
 implementation should treat it so.
 
 ---
@@ -434,9 +465,12 @@ Resolution rules:
    key on, so the tuple uses the recommendation instead:
 
    ```
-   sha256( subject_ref | "none" | recommendation.action | modality_normalised
+   sha256( subject_ref | "none" | recommendation.action | recommendation.modality_code
            | anatomy_normalised | laterality )
    ```
+
+   Where `modality_code` is null or `other`, the modality cannot tell two duties apart, and such
+   obligations are flagged for a person rather than merged, as rule 3 does for absent anatomy.
 
    Without this, every findingless obligation held by one person would share a key and the first
    would be superseded by the next, whatever each asked for. Rule 3 applies unchanged, so a
@@ -474,6 +508,36 @@ verbatim from the report, or be absent.
 set. It is distinct from `other`: `other` says a finding exists and falls outside the list, `none`
 says there is no finding to categorise. Folding the two together would make a benign screening
 return indistinguishable from an unusual lesion.
+
+### 7.1 Modality, v0.6
+
+`recommendation.modality_code` is one of the following, or null. Each corresponds to the DICOM
+acquisition modalities (PS3.16, CID 29) shown, which is what an imaging system or a FHIR
+`ImagingStudy` reports for a study. A study's codes are read from its DICOM modalities through this
+table, and a DICOM modality not in it becomes `other`.
+
+| Code | DICOM | Code | DICOM |
+|---|---|---|---|
+| `radiograph` | CR, DX | `nuclear_medicine` | NM |
+| `ct` | CT | `fluoroscopy` | RF |
+| `mr` | MR | `angiography` | XA |
+| `ultrasound` | US | `bone_densitometry` | BMD |
+| `mammography` | MG | `endoscopy` | ES |
+| `pet` | PT | `other` | anything else |
+
+**Reading the code from the words** is a fixed rule, not a model's judgement. Where the words name
+more than one modality, the one named first gives the code, which is the rule the labelling protocol
+already applies to alternatives and which reads composite names correctly: "PET-CT" asks for a PET,
+"CT angiography" for a CT, "MR arthrogram" for an MR. Words naming a test outside the list give
+`other`, never the nearest code. No test named gives null. An echocardiogram is `ultrasound`, as its
+DICOM modality is.
+
+**Protocol words.** A code says less than the words did. "CT angiography" and "multi phasic CT" are
+both `ct`, and a plain CT does not answer either. Where the recommendation's words name angiography,
+contrast or contrast phases, perfusion, diffusion, Doppler or duplex, a guided procedure, a
+cholangiogram, urogram, enterogram, colonogram or arthrogram, a diagnostic mammogram, spot or
+magnification views, or an echocardiogram, section 4.5 never closes automatically on the code
+alone. The reference implementation holds the exact list beside the reading rule.
 
 ---
 
@@ -598,6 +662,9 @@ An implementation conforms to this specification if all of the following hold.
     offered again for it (section 4.5).
 13. An obligation with no due date advances to the rungs of section 8 that request one. It is never
     held silent at L0 for longer than the configured interval.
+14. A study found automatically is compared with a recommendation by `modality_code`, never by the
+    words. An unknown code on either side never closes an obligation and never discards a study
+    (sections 4.5 and 7.1).
 
 ---
 
@@ -606,9 +673,9 @@ An implementation conforms to this specification if all of the following hold.
 ### 12.1 Contradictions found by implementing this specification
 
 Four places where v0.2 disagreed with itself, found by writing the reference implementation against
-it in August 2026. Three were corrected in v0.3 and the fourth in v0.4. Four more, E to H, are of a
+it in August 2026. Three were corrected in v0.3 and the fourth in v0.4. Five more, E to I, are of a
 different kind: they were found by measuring the system against real reports, not by implementing
-the text, and all four were corrected in v0.5. All eight are now settled.
+the text. E to H were corrected in v0.5 and I in v0.6. All nine are now settled.
 
 They are recorded rather than quietly fixed because an independent implementer meets the same
 places, and a specification that silently changes underneath its readers is worse than one that
@@ -796,6 +863,41 @@ The same run found the proposal burden described in section 4.5. Most obligation
 three closure proposals, but heavily imaged patients produced up to 51, one per scan. The
 one-proposal-at-a-time rule is the fix, and it is recorded here because it came from the same
 measurement.
+
+**I. Modalities were compared as words. RESOLVED in v0.6.** Section 4.5 asked whether a study was
+"of the recommended modality", and the recommendation held its modality as free text. The reference
+implementation compared the two by matching words: a study matched when every word of the shorter
+name appeared in the longer. The retrospective run in G did not test this, because that run mapped
+both sides onto shared classes of its own before comparing them.
+
+Run again without that mapping, on the same 130 labelled recommendations, the word match failed in
+both directions. With each study named the way an imaging system names it, by its DICOM modality, it
+lost four of the six automatic closures, and eight obligations that had a candidate follow-up study
+showed none: "US" is not the word "ultrasound", and "DX" is not "chest radiograph". It also accepted
+two studies of a different modality as candidates. The failure in the other direction needed no
+data to find: "CT" is a word of "PET-CT", so a plain CT could stand for the PET-CT that was asked
+for, and the v0.5 tests asserted that a plain CT closed a recommendation for "multi phasic CT".
+
+Two designs were weighed. **Better word matching**, with synonyms and abbreviations, was rejected
+because it stays a guess that differs between implementations, and section 6 needs two
+implementations to compute the same identity key. **A closed code list beside the words**, the
+pattern `finding.category` already follows, was adopted, aligned to DICOM so that one side of every
+comparison is already standard. Under it, the same run gives the same six automatic closures as the
+mapped run in G, without any mapping written for the run. Where the run could not code a study,
+because MIMIC's exam names for interventional procedures span several modalities, the study is
+proposed rather than discarded. Leaving those studies out reproduces G's totals exactly: 6 closed, 44
+proposed, 25 with no evidence.
+
+A code carries less than the words did, so two conditions were added to automatic closure rather
+than trusting the code alone: no protocol named that the code cannot confirm, and an action of
+`imaging`. The second closes a gap that was there before v0.6 too. A recommended ultrasound-guided
+biopsy could be closed by a diagnostic ultrasound of the same region.
+
+**One cost accepted.** Rule 5 of section 6 keyed obligations with no finding on
+`modality_normalised`, which v0.5 never defined. It now uses the code, so identity keys computed for
+findingless obligations under v0.5 change. They have existed for one version, no deployment holds
+any, and without a definition no two implementations could have agreed on them anyway. Every other
+identity key is unchanged.
 
 ### 12.2 Design questions still open
 
