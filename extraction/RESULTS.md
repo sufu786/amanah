@@ -1510,3 +1510,46 @@ region was read from exam names by a mapping written for this run, and about a d
 arose because that mapping could not place a study, which is the harness and not the system. The
 recommended modality and the study's class were harmonised by the run, because the specification has
 no modality vocabulary; that is a real gap, and a deployment comparing "MRI" with "MR" would need one.
+
+---
+
+# Location read by a fixed rule. Recorded before the run
+
+Location has resisted a larger model and a corrected prompt: about a third on development, a quarter
+on the test split. This tries the other approach the Phase 1 paper names as a next step. `locate.mjs`
+reads anatomy and laterality from the finding sentence against the anatomy vocabulary, with no model,
+following `LABELLING.md` 7.12 and 7.13: one structure named gives that structure, more than one gives
+null, and a group of findings gets no side unless it says bilateral.
+
+**How the rule was written.** Its terms come from the anatomy vocabulary and ordinary radiology
+usage, not from reading this corpus. One unit test sentence had been modelled on a development
+instance this file describes. It failed, and it was replaced with an invented one rather than the
+rule being changed to pass it, because changing the rule then would have fitted it to the data
+below.
+
+```
+input      the 26 development instances matched by all four runs in the fields prompt 0.2
+           section above (7B and 14B, prompts 0.1 and 0.2)
+baseline   qwen2.5:7b-instruct-q4_K_M, fields prompt 0.1, as frozen: location 9 of 26
+run a      locate() on the 7B's own finding quote, or on its recommendation quote where it gave
+           no finding (specification section 2 field notes), as the pipeline would run it
+run b      locate() on the gold finding span, or the gold recommendation span where gold names no
+           finding: the rule's ceiling when the finding sentence is right
+```
+
+Two counts for each, on the same 26: **correct**, anatomy and laterality both matching gold, and
+**stated and wrong**, a non-null anatomy that is not correct. The second is the one that matters most.
+A null location goes to a person under section 6 rule 3. A wrong one can merge two findings that are
+not the same.
+
+**The decision rule, fixed now.**
+
+| Run a | Reading |
+|---|---|
+| 15 or more correct, and stated-and-wrong no higher than the 7B baseline's | The rule replaces the model for location |
+| 10 to 14 correct, and stated-and-wrong no higher than the baseline's | Better but not enough; kept as a candidate for new labelled data, not adopted |
+| 9 or fewer correct, or more stated-and-wrong than the baseline | Not adopted |
+
+**What this cannot say.** These are development reports, used three times already for location. The
+rule was not fitted to them, but a reader has only this paragraph's word for that, and the git
+history. A figure that counts needs new labelled data.
