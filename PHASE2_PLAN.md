@@ -137,6 +137,14 @@ the patient at the sentence, which contains the condition, rather than quoting a
 because this runs on a computer the patient also browses the web on, the server refuses requests not
 addressed to 127.0.0.1 and accepts changes only as JSON, which a page on another site cannot send.
 
+**Stage 3, 2026-10-08.** A list of the patient's follow-ups, each with where it stands, a printed
+summary for one or all of them, and a calendar file per due date with a reminder thirty days before.
+The ladder's rungs are kept exactly as escalation.mjs computes them, but its wording names an owner,
+a coordinator and a service lead, none of whom exists for a patient alone. So each rung is put into
+something the patient can do: check it is arranged, ask the clinic, take the printed summary to a
+doctor. Past a due date is a count of days and a question, never urgent. A follow-up with no due date
+gets no calendar event, since putting one there would mean inventing a date.
+
 ## 6. Out of scope for Phase 2
 
 Photos and OCR. Phones. Any hosted version. SMS or email reminders. Any language but English. FHIR

@@ -48,12 +48,24 @@
   .details label { display: block; margin: 4px 0; }
   .details input, .details select { font: inherit; padding: 4px 6px; }
   ul.saved li { margin: 6px 0; }
+  header .nav { margin-top: 8px; display: flex; gap: 8px; }
+  .item { border: 1px solid var(--line); border-left-width: 5px; border-radius: 8px; padding: 10px 14px; margin: 0 0 12px; }
+  .item.quiet { border-left-color: #9fb3c8; }
+  .item.ask { border-left-color: var(--notice-line); }
+  .item.act { border-left-color: var(--bad); }
+  .item.closed { border-left-color: var(--line); color: var(--muted); }
+  .item .headline { font-weight: 600; margin: 4px 0; }
+  a.button { display: inline-block; padding: 6px 12px; border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); text-decoration: none; font-size: 14px; }
 </style>
 </head>
 <body>
 <header>
   <h1>Amanah: check the follow-up in your report</h1>
   <p>Runs on this computer only. Your report is not sent anywhere.</p>
+  <div class="nav">
+    <button id="nav-new" class="plain">Check a report</button>
+    <button id="nav-list" class="plain">My follow-ups</button>
+  </div>
 </header>
 <main>
 
@@ -106,9 +118,21 @@
 <section id="s-done">
   <h2>4. Saved</h2>
   <div id="saved"></div>
-  <h2>All the follow-ups you have saved</h2>
-  <div id="all"></div>
-  <div class="row"><button id="again" class="plain">Check another report</button></div>
+  <div class="row">
+    <button id="to-list">See all my follow-ups</button>
+    <button id="again" class="plain">Check another report</button>
+  </div>
+</section>
+
+<section id="s-list">
+  <h2>My follow-ups</h2>
+  <p class="muted" id="list-today"></p>
+  <div class="row">
+    <a class="button" href="/summary?id=all" target="_blank">Print a summary of all of them</a>
+    <a class="button" href="/calendar.ics?id=all" id="cal-all">Add all due dates to my calendar</a>
+  </div>
+  <div id="list" style="margin-top:16px"></div>
+  <div id="questions"></div>
 </section>
 
 </main>
@@ -379,24 +403,47 @@ function nice(iso) {
 }
 function dueText(due) { return due ? `Due ${nice(due)}` : 'The report did not say when'; }
 
-async function renderSaved(r) {
+function renderSaved(r) {
   $('saved').replaceChildren(
     el('p', { textContent: r.saved.length ? `${r.saved.length} follow-up${r.saved.length === 1 ? '' : 's'} saved.` : 'No follow-ups were saved from this report.' }),
     el('ul', { className: 'saved' }, ...r.saved.map((s) => el('li', { textContent: `"${s.quote}" ${dueText(s.due_date)}` }))),
     ...(r.notes.length ? [el('p', { textContent: 'Kept as questions for your clinician:' }),
       el('ul', { className: 'saved' }, ...r.notes.map((n) => el('li', { textContent: `"${n.quote}"` })))] : []),
   );
+}
+
+async function showList() {
   const all = await api('/api/obligations');
-  $('all').replaceChildren(all.obligations.length
-    ? el('ul', { className: 'saved' }, ...all.obligations.map((o) => el('li', { textContent: `"${o.quote}" Report dated ${nice(o.document_date)}. ${dueText(o.due_date)}.` })))
-    : el('p', { className: 'muted', textContent: 'None yet.' }));
+  $('list-today').textContent = `As of ${nice(all.today)}.`;
+  const dated = all.obligations.some((o) => o.due_date && o.tone !== 'closed');
+  $('cal-all').hidden = !dated;
+  $('list').replaceChildren(...(all.obligations.length ? all.obligations.map((o) => {
+    const buttons = [el('a', { className: 'button', href: `/summary?id=${o.id}`, target: '_blank', textContent: 'Print the summary' })];
+    if (o.due_date && o.tone !== 'closed') buttons.push(el('a', { className: 'button', href: `/calendar.ics?id=${o.id}`, textContent: 'Add to my calendar' }));
+    return el('div', { className: `item ${o.tone}` },
+      el('blockquote', { textContent: `"${o.quote}"` }),
+      el('div', { className: 'headline', textContent: o.headline }),
+      el('div', { className: 'muted', textContent: `Report dated ${nice(o.document_date)}. ${dueText(o.due_date)}.` }),
+      el('div', { className: 'row' }, ...buttons));
+  }) : [el('p', { className: 'muted', textContent: 'No follow-ups saved yet. Check a report to add some.' })]));
+  $('questions').replaceChildren(...(all.notes.length ? [
+    el('h2', { textContent: 'Questions for your clinician' }),
+    el('p', { className: 'muted', textContent: 'These depend on a condition in your report, so they have no due date. They are printed with the summary of all your follow-ups.' }),
+    ...all.notes.map((n) => el('div', { className: 'item quiet' }, el('blockquote', { textContent: `"${n.quote}"` }),
+      el('div', { className: 'muted', textContent: `Report dated ${nice(n.document_date)}.` }))),
+  ] : []));
+  show('s-list');
 }
 
 $('read').addEventListener('click', () => start(false));
 $('manual').addEventListener('click', () => start(true));
 $('to-check').addEventListener('click', toCheck);
 $('save').addEventListener('click', save);
-$('again').addEventListener('click', () => { $('text').value = ''; state = null; show('s-paste'); });
+const fresh = () => { $('text').value = ''; state = null; show('s-paste'); };
+$('again').addEventListener('click', fresh);
+$('nav-new').addEventListener('click', fresh);
+$('nav-list').addEventListener('click', showList);
+$('to-list').addEventListener('click', showList);
 api('/api/options').then((o) => { options = o; });
 </script>
 </body>

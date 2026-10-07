@@ -30,6 +30,9 @@ import { extractReport, ModelUnavailableError, DEFAULT_MODEL } from '../extracti
 import { findDates } from '../extraction/dates.mjs';
 import { prepareCheck, applyDecisions, ACTIONS, UNITS } from './checking.mjs';
 import { loadStore, addToStore, DEFAULT_PATH } from './store.mjs';
+import { patientStatus } from './status.mjs';
+import { summaryPage } from './summary-page.mjs';
+import { calendarFor } from './ics.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const MAX_BODY = 1_000_000;
@@ -63,6 +66,19 @@ export function createApp({ extract = extractReport, storePath = DEFAULT_PATH, m
     });
     req.on('end', () => { try { resolve(JSON.parse(raw)); } catch { reject(new Error('not JSON')); } });
   });
+
+  // The patient's own calendar date, not UTC: "due today" should mean today where they are.
+  const today = () => {
+    const d = now();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  const TERMINAL = ['resolved', 'declined', 'not_indicated', 'superseded', 'lost_to_followup', 'deceased'];
+  const pick = (store, id) => {
+    if (id === 'all') return store.obligations.filter((o) => !TERMINAL.includes(o.state));
+    const o = store.obligations.find((x) => x.id === id);
+    if (!o) throw new Error('no such follow-up');
+    return [o];
+  };
 
   const jobFor = (id) => {
     const job = jobs.get(id);
@@ -134,13 +150,37 @@ export function createApp({ extract = extractReport, storePath = DEFAULT_PATH, m
 
     if (req.method === 'GET' && url.pathname === '/api/obligations') {
       const store = loadStore(storePath);
+      const date = today();
       return send(res, 200, {
-        obligations: store.obligations.map((o) => ({
-          id: o.id, quote: o.recommendation.text_verbatim, document_date: o.source.document_date,
-          due_date: o.due_date, state: o.state,
-        })),
+        today: date,
+        obligations: store.obligations.map((o) => {
+          const s = patientStatus(o, date);
+          return {
+            id: o.id, quote: o.recommendation.text_verbatim, document_date: o.source.document_date,
+            due_date: o.due_date, state: o.state, level: s.ladder.level, tone: s.tone, headline: s.headline,
+          };
+        }),
         notes: store.notes,
       });
+    }
+
+    if (req.method === 'GET' && url.pathname === '/summary') {
+      const store = loadStore(storePath);
+      const id = url.searchParams.get('id');
+      const html = summaryPage(pick(store, id), { now: today(), notes: id === 'all' ? store.notes : [] });
+      return send(res, 200, html, 'text/html; charset=utf-8');
+    }
+
+    if (req.method === 'GET' && url.pathname === '/calendar.ics') {
+      const store = loadStore(storePath);
+      const ics = calendarFor(pick(store, url.searchParams.get('id')), { stamp: now().toISOString() });
+      if (!ics) throw new Error('the report did not give a due date, so there is nothing to put in a calendar');
+      res.writeHead(200, {
+        'content-type': 'text/calendar; charset=utf-8',
+        'content-disposition': 'attachment; filename="follow-up.ics"',
+        'cache-control': 'no-store',
+      });
+      return res.end(ics);
     }
 
     return send(res, 404, { error: 'not found' });

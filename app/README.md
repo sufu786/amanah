@@ -15,7 +15,7 @@ themselves.
 Everything stays on the computer. The server answers only requests addressed to 127.0.0.1, the page
 loads nothing from outside, and the report text is dropped once the patient has saved.
 
-**Status:** stages 1 and 2 of six. Tested on invented reports only. No real report should be put
+**Status:** stages 1 to 3 of six. Tested on invented reports only. No real report should be put
 through it until the safety review in stage 6.
 
 ```
