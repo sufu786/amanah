@@ -29,7 +29,11 @@ import { randomUUID } from 'node:crypto';
 import { extractReport, ModelUnavailableError, DEFAULT_MODEL } from '../extraction/pipeline.mjs';
 import { findDates } from '../extraction/dates.mjs';
 import { prepareCheck, applyDecisions, ACTIONS, UNITS } from './checking.mjs';
-import { loadStore, addToStore, DEFAULT_PATH } from './store.mjs';
+import { loadStore, addToStore, updateStore, DEFAULT_PATH } from './store.mjs';
+import {
+  guessKind, studyRecord, pendingClosures, closeByReport, closeByWord, markBooked, closedHow, REGIONS,
+} from './closing.mjs';
+import { MODALITIES } from '../obligation/modality.mjs';
 import { patientStatus } from './status.mjs';
 import { summaryPage } from './summary-page.mjs';
 import { calendarFor } from './ics.mjs';
@@ -72,6 +76,7 @@ export function createApp({ extract = extractReport, storePath = DEFAULT_PATH, m
     const d = now();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
+  const stamp = () => now().toISOString().replace(/\.\d{3}Z$/, 'Z');
   const TERMINAL = ['resolved', 'declined', 'not_indicated', 'superseded', 'lost_to_followup', 'deceased'];
   const pick = (store, id) => {
     if (id === 'all') return store.obligations.filter((o) => !TERMINAL.includes(o.state));
@@ -92,7 +97,7 @@ export function createApp({ extract = extractReport, storePath = DEFAULT_PATH, m
     }
 
     if (req.method === 'GET' && url.pathname === '/api/options') {
-      return send(res, 200, { actions: ACTIONS, units: UNITS });
+      return send(res, 200, { actions: ACTIONS, units: UNITS, kinds: MODALITIES, regions: Object.keys(REGIONS) });
     }
 
     if (req.method === 'POST' && url.pathname === '/api/start') {
@@ -117,7 +122,7 @@ export function createApp({ extract = extractReport, storePath = DEFAULT_PATH, m
         ...d,
         context: text.slice(Math.max(0, d.span[0] - 40), Math.min(text.length, d.span[1] + 40)).replace(/\s+/g, ' '),
       }));
-      return send(res, 200, { job: id, dates });
+      return send(res, 200, { job: id, dates, kind_guess: guessKind(text) });
     }
 
     if (req.method === 'GET' && url.pathname === '/api/job') {
@@ -135,16 +140,20 @@ export function createApp({ extract = extractReport, storePath = DEFAULT_PATH, m
     }
 
     if (req.method === 'POST' && url.pathname === '/api/save') {
-      const { job: id, decisions, added } = await readJson(req);
+      const { job: id, decisions, added, study = {} } = await readJson(req);
       const job = jobFor(id);
       if (!job.check) throw new Error('check the items before saving');
-      const at = now().toISOString().replace(/\.\d{3}Z$/, 'Z');
+      const at = stamp();
       const made = applyDecisions(job.check, { text: job.text, decisions, added, at });
-      addToStore(made, storePath);
+      // Every report is kept as a study, whether or not it asked for anything: a report with no
+      // recommendation in it may be the follow-up an earlier one was waiting for (stage 4).
+      const record = studyRecord({ id: randomUUID(), date: job.check.date, modality_code: study.modality_code ?? null, region: study.region ?? null });
+      const store = addToStore({ ...made, study: record }, storePath);
       jobs.delete(id); // C5: the report text goes with the job.
       return send(res, 200, {
         saved: made.obligations.map((o) => ({ quote: o.recommendation.text_verbatim, due_date: o.due_date })),
         notes: made.notes.map((n) => ({ quote: n.quote, condition: n.condition })),
+        questions: pendingClosures(store).length,
       });
     }
 
@@ -157,11 +166,47 @@ export function createApp({ extract = extractReport, storePath = DEFAULT_PATH, m
           const s = patientStatus(o, date);
           return {
             id: o.id, quote: o.recommendation.text_verbatim, document_date: o.source.document_date,
-            due_date: o.due_date, state: o.state, level: s.ladder.level, tone: s.tone, headline: s.headline,
+            due_date: o.due_date, state: o.state, level: s.ladder.level, tone: s.tone,
+            headline: closedHow(o) ?? s.headline,
           };
         }),
         notes: store.notes,
+        questions: pendingClosures(store),
       });
+    }
+
+    if (req.method === 'POST' && ['/api/close', '/api/booked', '/api/not-it'].includes(url.pathname)) {
+      const body = await readJson(req);
+      const actor = { kind: 'patient', ref: 'local' };
+      const at = stamp();
+      updateStore((store) => {
+        const i = store.obligations.findIndex((o) => o.id === body.id);
+        if (i === -1) throw new Error('no such follow-up');
+        const ob = store.obligations[i];
+        const next = { ...store, obligations: [...store.obligations], log: [...store.log] };
+        if (url.pathname === '/api/not-it') {
+          const ids = Array.isArray(body.study_ids) ? body.study_ids : [];
+          next.rejections = { ...store.rejections, [ob.id]: [...(store.rejections[ob.id] ?? []), ...ids] };
+          next.log.push({ at, event: 'not_the_follow_up', quote: ob.recommendation.text_verbatim, studies: ids.length });
+          return next;
+        }
+        if (url.pathname === '/api/booked') {
+          next.obligations[i] = markBooked(ob, { actor, at });
+          next.log.push({ at, event: 'booked', quote: ob.recommendation.text_verbatim });
+          return next;
+        }
+        if (body.study_id) {
+          const study = store.studies.find((x) => x.id === body.study_id);
+          if (!study) throw new Error('no such report');
+          next.obligations[i] = closeByReport(ob, study, { actor, at });
+          next.log.push({ at, event: 'closed_by_report', quote: ob.recommendation.text_verbatim });
+        } else {
+          next.obligations[i] = closeByWord(ob, { actor, at, date_done: body.date_done || null });
+          next.log.push({ at, event: 'closed_by_word', quote: ob.recommendation.text_verbatim });
+        }
+        return next;
+      }, storePath);
+      return send(res, 200, { ok: true });
     }
 
     if (req.method === 'GET' && url.pathname === '/summary') {

@@ -145,6 +145,20 @@ something the patient can do: check it is arranged, ask the clinic, take the pri
 doctor. Past a due date is a count of days and a question, never urgent. A follow-up with no due date
 gets no calendar event, since putting one there would mean inventing a date.
 
+**Stage 4, 2026-10-08.** A later report may be the follow-up. When the patient saves any report they
+also say what kind of test it was and which part of the body, the kind prefilled from the report's
+opening words, and the report is kept as a study: its date, code and region, never its text.
+closureProposal then asks one question per open follow-up. Even a report that meets every condition
+of section 4.5 is a question here, because the plan says nothing closes on its own. A report is never
+asked about as the follow-up of the follow-ups it created, and one the patient says is not it is not
+asked about again. The patient can also say a follow-up was booked or was done; done without a report
+is patient_attestation, the lowest tier, and the app says so. Closing walks the permitted path and
+marks the steps the patient did not report separately.
+
+**For the stage 6 hazard log.** Saving the same report twice makes duplicate follow-ups. Nothing closes
+because of it, but a patient would see each one twice. Found by a screenshot script that resubmitted a
+report by mistake.
+
 ## 6. Out of scope for Phase 2
 
 Photos and OCR. Phones. Any hosted version. SMS or email reminders. Any language but English. FHIR

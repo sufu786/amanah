@@ -85,6 +85,10 @@
   <p class="muted">Every due date is counted from this date, so please choose it yourself.</p>
   <div id="dates" class="dates"></div>
   <label class="row">Another date: <input type="date" id="date-other"></label>
+  <h2>About this report</h2>
+  <p class="muted">If this report is itself the follow-up for something you saved earlier, these two answers let the app ask you about it.</p>
+  <label class="row">What kind of test is this report about? <select id="kind"></select></label>
+  <label class="row">Which part of the body? <select id="region"></select></label>
   <p id="status" class="notice"></p>
   <div class="row">
     <button id="to-check" disabled>Continue</button>
@@ -131,6 +135,7 @@
     <a class="button" href="/summary?id=all" target="_blank">Print a summary of all of them</a>
     <a class="button" href="/calendar.ics?id=all" id="cal-all">Add all due dates to my calendar</a>
   </div>
+  <div id="pending" style="margin-top:16px"></div>
   <div id="list" style="margin-top:16px"></div>
   <div id="questions"></div>
 </section>
@@ -154,6 +159,29 @@ async function api(path, body) {
   return data;
 }
 
+const KIND_WORDS = {
+  radiograph: 'an X-ray', ct: 'a CT scan', mr: 'an MRI scan', ultrasound: 'an ultrasound', mammography: 'a mammogram',
+  pet: 'a PET scan', nuclear_medicine: 'a nuclear medicine scan', fluoroscopy: 'a fluoroscopy study',
+  angiography: 'an angiogram', bone_densitometry: 'a bone density scan', endoscopy: 'an endoscopy', other: 'another kind of test',
+};
+const REGION_WORDS = {
+  head: 'the head', neck: 'the neck', chest: 'the chest', breast: 'the breast', abdomen_pelvis: 'the abdomen or pelvis',
+  spine: 'the spine', arms_legs: 'the arms or legs',
+};
+// The specification's reasons are written for implementers. These say the same thing to a patient.
+const REASON_WORDS = [
+  [/could not be compared/, 'The app could not tell whether it was the same kind of test.'],
+  [/combines more than one/, 'This report covers more than one kind of test.'],
+  [/names a protocol/, 'The earlier report asked for a particular kind of scan, and the app cannot tell whether this was it.'],
+  [/asks for/, 'The earlier report asked for something other than a scan.'],
+  [/no recorded anatomy|region the study covers is not known/, 'The app could not tell whether it covered the same part of the body.'],
+  [/same day/, 'It is from the same day as the earlier report.'],
+  [/earlier than half/, 'It came sooner than the earlier report asked.'],
+  [/no interval was stated/, 'The earlier report did not say when, so the timing cannot be checked.'],
+];
+const reasonText = (r) => (REASON_WORDS.find(([re]) => re.test(r)) || [null, r])[1];
+const studyText = (c) => `Report dated ${nice(c.date)}: ${c.modality_code ? KIND_WORDS[c.modality_code] : 'a test the app could not name'}${c.region ? ` of ${REGION_WORDS[c.region]}` : ''}`;
+
 const ACTION_WORDS = {
   imaging: 'a scan or X-ray (imaging)', laboratory: 'a lab test', referral: 'a referral',
   treatment_initiation: 'starting a treatment', procedure: 'a procedure',
@@ -169,9 +197,16 @@ async function start(manual) {
     const r = await api('/api/start', { text, manual });
     state = { job: r.job, text, manual, answers: {}, details: {}, added: [] };
     renderDates(r.dates);
+    fillSelect($('kind'), options.kinds, KIND_WORDS, r.kind_guess);
+    fillSelect($('region'), options.regions, REGION_WORDS, null);
     show('s-date');
     poll();
   } catch (e) { $('paste-error').textContent = e.message; }
+}
+
+function fillSelect(select, values, words, chosen) {
+  select.replaceChildren(el('option', { value: '', textContent: 'Not sure' }),
+    ...values.map((v) => el('option', { value: v, textContent: words[v] ?? v, selected: v === chosen })));
 }
 
 function chosenDate() {
@@ -390,7 +425,8 @@ async function save() {
   }));
   const added = state.added.map((a, n) => ({ span: a.span, details: state.details[`added-${n}`] }));
   try {
-    const r = await api('/api/save', { job: state.job, decisions, added });
+    const study = { modality_code: $('kind').value || null, region: $('region').value || null };
+    const r = await api('/api/save', { job: state.job, decisions, added, study });
     renderSaved(r);
     show('s-done');
   } catch (e) { $('save-error').textContent = e.message; }
@@ -409,12 +445,61 @@ function renderSaved(r) {
     el('ul', { className: 'saved' }, ...r.saved.map((s) => el('li', { textContent: `"${s.quote}" ${dueText(s.due_date)}` }))),
     ...(r.notes.length ? [el('p', { textContent: 'Kept as questions for your clinician:' }),
       el('ul', { className: 'saved' }, ...r.notes.map((n) => el('li', { textContent: `"${n.quote}"` })))] : []),
+    ...(r.questions ? [el('p', { className: 'notice', textContent: 'A report you have saved may be the follow-up for something earlier. Open My follow-ups to answer.' })] : []),
   );
+}
+
+async function act(path, body) {
+  try { await api(path, body); await showList(); } catch (e) { alert(e.message); }
+}
+
+function questionCard(q) {
+  const c = el('div', { className: 'item ask' },
+    el('div', { className: 'headline', textContent: 'Is one of these reports the follow-up for this?' }),
+    el('blockquote', { textContent: `"${q.quote}"` }),
+    el('div', { className: 'muted', textContent: `From your report dated ${nice(q.document_date)}.` }));
+  for (const cand of q.candidates) {
+    const yes = el('button', { textContent: 'Yes, this was it', type: 'button' });
+    yes.addEventListener('click', () => act('/api/close', { id: q.obligation_id, study_id: cand.study_id }));
+    c.append(el('div', { className: 'card' },
+      el('div', { textContent: studyText(cand) }),
+      q.every_condition_holds
+        ? el('div', { className: 'muted', textContent: 'It matches the kind of test, the part of the body and the timing.' })
+        : el('ul', { className: 'muted' }, ...cand.reasons.map((r) => el('li', { textContent: reasonText(r) }))),
+      el('div', { className: 'row' }, yes)));
+  }
+  const none = el('button', { className: 'plain', textContent: q.candidates.length > 1 ? 'None of these' : 'No, it was not', type: 'button' });
+  none.addEventListener('click', () => act('/api/not-it', { id: q.obligation_id, study_ids: q.candidates.map((x) => x.study_id) }));
+  c.append(el('div', { className: 'row' }, none));
+  return c;
+}
+
+function doneControls(o) {
+  const wrap = el('div');
+  if (o.tone === 'closed') return wrap;
+  const row = el('div', { className: 'row' });
+  if (o.state === 'acknowledged') {
+    const booked = el('button', { className: 'plain', textContent: 'It has been booked', type: 'button' });
+    booked.addEventListener('click', () => act('/api/booked', { id: o.id }));
+    row.append(booked);
+  }
+  const done = el('button', { className: 'plain', textContent: 'It has been done', type: 'button' });
+  const form = el('div', { className: 'details', hidden: true });
+  const date = el('input', { type: 'date' });
+  const confirm = el('button', { textContent: 'Record that it was done', type: 'button' });
+  confirm.addEventListener('click', () => act('/api/close', { id: o.id, date_done: date.value || null }));
+  form.append(el('p', { textContent: 'This is recorded as your own word. If you later save the report of it, that is kept too.' }),
+    el('label', {}, 'When was it done? (if you know) ', date), el('div', { className: 'row' }, confirm));
+  done.addEventListener('click', () => { form.hidden = !form.hidden; });
+  row.append(done);
+  wrap.append(row, form);
+  return wrap;
 }
 
 async function showList() {
   const all = await api('/api/obligations');
   $('list-today').textContent = `As of ${nice(all.today)}.`;
+  $('pending').replaceChildren(...all.questions.map(questionCard));
   const dated = all.obligations.some((o) => o.due_date && o.tone !== 'closed');
   $('cal-all').hidden = !dated;
   $('list').replaceChildren(...(all.obligations.length ? all.obligations.map((o) => {
@@ -424,7 +509,8 @@ async function showList() {
       el('blockquote', { textContent: `"${o.quote}"` }),
       el('div', { className: 'headline', textContent: o.headline }),
       el('div', { className: 'muted', textContent: `Report dated ${nice(o.document_date)}. ${dueText(o.due_date)}.` }),
-      el('div', { className: 'row' }, ...buttons));
+      el('div', { className: 'row' }, ...buttons),
+      doneControls(o));
   }) : [el('p', { className: 'muted', textContent: 'No follow-ups saved yet. Check a report to add some.' })]));
   $('questions').replaceChildren(...(all.notes.length ? [
     el('h2', { textContent: 'Questions for your clinician' }),
