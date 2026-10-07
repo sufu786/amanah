@@ -172,6 +172,13 @@ scan. A patient could have read the wrong report under the wrong date. The box i
 any PDF is read, and a test holds it there. This belongs in the stage 6 hazard log as a hazard found
 and closed.
 
+**Stage 6, 2026-10-08.** The safety review is `PHASE2_SAFETY.md`: a hazard log, a review of every
+sentence the patient reads, a volunteer test with criteria fixed in advance, and the gate for real
+reports. Writing it changed the app in five places: the server now refuses a save until every item
+is answered, a negated item gets the same question as every other, a closed follow-up can be
+reopened, a report saved twice is flagged, and the chosen report date stays on the checking screen.
+The app is built. It is not cleared for real reports until the volunteer test has passed.
+
 ## 6. Out of scope for Phase 2
 
 Photos and OCR. Phones. Any hosted version. SMS or email reminders. Any language but English. FHIR

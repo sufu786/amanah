@@ -31,6 +31,8 @@ export const MAY_HAVE_MISSED =
   'This app can miss recommendations. Read your report yourself, and add any recommendation the app did not mark.';
 export const NOT_READ_NOTICE =
   'The app has not read this report. Mark each recommendation in it yourself.';
+export const DUPLICATE_NOTICE =
+  'You may have saved this report before: follow-ups with the same words and the same report date are already saved. Saving again will list them twice.';
 export const INCOMPLETE_NOTICE =
   'The reading stopped partway. Some items below were not fully checked by the app, and are marked.';
 
@@ -69,7 +71,7 @@ export function prepareCheck({ result, run }, { date, manual = false, makeId = (
     finding: p.finding.text_verbatim,
     finding_absence: p.finding.absence,
     finding_by_nearest_match: p.finding.location === 'nearest_sentence',
-    score: tier === 'first' ? p.confidence : null,
+    score: tier === 'second' ? null : p.confidence,
     unverified: Boolean(p.source_span && unverified.has(p.source_span.join(':'))),
     needs_details: tier === 'second',
     doubt_reason: p.doubt_reason ?? null,
@@ -90,8 +92,11 @@ export function prepareCheck({ result, run }, { date, manual = false, makeId = (
     // Proposals and the review queue are shown alike: the patient checks both.
     items: [...out.proposals, ...out.review_queue].map((p) => view(p, 'first')),
     less_sure: out.second_tier.map((p) => view(p, 'second')),
-    not_needed: out.not_indicated_evidence.map((p) => ({ id: p.id, quote: p.recommendation.text_verbatim, span: p.source_span })),
-    proposals: Object.fromEntries([...out.proposals, ...out.review_queue, ...out.second_tier].map((p) => [p.id, p])),
+    // Stage 6 hazard log, H30. An item the model read as negated was once only listed, so a real
+    // recommendation misread as "not needed" left the checking step without the patient answering
+    // it. It is now asked like every other item, and counts toward the every-item rule.
+    not_needed: out.not_indicated_evidence.map((p) => view(p, 'negated')),
+    proposals: Object.fromEntries([...out.proposals, ...out.review_queue, ...out.second_tier, ...out.not_indicated_evidence].map((p) => [p.id, p])),
   };
 }
 
@@ -123,7 +128,8 @@ export function applyDecisions(check, { text, decisions = [], added = [], at, pa
     const p = check.proposals[d.id];
     if (!p) throw new Error(`unknown item ${d.id}`);
     const second = p.fields_filled === false;
-    log.push({ at, event: d.answer === 'yes' ? 'confirmed' : 'rejected', tier: second ? 'second' : 'first', quote: p.recommendation.text_verbatim });
+    const negated = Boolean(p.recommendation?.negated) || check.not_needed?.some((x) => x.id === p.id);
+    log.push({ at, event: d.answer === 'yes' ? 'confirmed' : 'rejected', tier: second ? 'second' : negated ? 'negated' : 'first', quote: p.recommendation.text_verbatim });
     if (d.answer !== 'yes') continue;
 
     let proposal = p;
@@ -192,6 +198,14 @@ export function applyDecisions(check, { text, decisions = [], added = [], at, pa
       // model score it never had.
       extraction: { method: 'patient_selected' },
     }));
+  }
+  // Every item shown must have an answer. The page enforces this too, but the server does not
+  // trust it to: a page that dropped the less-sure items would otherwise save without the patient
+  // ever having seen them (stage 6 hazard log, H3).
+  const answered = new Set(decisions.map((d) => d.id));
+  const unanswered = Object.keys(check.proposals).filter((id) => !answered.has(id));
+  if (unanswered.length) {
+    throw new Error(`every item needs a yes or a no before saving; ${unanswered.length} still need one`);
   }
   return { obligations, notes, log };
 }

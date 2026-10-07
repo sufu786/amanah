@@ -11,6 +11,12 @@ import assert from 'node:assert/strict';
 import { extractReport } from '../extraction/pipeline.mjs';
 import { prepareCheck, applyDecisions, MAY_HAVE_MISSED, NOT_READ_NOTICE } from './checking.mjs';
 import { REPORT, NODULE, PERSIST, CLINICAL, stages } from './fixtures.mjs';
+import { validateRecommendation } from '../extraction/extract.mjs';
+
+// Answers for every item: `yes` lists the quotes answered yes, with optional details.
+const answer = (c, yes = {}) => [...c.items, ...c.less_sure].map((i) => (i.quote in yes
+  ? { id: i.id, answer: 'yes', ...(yes[i.quote] ? { details: yes[i.quote] } : {}) }
+  : { id: i.id, answer: 'no' }));
 
 let n = 0;
 const makeId = () => `item-${++n}`;
@@ -53,7 +59,7 @@ test('only a yes makes an obligation, and a condition is kept as a question, nev
 
 test('a no makes nothing', async () => {
   const c = await checked();
-  const out = applyDecisions(c, { text: REPORT, at: AT, decisions: c.items.map((i) => ({ id: i.id, answer: 'no' })) });
+  const out = applyDecisions(c, { text: REPORT, at: AT, decisions: answer(c) });
   assert.equal(out.obligations.length, 0);
   assert.equal(out.notes.length, 0);
 });
@@ -64,7 +70,7 @@ test('a less-sure item needs its details from the patient before it can be saved
   assert.throws(() => applyDecisions(c, { text: REPORT, at: AT, decisions: [{ id, answer: 'yes' }] }), /details are needed/);
   const out = applyDecisions(c, {
     text: REPORT, at: AT,
-    decisions: [{ id, answer: 'yes', details: { action: 'laboratory', modality: 'blood test', interval: null } }],
+    decisions: answer(c, { [CLINICAL]: { action: 'laboratory', modality: 'blood test', interval: null } }),
   });
   const ob = out.obligations[0];
   assert.equal(ob.recommendation.action, 'laboratory');
@@ -76,7 +82,7 @@ test('a correction is applied and recorded, and the modality code follows the co
   const c = await checked();
   const out = applyDecisions(c, {
     text: REPORT, at: AT,
-    decisions: [{ id: c.items[0].id, answer: 'yes', details: { action: 'imaging', modality: 'MRI', interval: { value: 3, unit: 'month' } } }],
+    decisions: answer(c, { [NODULE]: { action: 'imaging', modality: 'MRI', interval: { value: 3, unit: 'month' } } }),
   });
   const ob = out.obligations[0];
   assert.equal(ob.recommendation.modality_code, 'mr');
@@ -91,7 +97,7 @@ test('the patient can add a recommendation the app missed, quoted from the repor
   const missed = 'Annual screening mammography is advised.';
   const s = REPORT.indexOf(missed);
   const out = applyDecisions(c, {
-    text: REPORT, at: AT,
+    text: REPORT, at: AT, decisions: answer(c),
     added: [{ span: [s, s + missed.length], details: { action: 'imaging', modality: 'mammography', interval: { value: 1, unit: 'year' } } }],
   });
   const ob = out.obligations[0];
@@ -101,6 +107,39 @@ test('the patient can add a recommendation the app missed, quoted from the repor
   assert.equal(ob.due_date, '2027-03-14');
   assert.throws(() => applyDecisions(c, { text: REPORT, at: AT, added: [{ span: [0, 99999], details: { action: 'imaging' } }] }), /select the sentence/);
   assert.throws(() => applyDecisions(c, { text: REPORT, at: AT, added: [{ span: [s, s + 10], details: {} }] }), /choose what the report asks for/);
+});
+
+test('the server refuses to save until every item, less-sure ones included, has an answer', async () => {
+  const c = await checked();
+  const firstOnly = c.items.map((i) => ({ id: i.id, answer: 'no' }));
+  assert.throws(() => applyDecisions(c, { text: REPORT, at: AT, decisions: firstOnly }), /every item needs a yes or a no/);
+  assert.doesNotThrow(() => applyDecisions(c, { text: REPORT, at: AT, decisions: answer(c) }));
+});
+
+test('an item read as not needed is still asked, and a yes makes it a follow-up', async () => {
+  const NEG = 'No further imaging of the hernia is required.';
+  const text = `${REPORT}\n${NEG}`;
+  const s = text.indexOf(NEG);
+  const negatedStages = {
+    ...stages,
+    detect: async (...a) => {
+      const base = await stages.detect(...a);
+      return { ...base, hits: [...base.hits, { ...base.hits[0], recommendation_verbatim: NEG, recommendation_span: [s, s + NEG.length] }] };
+    },
+    fill: async (t, sentence) => (sentence === NEG
+      ? validateRecommendation({ finding_verbatim: null, finding: 'other', action: 'imaging', modality: null, interval_value: null,
+        interval_unit: null, interval_verbatim: null, confidence: 0.6, conditional: false, negated: true, already_scheduled: false,
+        recommendation_verbatim: NEG }, t)
+      : stages.fill(t, sentence)),
+  };
+  const c = prepareCheck(await extractReport(text, { stages: negatedStages }), { date: '2026-03-14', makeId });
+  assert.deepEqual(c.not_needed.map((i) => i.quote), [NEG], 'shown with its own question, not only listed');
+  const others = [...c.items, ...c.less_sure].map((i) => ({ id: i.id, answer: 'no' }));
+  assert.throws(() => applyDecisions(c, { text, at: AT, decisions: others }), /every item needs a yes or a no/,
+    'it counts toward the every-item rule');
+  const out = applyDecisions(c, { text, at: AT, decisions: [...others, { id: c.not_needed[0].id, answer: 'yes' }] });
+  assert.deepEqual(out.obligations.map((o) => o.recommendation.text_verbatim), [NEG]);
+  assert.equal(out.log.find((l) => l.quote === NEG).tier, 'negated');
 });
 
 test('a report the app did not read says so, and never that nothing was found', async () => {

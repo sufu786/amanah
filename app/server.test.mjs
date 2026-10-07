@@ -15,7 +15,8 @@ import { fileURLToPath } from 'node:url';
 import { createApp } from './server.mjs';
 import { extractReport, ModelUnavailableError } from '../extraction/pipeline.mjs';
 import { findForbiddenLanguage } from '../obligation/summary.mjs';
-import { MAY_HAVE_MISSED, NOT_READ_NOTICE, INCOMPLETE_NOTICE } from './checking.mjs';
+import { MAY_HAVE_MISSED, NOT_READ_NOTICE, INCOMPLETE_NOTICE, DUPLICATE_NOTICE } from './checking.mjs';
+import { writeFileSync } from 'node:fs';
 import { REPORT, stages } from './fixtures.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -81,6 +82,29 @@ test('paste, read, choose the date, check, save: the report text is gone and the
   assert.equal(list.body.obligations[0].state, 'acknowledged');
 });
 
+test('the same report checked again after saving is flagged as possibly saved before', async () => {
+  const { call } = await boot();
+  const one = await call('POST', '/api/start', { text: REPORT });
+  await waitDone(call, one.body.job);
+  const c1 = await call('POST', '/api/check', { job: one.body.job, date: '2026-03-14' });
+  assert.ok(!c1.body.notices.includes(DUPLICATE_NOTICE));
+  const decisions = [...c1.body.items, ...c1.body.less_sure].map((i) => ({ id: i.id, answer: i.quote.startsWith('Recommend CT') ? 'yes' : 'no' }));
+  await call('POST', '/api/save', { job: one.body.job, decisions });
+  const two = await call('POST', '/api/start', { text: REPORT });
+  await waitDone(call, two.body.job);
+  const c2 = await call('POST', '/api/check', { job: two.body.job, date: '2026-03-14' });
+  assert.equal(c2.body.notices[0], DUPLICATE_NOTICE);
+});
+
+test('a damaged store is an error the patient sees, never an empty list', async () => {
+  const { call, storePath } = await boot();
+  writeFileSync(storePath, '{ this is not json');
+  const r = await call('GET', '/api/obligations');
+  assert.equal(r.status, 400);
+  assert.match(r.body.error, /could not be read/);
+  assert.match(r.body.error, /empty list would look like nothing is owed/);
+});
+
 test('a model that cannot be reached offers the patient the way to mark it themselves', async () => {
   const { call } = await boot(async () => { throw new ModelUnavailableError(new Error('refused')); });
   const started = await call('POST', '/api/start', { text: REPORT });
@@ -137,7 +161,7 @@ test('every sentence the patient reads passes the interpretive-language check (C
   const html = readFileSync(join(here, 'index.html'), 'utf8')
     .replace(/<style[\s\S]*?<\/style>/, '')
     .replace(/<[^>]+>/g, ' ');
-  for (const text of [html, MAY_HAVE_MISSED, NOT_READ_NOTICE, INCOMPLETE_NOTICE]) {
+  for (const text of [html, MAY_HAVE_MISSED, NOT_READ_NOTICE, INCOMPLETE_NOTICE, DUPLICATE_NOTICE]) {
     assert.deepEqual(findForbiddenLanguage(text), [], text.slice(0, 80));
   }
 });

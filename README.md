@@ -97,7 +97,7 @@ and no deployment. Nothing here is fit for clinical use by anyone.
 |---|---|---|
 | 0 | Specification, public repository, DOI | Complete |
 | 1 | Extractor validated on a public corpus | Measured; rule failed, see below |
-| 2 | Upload-a-report path, patient verification, reminders, prepared summary | Partly built, see below |
+| 2 | Upload-a-report path, patient verification, reminders, prepared summary | Built as a local app in `app/`; safety review written, volunteer test not yet run |
 | 3 | Locale packs | Mechanism built, only English exists |
 | 4 | Patient FHIR connect (US Cures Act APIs, NHS App) | Not started |
 | 5 | TB and hepatitis B linkage deployment with a national programme partner | Not started |
@@ -115,10 +115,19 @@ real reports found five more where it was wrong. All nine are recorded in sectio
 [`OBLIGATION_SPEC.md`](OBLIGATION_SPEC.md) so that anyone implementing it independently meets them
 with the reasoning already done.
 
+### The patient app
+
+`app/` is a local app in which a patient checks the follow-up in their own report, on their own
+computer: paste a report or choose a PDF, check every item beside the highlighted text, keep a list,
+print the prepared summary, add due dates to a calendar, and confirm when a later report was the
+follow-up. Nothing leaves the machine. See [`PHASE2_PLAN.md`](PHASE2_PLAN.md) for how it was built and
+[`PHASE2_SAFETY.md`](PHASE2_SAFETY.md) for the safety review. **It is not cleared for real reports**
+until the volunteer test in that review has passed.
+
 ### What is not
 
-No upload path, no scheduler, no delivery, no interface, no storage. An obligation is a value in
-memory. The ladder works out which rung an obligation is on; nothing sends anything to anybody.
+No server anyone else can reach, no reminders sent by the system, no phone app, no language but
+English. The app reminds a patient only through their own calendar, and only if they use it.
 
 ### Phase 1 in detail
 

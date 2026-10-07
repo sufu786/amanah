@@ -90,7 +90,7 @@ test('the printed page carries the prepared summary, marks the report\'s words, 
   assert.match(html, /copied from my report/);
   assert.match(html, /6 days past that date/);
   assert.ok(html.includes('&lt;b&gt;CT&lt;/b&gt;') && !html.includes('<b>CT</b>'), 'report text cannot inject markup');
-  assert.match(html, /Questions for my clinician/);
+  assert.match(html, /Questions for my doctor/);
   assert.ok(!/(src|href)\s*=\s*["']https?:/i.test(html), 'nothing loaded from outside');
 });
 

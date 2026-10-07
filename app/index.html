@@ -103,6 +103,7 @@
 
 <section id="s-check">
   <h2>3. Check each item against your report</h2>
+  <div class="row"><span id="check-date"></span><button id="change-date" class="plain" type="button">Choose a different date</button></div>
   <div id="notices"></div>
   <div class="grid">
     <div>
@@ -327,7 +328,7 @@ function card(item, tier) {
   c.append(el('blockquote', { textContent: item.quote }));
   const dl = el('dl');
   const row = (k, v) => dl.append(el('dt', { textContent: k }), el('dd', { textContent: v }));
-  if (tier === 'first') {
+  if (tier === 'first' || tier === 'negated') {
     row('Asks for', ACTION_WORDS[item.action] ?? item.action);
     row('Test', item.modality || 'Not named');
     row('When', whenText(item));
@@ -337,11 +338,12 @@ function card(item, tier) {
   c.append(dl);
   if (item.conditional) {
     const which = item.condition ? `: "${item.condition}"` : '. Read the sentence above to see what it depends on';
-    c.append(el('div', { className: 'flag', textContent: `This depends on a condition${which}. If you say yes, it is kept as a question for your clinician, with no due date.` }));
+    c.append(el('div', { className: 'flag', textContent: `This depends on a condition${which}. If you say yes, it is kept as a question for your doctor, with no due date.` }));
   }
   if (item.already_scheduled) c.append(el('div', { className: 'flag', textContent: 'The report says this has already been arranged.' }));
   if (item.unverified) c.append(el('div', { className: 'flag', textContent: 'The app could not finish checking this one.' }));
   if (tier === 'second') c.append(el('div', { className: 'flag', textContent: 'The app did not fill in the details for this one. If your report asks for it, say yes and fill them in.' }));
+  if (tier === 'negated') c.append(el('div', { className: 'flag', textContent: 'The app read this as saying no further test or follow-up is needed. If your report does ask for something here, say yes.' }));
 
   const yes = el('input', { type: 'radio', name: `a-${item.id}`, checked: state.answers[item.id] === 'yes' });
   const no = el('input', { type: 'radio', name: `a-${item.id}`, checked: state.answers[item.id] === 'no' });
@@ -350,7 +352,7 @@ function card(item, tier) {
   no.addEventListener('change', () => { state.answers[item.id] = 'no'; editor.hidden = true; });
   c.append(el('div', { className: 'answer' },
     el('label', {}, yes, ' Yes, my report asks for this'), el('label', {}, no, ' No, it does not')));
-  if (tier === 'first') {
+  if (tier === 'first' || tier === 'negated') {
     const change = el('button', { className: 'plain', textContent: 'Change the details', type: 'button' });
     change.addEventListener('click', () => { editor.hidden = !editor.hidden; state.answers[item.id] = state.answers[item.id] || 'yes'; if (!editor.hidden) yes.checked = true; state.changed = { ...(state.changed || {}), [item.id]: true }; });
     c.append(el('div', { className: 'row' }, change));
@@ -363,6 +365,8 @@ function card(item, tier) {
 
 function renderCheck() {
   const k = state.check;
+  // Stage 6 hazard log, H4. The date every due date is counted from stays in view while checking.
+  $('check-date').textContent = `Report dated ${nice(k.date)}.`;
   $('notices').replaceChildren(...k.notices.map((n) => el('p', { className: 'notice', textContent: n })));
   renderReport();
   $('items').replaceChildren(
@@ -375,8 +379,8 @@ function renderCheck() {
   );
   renderAdded();
   $('not-needed').replaceChildren(
-    ...(k.not_needed.length ? [el('h2', { textContent: 'Your report says these are not needed' })] : []),
-    ...k.not_needed.map((i) => el('blockquote', { textContent: i.quote })),
+    ...(k.not_needed.length ? [el('h2', { textContent: 'The app read these as saying nothing more is needed. Check them too.' })] : []),
+    ...k.not_needed.map((i) => card(i, 'negated')),
   );
 }
 
@@ -416,7 +420,7 @@ $('add').addEventListener('click', () => {
 
 async function save() {
   $('save-error').textContent = '';
-  const all = [...state.check.items, ...state.check.less_sure];
+  const all = [...state.check.items, ...state.check.less_sure, ...state.check.not_needed];
   const missing = all.filter((i) => !state.answers[i.id]);
   if (missing.length) {
     $('save-error').textContent = `Please answer every item first. ${missing.length} still need a yes or a no.`;
@@ -447,7 +451,7 @@ function renderSaved(r) {
   $('saved').replaceChildren(
     el('p', { textContent: r.saved.length ? `${r.saved.length} follow-up${r.saved.length === 1 ? '' : 's'} saved.` : 'No follow-ups were saved from this report.' }),
     el('ul', { className: 'saved' }, ...r.saved.map((s) => el('li', { textContent: `"${s.quote}" ${dueText(s.due_date)}` }))),
-    ...(r.notes.length ? [el('p', { textContent: 'Kept as questions for your clinician:' }),
+    ...(r.notes.length ? [el('p', { textContent: 'Kept as questions for your doctor:' }),
       el('ul', { className: 'saved' }, ...r.notes.map((n) => el('li', { textContent: `"${n.quote}"` })))] : []),
     ...(r.questions ? [el('p', { className: 'notice', textContent: 'A report you have saved may be the follow-up for something earlier. Open My follow-ups to answer.' })] : []),
   );
@@ -480,7 +484,13 @@ function questionCard(q) {
 
 function doneControls(o) {
   const wrap = el('div');
-  if (o.tone === 'closed') return wrap;
+  if (o.tone === 'closed') {
+    // Stage 6 hazard log, H9. A closure made by mistake can be undone; the history keeps both.
+    const undo = el('button', { className: 'plain', textContent: 'This was closed by mistake', type: 'button' });
+    undo.addEventListener('click', () => act('/api/reopen', { id: o.id }));
+    wrap.append(el('div', { className: 'row' }, undo));
+    return wrap;
+  }
   const row = el('div', { className: 'row' });
   if (o.state === 'acknowledged') {
     const booked = el('button', { className: 'plain', textContent: 'It has been booked', type: 'button' });
@@ -517,7 +527,7 @@ async function showList() {
       doneControls(o));
   }) : [el('p', { className: 'muted', textContent: 'No follow-ups saved yet. Check a report to add some.' })]));
   $('questions').replaceChildren(...(all.notes.length ? [
-    el('h2', { textContent: 'Questions for your clinician' }),
+    el('h2', { textContent: 'Questions for your doctor' }),
     el('p', { className: 'muted', textContent: 'These depend on a condition in your report, so they have no due date. They are printed with the summary of all your follow-ups.' }),
     ...all.notes.map((n) => el('div', { className: 'item quiet' }, el('blockquote', { textContent: `"${n.quote}"` }),
       el('div', { className: 'muted', textContent: `Report dated ${nice(n.document_date)}.` }))),
@@ -549,6 +559,7 @@ $('pdf').addEventListener('change', async () => {
 $('read').addEventListener('click', () => start(false));
 $('manual').addEventListener('click', () => start(true));
 $('to-check').addEventListener('click', toCheck);
+$('change-date').addEventListener('click', () => show('s-date'));
 $('save').addEventListener('click', save);
 const fresh = () => { $('text').value = ''; state = null; show('s-paste'); };
 $('again').addEventListener('click', fresh);

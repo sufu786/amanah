@@ -15,7 +15,7 @@ import { createObligation, verify } from '../obligation/obligation.mjs';
 import { findForbiddenLanguage } from '../obligation/summary.mjs';
 import { extractReport } from '../extraction/pipeline.mjs';
 import {
-  guessKind, studyRecord, pendingClosures, closeByReport, closeByWord, markBooked, closedHow,
+  guessKind, studyRecord, pendingClosures, closeByReport, closeByWord, markBooked, closedHow, reopenByPatient,
 } from './closing.mjs';
 import { createApp } from './server.mjs';
 import { REPORT, stages } from './fixtures.mjs';
@@ -102,6 +102,15 @@ test('booked first, then done, records each step once', () => {
   const done = closeByWord(booked, { actor: PATIENT, at: AT });
   assert.deepEqual(done.history.map((h) => h.to_state), ['created', 'acknowledged', 'scheduled', 'completed', 'resolved']);
   assert.equal(done.history.filter((h) => h.detail?.recorded_together).length, 1);
+});
+
+test('a follow-up closed by mistake can be reopened, and the history keeps the closure', () => {
+  const closed = closeByWord(nodule(), { actor: PATIENT, at: AT });
+  const back = reopenByPatient(closed, { actor: PATIENT, at: '2026-10-09T10:00:00Z' });
+  assert.equal(back.state, 'acknowledged');
+  assert.equal(back.closure, null, 'cleared from the current view');
+  assert.ok(back.history.some((h) => h.to_state === 'resolved'), 'but never erased (section 4.3)');
+  assert.ok(back.history.some((h) => h.event === 'reopened'));
 });
 
 test('the closed lines pass the interpretive-language check', () => {

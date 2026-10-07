@@ -15,7 +15,7 @@
 // A report never answers for the follow-ups it created. Same-day studies would only be proposed
 // anyway, but a report cannot be its own follow-up and the patient should not be asked.
 
-import { transition, closureProposal, TERMINAL_STATES } from '../obligation/obligation.mjs';
+import { transition, closureProposal, reopen, TERMINAL_STATES } from '../obligation/obligation.mjs';
 import { modalityCode, MODALITIES } from '../obligation/modality.mjs';
 
 // The body regions a patient chooses from, and the anatomy each covers. The same grouping the MIMIC
@@ -123,6 +123,15 @@ const longDate = (iso) => {
   const [y, m, d] = iso.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 };
+
+/**
+ * The patient says a follow-up was closed by mistake. Section 3.1: reopening needs only a named actor
+ * and a reason, never evidence, because the dangerous direction is closing. The closure stays in the
+ * history; only the current view is cleared (section 4.3).
+ */
+export function reopenByPatient(ob, { actor, at }) {
+  return reopen(ob, { actor, at, reason: 'the patient said this was closed by mistake' });
+}
 
 /** How a closed follow-up was closed, in words for the patient. */
 export function closedHow(ob) {

@@ -28,10 +28,10 @@ import { randomUUID } from 'node:crypto';
 
 import { extractReport, ModelUnavailableError, DEFAULT_MODEL } from '../extraction/pipeline.mjs';
 import { findDates } from '../extraction/dates.mjs';
-import { prepareCheck, applyDecisions, ACTIONS, UNITS } from './checking.mjs';
+import { prepareCheck, applyDecisions, ACTIONS, UNITS, DUPLICATE_NOTICE } from './checking.mjs';
 import { loadStore, addToStore, updateStore, DEFAULT_PATH } from './store.mjs';
 import {
-  guessKind, studyRecord, pendingClosures, closeByReport, closeByWord, markBooked, closedHow, REGIONS,
+  guessKind, studyRecord, pendingClosures, closeByReport, closeByWord, markBooked, closedHow, reopenByPatient, REGIONS,
 } from './closing.mjs';
 import { MODALITIES } from '../obligation/modality.mjs';
 import { pdfText, PdfError } from './pdf.mjs';
@@ -152,7 +152,13 @@ export function createApp({ extract = extractReport, storePath = DEFAULT_PATH, m
       if (job.status !== 'done') throw new Error('the report has not finished being read');
       job.check = prepareCheck(job.reading, { date, manual: job.manual });
       const { proposals, ...shown } = job.check;
-      return send(res, 200, shown);
+      // Stage 6 hazard log, H18. The same report saved twice lists its follow-ups twice. The patient
+      // is told, and decides; nothing is merged for them.
+      const store = loadStore(storePath);
+      const quotes = new Set([...shown.items, ...shown.less_sure].map((i) => i.quote));
+      const seen = store.obligations.some((o) => o.source.document_date === date && quotes.has(o.recommendation.text_verbatim))
+        || store.notes.some((n) => n.document_date === date && quotes.has(n.quote));
+      return send(res, 200, seen ? { ...shown, notices: [DUPLICATE_NOTICE, ...shown.notices] } : shown);
     }
 
     if (req.method === 'POST' && url.pathname === '/api/save') {
@@ -191,7 +197,7 @@ export function createApp({ extract = extractReport, storePath = DEFAULT_PATH, m
       });
     }
 
-    if (req.method === 'POST' && ['/api/close', '/api/booked', '/api/not-it'].includes(url.pathname)) {
+    if (req.method === 'POST' && ['/api/close', '/api/booked', '/api/not-it', '/api/reopen'].includes(url.pathname)) {
       const body = await readJson(req);
       const actor = { kind: 'patient', ref: 'local' };
       const at = stamp();
@@ -204,6 +210,11 @@ export function createApp({ extract = extractReport, storePath = DEFAULT_PATH, m
           const ids = Array.isArray(body.study_ids) ? body.study_ids : [];
           next.rejections = { ...store.rejections, [ob.id]: [...(store.rejections[ob.id] ?? []), ...ids] };
           next.log.push({ at, event: 'not_the_follow_up', quote: ob.recommendation.text_verbatim, studies: ids.length });
+          return next;
+        }
+        if (url.pathname === '/api/reopen') {
+          next.obligations[i] = reopenByPatient(ob, { actor, at });
+          next.log.push({ at, event: 'reopened', quote: ob.recommendation.text_verbatim });
           return next;
         }
         if (url.pathname === '/api/booked') {

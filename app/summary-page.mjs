@@ -19,7 +19,7 @@ const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 export const PAGE_COPY = {
   print: 'Print, or save as a PDF',
   copied: 'copied from my report',
-  questions: 'Questions for my clinician',
+  questions: 'Questions for my doctor',
   question_ask: 'My report says this depends on a condition. I am asking whether it applies to me.',
   none: 'There are no open follow-ups to print.',
 };
