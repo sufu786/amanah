@@ -120,6 +120,13 @@ test('a change must be sent as JSON, which a form on another site cannot do', as
   assert.match(r.body.error, /application\/json/);
 });
 
+test('choosing a PDF clears the box first, so a failed read never shows the last report', () => {
+  const html = readFileSync(join(here, 'index.html'), 'utf8');
+  const handler = html.slice(html.indexOf("$('pdf').addEventListener"), html.indexOf("$('read').addEventListener"));
+  assert.ok(handler.indexOf("$('text').value = ''") !== -1, 'the box is cleared');
+  assert.ok(handler.indexOf("$('text').value = ''") < handler.indexOf("api('/api/pdf'"), 'before the PDF is read, not after');
+});
+
 test('the page loads nothing from outside this computer', () => {
   const html = readFileSync(join(here, 'index.html'), 'utf8');
   assert.ok(!/(src|href)\s*=\s*["']https?:/i.test(html), 'no external scripts, styles, fonts or images');

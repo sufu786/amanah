@@ -159,6 +159,19 @@ marks the steps the patient did not report separately.
 because of it, but a patient would see each one twice. Found by a screenshot script that resubmitted a
 report by mistake.
 
+**Stage 5, 2026-10-08.** A PDF's text is read out and put in the box for the patient to check before
+anything reads it. A PDF with too little text is called a scan, by name, rather than read as a report
+with nothing in it, which would reach the patient as a false all-clear. The PDF library is the one the
+document build already pins, loaded only when a PDF arrives. Tests build their PDFs in code, since
+real PDFs are never committed. On a real browser-made PDF of fifteen pages it took 0.6 seconds and
+kept reading order.
+
+**Found and fixed while capturing screens.** A scanned PDF chosen after a readable one was refused
+correctly, but the box still held the earlier PDF's text, which looked as though it came from the
+scan. A patient could have read the wrong report under the wrong date. The box is now cleared before
+any PDF is read, and a test holds it there. This belongs in the stage 6 hazard log as a hazard found
+and closed.
+
 ## 6. Out of scope for Phase 2
 
 Photos and OCR. Phones. Any hosted version. SMS or email reminders. Any language but English. FHIR

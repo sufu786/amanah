@@ -34,12 +34,15 @@ import {
   guessKind, studyRecord, pendingClosures, closeByReport, closeByWord, markBooked, closedHow, REGIONS,
 } from './closing.mjs';
 import { MODALITIES } from '../obligation/modality.mjs';
+import { pdfText, PdfError } from './pdf.mjs';
 import { patientStatus } from './status.mjs';
 import { summaryPage } from './summary-page.mjs';
 import { calendarFor } from './ics.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const MAX_BODY = 1_000_000;
+// A PDF arrives base64-encoded inside JSON, about a third larger than the file.
+const MAX_PDF_BODY = 30_000_000;
 
 const empty = () => ({
   document: { date_found: null, date_span: null, language: 'en', modality_of_document: null },
@@ -58,7 +61,7 @@ export function createApp({ extract = extractReport, storePath = DEFAULT_PATH, m
     res.end(typeof body === 'string' ? body : JSON.stringify(body));
   };
 
-  const readJson = (req) => new Promise((resolve, reject) => {
+  const readJson = (req, limit = MAX_BODY) => new Promise((resolve, reject) => {
     if (!String(req.headers['content-type'] ?? '').startsWith('application/json')) {
       reject(new Error('requests that change anything must be application/json'));
       return;
@@ -66,7 +69,7 @@ export function createApp({ extract = extractReport, storePath = DEFAULT_PATH, m
     let raw = '';
     req.on('data', (c) => {
       raw += c;
-      if (raw.length > MAX_BODY) { reject(new Error('request too large')); req.destroy(); }
+      if (raw.length > limit) { reject(new Error('this file is too large to read here')); req.destroy(); }
     });
     req.on('end', () => { try { resolve(JSON.parse(raw)); } catch { reject(new Error('not JSON')); } });
   });
@@ -98,6 +101,19 @@ export function createApp({ extract = extractReport, storePath = DEFAULT_PATH, m
 
     if (req.method === 'GET' && url.pathname === '/api/options') {
       return send(res, 200, { actions: ACTIONS, units: UNITS, kinds: MODALITIES, regions: Object.keys(REGIONS) });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/pdf') {
+      // The text goes back to the page for the patient to see before anything reads it. Nothing
+      // is kept: the PDF exists only for the length of this request.
+      const { data } = await readJson(req, MAX_PDF_BODY);
+      if (typeof data !== 'string' || !data) throw new Error('choose a PDF first');
+      try {
+        return send(res, 200, await pdfText(Buffer.from(data, 'base64')));
+      } catch (e) {
+        if (e instanceof PdfError) return send(res, 400, { error: e.message, kind: e.kind });
+        throw e;
+      }
     }
 
     if (req.method === 'POST' && url.pathname === '/api/start') {

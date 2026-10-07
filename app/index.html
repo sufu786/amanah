@@ -72,6 +72,10 @@
 <section id="s-paste" class="on">
   <h2>1. Paste your report</h2>
   <p class="muted">Copy the full text of one report, from a patient portal, an email or a PDF, and paste it here.</p>
+  <div class="row">
+    <label>Or choose a PDF of the report: <input type="file" id="pdf" accept="application/pdf,.pdf"></label>
+  </div>
+  <p id="pdf-note" class="muted"></p>
   <textarea id="text" aria-label="Report text"></textarea>
   <div class="row">
     <button id="read">Read my report</button>
@@ -520,6 +524,27 @@ async function showList() {
   ] : []));
   show('s-list');
 }
+
+$('pdf').addEventListener('change', async () => {
+  const file = $('pdf').files[0];
+  $('paste-error').textContent = '';
+  $('pdf-note').textContent = '';
+  if (!file) return;
+  // Cleared first, so a PDF that cannot be read never leaves the previous report's text on screen
+  // looking as though it came from this one.
+  $('text').value = '';
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  try {
+    const r = await api('/api/pdf', { data: btoa(binary) });
+    $('text').value = r.text;
+    $('pdf-note').textContent = `The text of ${r.pages} page${r.pages === 1 ? '' : 's'} is shown below. Check that it matches your report before the app reads it.`;
+  } catch (e) {
+    $('paste-error').textContent = e.message;
+  }
+  $('pdf').value = '';
+});
 
 $('read').addEventListener('click', () => start(false));
 $('manual').addEventListener('click', () => start(true));

@@ -1,0 +1,18 @@
+{
+  "name": "amanah-app",
+  "private": true,
+  "version": "0.1.0",
+  "description": "The local patient app for Phase 2: check the follow-up in your own report",
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "pdfjs-dist": "6.2.108"
+  }
+}
