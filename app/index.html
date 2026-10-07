@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Amanah: check your report</title>
+<style>
+  :root {
+    --ink: #1b1f24; --muted: #59626e; --line: #d5d9de; --bg: #ffffff; --panel: #f5f6f8;
+    --first: #fff1b8; --second: #e7ecf3; --added: #d9f2dd; --notice: #fff8e1; --notice-line: #e0b84a;
+    --accent: #1f5f99; --bad: #9b2c2c;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.5 system-ui, "Segoe UI", Arial, sans-serif; color: var(--ink); background: var(--bg); }
+  header { padding: 16px 24px; border-bottom: 1px solid var(--line); }
+  header h1 { margin: 0; font-size: 20px; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+  main { max-width: 1200px; margin: 0 auto; padding: 16px 24px 48px; }
+  section { display: none; }
+  section.on { display: block; }
+  h2 { font-size: 18px; margin: 8px 0 12px; }
+  textarea { width: 100%; min-height: 260px; font: 14px/1.5 Consolas, monospace; padding: 10px; border: 1px solid var(--line); border-radius: 6px; }
+  button { font: inherit; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
+  button.plain { background: #fff; color: var(--accent); }
+  button:disabled { opacity: .45; cursor: default; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; align-items: center; }
+  .notice { background: var(--notice); border: 1px solid var(--notice-line); border-radius: 6px; padding: 10px 14px; margin: 0 0 10px; }
+  .error { color: var(--bad); }
+  .muted { color: var(--muted); font-size: 14px; }
+  .dates label { display: block; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; margin: 6px 0; cursor: pointer; }
+  .dates .ctx { color: var(--muted); font-size: 13px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+  #report { white-space: pre-wrap; font: 14px/1.6 Consolas, monospace; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px; position: sticky; top: 8px; max-height: 85vh; overflow: auto; }
+  mark.first { background: var(--first); }
+  mark.second { background: var(--second); outline: 1px dashed #8a99ad; }
+  mark.added { background: var(--added); }
+  mark.focus { outline: 2px solid var(--accent); }
+  .card { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin: 0 0 12px; }
+  .card.second { border-style: dashed; }
+  .card blockquote { margin: 0 0 8px; padding: 6px 10px; border-left: 3px solid var(--notice-line); background: var(--panel); }
+  .card dl { margin: 0 0 8px; display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; font-size: 14px; }
+  .card dt { color: var(--muted); }
+  .card dd { margin: 0; }
+  .flag { font-size: 14px; background: var(--notice); border-radius: 4px; padding: 6px 8px; margin: 6px 0; }
+  .answer label { margin-right: 16px; }
+  .details { margin-top: 8px; padding: 8px; background: var(--panel); border-radius: 6px; font-size: 14px; }
+  .details label { display: block; margin: 4px 0; }
+  .details input, .details select { font: inherit; padding: 4px 6px; }
+  ul.saved li { margin: 6px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Amanah: check the follow-up in your report</h1>
+  <p>Runs on this computer only. Your report is not sent anywhere.</p>
+</header>
+<main>
+
+<section id="s-paste" class="on">
+  <h2>1. Paste your report</h2>
+  <p class="muted">Copy the full text of one report, from a patient portal, an email or a PDF, and paste it here.</p>
+  <textarea id="text" aria-label="Report text"></textarea>
+  <div class="row">
+    <button id="read">Read my report</button>
+    <button id="manual" class="plain">I will mark the recommendations myself</button>
+  </div>
+  <p id="paste-error" class="error"></p>
+</section>
+
+<section id="s-date">
+  <h2>2. Which date is the date of this report?</h2>
+  <p class="muted">Every due date is counted from this date, so please choose it yourself.</p>
+  <div id="dates" class="dates"></div>
+  <label class="row">Another date: <input type="date" id="date-other"></label>
+  <p id="status" class="notice"></p>
+  <div class="row">
+    <button id="to-check" disabled>Continue</button>
+    <button id="fallback" class="plain" hidden>Mark them myself instead</button>
+  </div>
+  <p id="date-error" class="error"></p>
+</section>
+
+<section id="s-check">
+  <h2>3. Check each item against your report</h2>
+  <div id="notices"></div>
+  <div class="grid">
+    <div>
+      <div id="report" aria-label="Your report"></div>
+      <div class="row">
+        <button id="add" class="plain">Add the words I selected as a recommendation</button>
+      </div>
+      <p class="muted">To add a recommendation the app did not mark, select its words in the report above, then press the button.</p>
+    </div>
+    <div>
+      <div id="items"></div>
+      <div id="less-sure"></div>
+      <div id="added"></div>
+      <div id="not-needed"></div>
+      <div class="row"><button id="save">Save the ones I said yes to</button></div>
+      <p id="save-error" class="error"></p>
+    </div>
+  </div>
+</section>
+
+<section id="s-done">
+  <h2>4. Saved</h2>
+  <div id="saved"></div>
+  <h2>All the follow-ups you have saved</h2>
+  <div id="all"></div>
+  <div class="row"><button id="again" class="plain">Check another report</button></div>
+</section>
+
+</main>
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const el = (tag, props = {}, ...kids) => {
+  const e = Object.assign(document.createElement(tag), props);
+  for (const k of kids) e.append(k);
+  return e;
+};
+const show = (id) => { for (const s of document.querySelectorAll('section')) s.classList.toggle('on', s.id === id); };
+async function api(path, body) {
+  const res = await fetch(path, body === undefined ? {} : {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'something went wrong');
+  return data;
+}
+
+const ACTION_WORDS = {
+  imaging: 'a scan or X-ray (imaging)', laboratory: 'a lab test', referral: 'a referral',
+  treatment_initiation: 'starting a treatment', procedure: 'a procedure',
+  specialist_review: 'seeing a specialist', unclear: 'not clear from the report',
+};
+let options = { actions: [], units: [] };
+let state = null;
+
+async function start(manual) {
+  $('paste-error').textContent = '';
+  const text = $('text').value;
+  try {
+    const r = await api('/api/start', { text, manual });
+    state = { job: r.job, text, manual, answers: {}, details: {}, added: [] };
+    renderDates(r.dates);
+    show('s-date');
+    poll();
+  } catch (e) { $('paste-error').textContent = e.message; }
+}
+
+function chosenDate() {
+  const picked = document.querySelector('input[name=date]:checked');
+  return $('date-other').value || (picked ? picked.value : '');
+}
+
+function renderDates(dates) {
+  const box = $('dates');
+  box.replaceChildren();
+  if (!dates.length) box.append(el('p', { className: 'muted', textContent: 'No date was found in the text. Please type the date of the report below.' }));
+  for (const d of dates) {
+    const input = el('input', { type: 'radio', name: 'date', value: d.date });
+    input.addEventListener('change', () => { $('date-other').value = ''; updateContinue(); });
+    box.append(el('label', {}, input, ` ${nice(d.date)}${d.ambiguous ? ' (this date can be read two ways; check which you mean)' : ''}`,
+      el('div', { className: 'ctx', textContent: `"...${d.context}..."` })));
+  }
+}
+
+let status = 'reading';
+function updateContinue() { $('to-check').disabled = !(chosenDate() && status === 'done'); }
+$('date-other').addEventListener('input', () => {
+  for (const r of document.querySelectorAll('input[name=date]')) r.checked = false;
+  updateContinue();
+});
+
+async function poll() {
+  const s = await api(`/api/job?id=${state.job}`);
+  status = s.status;
+  $('fallback').hidden = true;
+  if (s.status === 'reading') {
+    $('status').textContent = 'Reading your report, one sentence at a time. This can take a few minutes on this computer.'
+      + (s.of ? ` Looked closely at ${s.done} of ${s.of} possible recommendations.` : '');
+    setTimeout(poll, 1500);
+  } else if (s.status === 'done') {
+    $('status').textContent = state.manual
+      ? 'The app will not read this report. You will mark the recommendations yourself.'
+      : 'Finished reading. Choose the date, then continue.';
+  } else {
+    $('status').textContent = `${s.error} You can mark the recommendations yourself instead.`;
+    $('fallback').hidden = false;
+  }
+  updateContinue();
+}
+$('fallback').addEventListener('click', () => start(true));
+
+async function toCheck() {
+  $('date-error').textContent = '';
+  try {
+    state.check = await api('/api/check', { job: state.job, date: chosenDate() });
+    renderCheck();
+    show('s-check');
+  } catch (e) { $('date-error').textContent = e.message; }
+}
+
+function renderReport() {
+  const marks = [
+    ...state.check.items.map((i) => ({ span: i.span, cls: 'first', id: i.id })),
+    ...state.check.less_sure.map((i) => ({ span: i.span, cls: 'second', id: i.id })),
+    ...state.added.map((a, n) => ({ span: a.span, cls: 'added', id: `added-${n}` })),
+  ].filter((m) => m.span).sort((a, b) => a.span[0] - b.span[0]);
+  const box = $('report');
+  box.replaceChildren();
+  let at = 0;
+  for (const m of marks) {
+    if (m.span[0] < at) continue;
+    box.append(state.text.slice(at, m.span[0]));
+    box.append(el('mark', { className: m.cls, id: `m-${m.id}`, textContent: state.text.slice(m.span[0], m.span[1]) }));
+    at = m.span[1];
+  }
+  box.append(state.text.slice(at));
+}
+
+function whenText(item) {
+  if (item.interval) return `in ${item.interval.value} ${item.interval.unit}${item.interval.value === 1 ? '' : 's'}`;
+  return 'No time is given in the report';
+}
+
+function findingText(item) {
+  if (item.finding) return `"${item.finding}"${item.finding_by_nearest_match ? ' (the app chose this sentence as the closest match; check it)' : ''}`;
+  if (item.finding_absence === 'not_located') return 'The app could not find which finding this is about.';
+  return 'The report does not name a specific finding for this.';
+}
+
+function detailsEditor(key, item, open) {
+  const d = state.details[key] ?? {
+    action: item.action && item.action !== 'unclear' ? item.action : '',
+    modality: item.modality ?? '',
+    interval: item.interval ? { ...item.interval } : null,
+  };
+  state.details[key] = d;
+  const wrap = el('div', { className: 'details', hidden: !open });
+  const action = el('select', {}, el('option', { value: '', textContent: 'Choose...' }),
+    ...options.actions.map((a) => el('option', { value: a, textContent: ACTION_WORDS[a] ?? a, selected: d.action === a })));
+  action.addEventListener('change', () => { d.action = action.value; });
+  const modality = el('input', { type: 'text', value: d.modality, placeholder: 'for example CT, ultrasound, blood test' });
+  modality.addEventListener('input', () => { d.modality = modality.value; });
+  const value = el('input', { type: 'number', min: '1', value: d.interval ? d.interval.value : '', style: 'width:6em' });
+  const unit = el('select', {}, el('option', { value: '', textContent: 'no time given' }),
+    ...options.units.map((u) => el('option', { value: u, textContent: `${u}s`, selected: d.interval && d.interval.unit === u })));
+  const syncInterval = () => { d.interval = value.value && unit.value ? { value: Number(value.value), unit: unit.value } : null; };
+  value.addEventListener('input', syncInterval);
+  unit.addEventListener('change', syncInterval);
+  wrap.append(
+    el('label', {}, 'What the report asks for: ', action),
+    el('label', {}, 'Which test, in the report\'s words: ', modality),
+    el('label', {}, 'When, as the report says: ', value, ' ', unit),
+  );
+  return wrap;
+}
+
+function card(item, tier) {
+  const c = el('div', { className: `card ${tier}` });
+  c.append(el('blockquote', { textContent: item.quote }));
+  const dl = el('dl');
+  const row = (k, v) => dl.append(el('dt', { textContent: k }), el('dd', { textContent: v }));
+  if (tier === 'first') {
+    row('Asks for', ACTION_WORDS[item.action] ?? item.action);
+    row('Test', item.modality || 'Not named');
+    row('When', whenText(item));
+    row('About', findingText(item));
+    if (typeof item.score === 'number') row('App\'s own score', `${item.score} (the model's own number, not a measured accuracy)`);
+  }
+  c.append(dl);
+  if (item.conditional) {
+    const which = item.condition ? `: "${item.condition}"` : '. Read the sentence above to see what it depends on';
+    c.append(el('div', { className: 'flag', textContent: `This depends on a condition${which}. If you say yes, it is kept as a question for your clinician, with no due date.` }));
+  }
+  if (item.already_scheduled) c.append(el('div', { className: 'flag', textContent: 'The report says this has already been arranged.' }));
+  if (item.unverified) c.append(el('div', { className: 'flag', textContent: 'The app could not finish checking this one.' }));
+  if (tier === 'second') c.append(el('div', { className: 'flag', textContent: 'The app did not fill in the details for this one. If your report asks for it, say yes and fill them in.' }));
+
+  const yes = el('input', { type: 'radio', name: `a-${item.id}`, checked: state.answers[item.id] === 'yes' });
+  const no = el('input', { type: 'radio', name: `a-${item.id}`, checked: state.answers[item.id] === 'no' });
+  const editor = detailsEditor(item.id, item, tier === 'second' && state.answers[item.id] === 'yes');
+  yes.addEventListener('change', () => { state.answers[item.id] = 'yes'; if (tier === 'second') editor.hidden = false; });
+  no.addEventListener('change', () => { state.answers[item.id] = 'no'; editor.hidden = true; });
+  c.append(el('div', { className: 'answer' },
+    el('label', {}, yes, ' Yes, my report asks for this'), el('label', {}, no, ' No, it does not')));
+  if (tier === 'first') {
+    const change = el('button', { className: 'plain', textContent: 'Change the details', type: 'button' });
+    change.addEventListener('click', () => { editor.hidden = !editor.hidden; state.answers[item.id] = state.answers[item.id] || 'yes'; if (!editor.hidden) yes.checked = true; state.changed = { ...(state.changed || {}), [item.id]: true }; });
+    c.append(el('div', { className: 'row' }, change));
+  }
+  c.append(editor);
+  c.addEventListener('mouseenter', () => $(`m-${item.id}`)?.classList.add('focus'));
+  c.addEventListener('mouseleave', () => $(`m-${item.id}`)?.classList.remove('focus'));
+  return c;
+}
+
+function renderCheck() {
+  const k = state.check;
+  $('notices').replaceChildren(...k.notices.map((n) => el('p', { className: 'notice', textContent: n })));
+  renderReport();
+  $('items').replaceChildren(
+    ...(k.items.length ? [el('h2', { textContent: 'What the app marked' })] : []),
+    ...k.items.map((i) => card(i, 'first')),
+  );
+  $('less-sure').replaceChildren(
+    ...(k.less_sure.length ? [el('h2', { textContent: 'The app was less sure about these. Check them the same way.' })] : []),
+    ...k.less_sure.map((i) => card(i, 'second')),
+  );
+  renderAdded();
+  $('not-needed').replaceChildren(
+    ...(k.not_needed.length ? [el('h2', { textContent: 'Your report says these are not needed' })] : []),
+    ...k.not_needed.map((i) => el('blockquote', { textContent: i.quote })),
+  );
+}
+
+function renderAdded() {
+  $('added').replaceChildren(
+    ...(state.added.length ? [el('h2', { textContent: 'Recommendations you added' })] : []),
+    ...state.added.map((a, n) => {
+      const c = el('div', { className: 'card' }, el('blockquote', { textContent: state.text.slice(a.span[0], a.span[1]) }));
+      c.append(detailsEditor(`added-${n}`, {}, true));
+      const remove = el('button', { className: 'plain', textContent: 'Remove', type: 'button' });
+      remove.addEventListener('click', () => { state.added.splice(n, 1); renderReport(); renderAdded(); });
+      c.append(el('div', { className: 'row' }, remove));
+      return c;
+    }),
+  );
+}
+
+$('add').addEventListener('click', () => {
+  const sel = window.getSelection();
+  const box = $('report');
+  if (!sel.rangeCount || sel.isCollapsed || !box.contains(sel.anchorNode) || !box.contains(sel.focusNode)) {
+    $('save-error').textContent = 'Select the words of the recommendation in the report first.';
+    return;
+  }
+  const range = sel.getRangeAt(0);
+  const before = document.createRange();
+  before.setStart(box, 0);
+  before.setEnd(range.startContainer, range.startOffset);
+  const s = before.toString().length;
+  const e = s + range.toString().length;
+  state.added.push({ span: [s, e] });
+  sel.removeAllRanges();
+  $('save-error').textContent = '';
+  renderReport();
+  renderAdded();
+});
+
+async function save() {
+  $('save-error').textContent = '';
+  const all = [...state.check.items, ...state.check.less_sure];
+  const missing = all.filter((i) => !state.answers[i.id]);
+  if (missing.length) {
+    $('save-error').textContent = `Please answer every item first. ${missing.length} still need a yes or a no.`;
+    return;
+  }
+  const decisions = all.map((i) => ({
+    id: i.id,
+    answer: state.answers[i.id],
+    ...((i.tier === 'second' || (state.changed || {})[i.id]) && state.answers[i.id] === 'yes' ? { details: state.details[i.id] } : {}),
+  }));
+  const added = state.added.map((a, n) => ({ span: a.span, details: state.details[`added-${n}`] }));
+  try {
+    const r = await api('/api/save', { job: state.job, decisions, added });
+    renderSaved(r);
+    show('s-done');
+  } catch (e) { $('save-error').textContent = e.message; }
+}
+
+// Written out in full, because 03/04 means different days in different countries.
+function nice(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+}
+function dueText(due) { return due ? `Due ${nice(due)}` : 'The report did not say when'; }
+
+async function renderSaved(r) {
+  $('saved').replaceChildren(
+    el('p', { textContent: r.saved.length ? `${r.saved.length} follow-up${r.saved.length === 1 ? '' : 's'} saved.` : 'No follow-ups were saved from this report.' }),
+    el('ul', { className: 'saved' }, ...r.saved.map((s) => el('li', { textContent: `"${s.quote}" ${dueText(s.due_date)}` }))),
+    ...(r.notes.length ? [el('p', { textContent: 'Kept as questions for your clinician:' }),
+      el('ul', { className: 'saved' }, ...r.notes.map((n) => el('li', { textContent: `"${n.quote}"` })))] : []),
+  );
+  const all = await api('/api/obligations');
+  $('all').replaceChildren(all.obligations.length
+    ? el('ul', { className: 'saved' }, ...all.obligations.map((o) => el('li', { textContent: `"${o.quote}" Report dated ${nice(o.document_date)}. ${dueText(o.due_date)}.` })))
+    : el('p', { className: 'muted', textContent: 'None yet.' }));
+}
+
+$('read').addEventListener('click', () => start(false));
+$('manual').addEventListener('click', () => start(true));
+$('to-check').addEventListener('click', toCheck);
+$('save').addEventListener('click', save);
+$('again').addEventListener('click', () => { $('text').value = ''; state = null; show('s-paste'); });
+api('/api/options').then((o) => { options = o; });
+</script>
+</body>
+</html>

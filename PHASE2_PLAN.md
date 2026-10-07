@@ -128,6 +128,15 @@ second tier is shown in full beside the first, marked as items the app was less 
 patient checks them the same way. What stays quiet is everything after: no reminder and no alert for
 a second-tier item until the patient confirms it.
 
+**Stage 2, 2026-10-08.** The local app in `app/`: paste a report, choose its date while the model
+reads it, check every item beside the highlighted report, add what the app missed, and save. Tested
+over real HTTP with the model stubbed, and driven in a headless browser on the invented report. Two
+things came out of building it. The pipeline flags a conditional recommendation but never returns
+the condition's wording on its own (`validateRecommendation` sets it to null), so the screen points
+the patient at the sentence, which contains the condition, rather than quoting an empty string. And
+because this runs on a computer the patient also browses the web on, the server refuses requests not
+addressed to 127.0.0.1 and accepts changes only as JSON, which a page on another site cannot send.
+
 ## 6. Out of scope for Phase 2
 
 Photos and OCR. Phones. Any hosted version. SMS or email reminders. Any language but English. FHIR
