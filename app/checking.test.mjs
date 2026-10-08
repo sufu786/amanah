@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { extractReport } from '../extraction/pipeline.mjs';
-import { prepareCheck, applyDecisions, MAY_HAVE_MISSED, NOT_READ_NOTICE } from './checking.mjs';
+import { prepareCheck, applyDecisions, readBySentence, MAY_HAVE_MISSED, NOT_READ_NOTICE } from './checking.mjs';
 import { REPORT, NODULE, PERSIST, CLINICAL, stages } from './fixtures.mjs';
 import { validateRecommendation } from '../extraction/extract.mjs';
 
@@ -146,4 +146,116 @@ test('a report the app did not read says so, and never that nothing was found', 
   const reading = { result: { document: {}, recommendations: [], second_tier: [], rejected: [], extraction: { no_recommendation_found: false, unparseable: false } }, run: {} };
   const c = prepareCheck(reading, { date: '2026-03-14', manual: true });
   assert.deepEqual(c.notices, [NOT_READ_NOTICE]);
+});
+
+test('the fixed rule copies a test and a time the sentence states, and nothing that reads two ways', () => {
+  const r = (t) => readBySentence(t);
+  assert.deepEqual(r('If symptoms persist, repeat chest radiograph.'), { action: 'imaging', modality: 'radiograph', interval: null, interval_verbatim: null });
+  assert.deepEqual(r('Recommend CT chest in 6 months.').interval, { value: 6, unit: 'month' });
+  assert.equal(r('Recommend CT chest in 6 months.').interval_verbatim, '6 months');
+  assert.deepEqual(r('Ultrasound in six weeks.').interval, { value: 6, unit: 'week' });
+  assert.deepEqual(r('A 12-month follow-up CT is advised.').interval, { value: 12, unit: 'month' });
+  assert.deepEqual(r('Annual screening mammography is advised.').interval, { value: 1, unit: 'year' });
+  assert.equal(r('Repeat CT in 3 to 6 months.').interval, null, 'a range is left for a person');
+  assert.equal(r('Repeat CT in 3-6 months.').interval, null);
+  assert.equal(r('CT in 6 months, or MRI in 1 year.').interval, null, 'two different times are left for a person');
+  assert.equal(r('Correlate clinically.').modality, null);
+  assert.equal(r('Colonoscopy is advised.').action, null, 'endoscopy does not say this is imaging');
+  assert.equal(r('Recommend follow-up as clinically indicated.').interval, null, 'no time is ever inferred');
+});
+
+// A report where the model leaves the test empty for a first-tier item, and doubts one that it then
+// fills, as happened on an invented report in use.
+const MAMMO = 'Annual screening mammography is advised.';
+const ruleStages = {
+  ...stages,
+  detect: async (...a) => {
+    const base = await stages.detect(...a);
+    const s = REPORT.indexOf(MAMMO);
+    return { ...base, hits: [...base.hits, { ...base.hits[0], recommendation_verbatim: MAMMO, recommendation_span: [s, s + MAMMO.length] }] };
+  },
+  verify: async (_t, s) => s !== CLINICAL && s !== MAMMO,
+  fill: async (t, sentence) => {
+    if (sentence === MAMMO) {
+      return validateRecommendation({ finding_verbatim: null, finding: 'other', action: 'imaging', modality: 'mammography',
+        interval_value: 0, interval_unit: 'none', interval_verbatim: null, confidence: 0.5, conditional: false, negated: false,
+        already_scheduled: false, recommendation_verbatim: MAMMO }, t);
+    }
+    const v = await stages.fill(t, sentence);
+    return sentence === NODULE ? { ...v, value: { ...v.value, modality: null } } : v;
+  },
+};
+
+test('a doubted item arrives with its details, and a yes alone saves it, recorded as such', async () => {
+  const c = prepareCheck(await extractReport(REPORT, { stages: ruleStages }), { date: '2026-03-14', makeId });
+  const mammo = c.less_sure.find((i) => i.quote === MAMMO);
+  assert.equal(mammo.needs_details, false, 'nothing left for the patient to type');
+  assert.equal(mammo.modality, 'mammography');
+  assert.deepEqual(mammo.interval, { value: 1, unit: 'year' });
+  assert.deepEqual(mammo.filled_by, { action: 'model_after_doubt', modality: 'model_after_doubt', interval: 'rule' });
+  const clinical = c.less_sure.find((i) => i.quote === CLINICAL);
+  assert.equal(clinical.needs_details, true, 'a sentence nothing could read still asks the patient');
+
+  const out = applyDecisions(c, { text: REPORT, at: AT, decisions: answer(c, { [MAMMO]: null }) });
+  const ob = out.obligations[0];
+  assert.equal(ob.recommendation.text_verbatim, MAMMO);
+  assert.equal(ob.due_date, '2027-03-14');
+  assert.equal(ob.recommendation.interval_verbatim, 'Annual', 'the time keeps the words it was read from');
+  assert.equal(ob.extraction.method, 'confirmed_after_doubt');
+  assert.deepEqual(ob.extraction.filled_by_rule, ['recommendation.interval']);
+  assert.deepEqual(ob.extraction.patient_corrections ?? [], [], 'a yes is not a correction');
+});
+
+test('a test the model left empty is read from the sentence, and the patient can still change it', async () => {
+  const c = prepareCheck(await extractReport(REPORT, { stages: ruleStages }), { date: '2026-03-14', makeId });
+  const nodule = c.items.find((i) => i.quote === NODULE);
+  assert.equal(nodule.modality, 'CT');
+  assert.equal(nodule.filled_by.modality, 'rule');
+  assert.equal(nodule.filled_by.interval, 'model', 'the rule never replaces what the model filled');
+
+  const kept = applyDecisions(c, { text: REPORT, at: AT, decisions: answer(c, { [NODULE]: null }) }).obligations[0];
+  assert.equal(kept.recommendation.modality_code, 'ct');
+  assert.deepEqual(kept.extraction.filled_by_rule, ['recommendation.modality']);
+  assert.equal(kept.due_date, '2026-09-14');
+
+  const changed = applyDecisions(c, {
+    text: REPORT, at: AT,
+    decisions: answer(c, { [NODULE]: { action: 'imaging', modality: 'MRI', interval: { value: 6, unit: 'month' } } }),
+  }).obligations[0];
+  assert.equal(changed.recommendation.modality_code, 'mr');
+  assert.equal(changed.extraction.filled_by_rule, undefined);
+  assert.deepEqual(changed.extraction.patient_corrections.map((x) => [x.field, x.from, x.to]), [['recommendation.modality', 'CT', 'MRI']]);
+});
+
+test('a time taken from another sentence is dropped, and a scan read as a lab test is read as imaging', async () => {
+  // Both seen on the real model with an invented report: the time of the sentence before, and
+  // mammography as a lab test.
+  const wrong = {
+    ...ruleStages,
+    fill: async (t, sentence) => {
+      if (sentence === PERSIST) {
+        return validateRecommendation({ finding_verbatim: null, finding: 'other', action: 'imaging', modality: 'radiograph',
+          interval_value: 6, interval_unit: 'month', interval_verbatim: 'in 6 months', confidence: 0.7, conditional: false,
+          negated: false, already_scheduled: false, recommendation_verbatim: PERSIST }, t);
+      }
+      if (sentence === MAMMO) {
+        return validateRecommendation({ finding_verbatim: null, finding: 'other', action: 'laboratory', modality: 'mammography',
+          interval_value: 0, interval_unit: 'none', interval_verbatim: null, confidence: 0.5, conditional: false, negated: false,
+          already_scheduled: false, recommendation_verbatim: MAMMO }, t);
+      }
+      return ruleStages.fill(t, sentence);
+    },
+  };
+  const c = prepareCheck(await extractReport(REPORT, { stages: wrong }), { date: '2026-03-14', makeId });
+  const persist = c.items.find((i) => i.quote === PERSIST);
+  assert.equal(persist.interval, null, '"in 6 months" is not in this sentence');
+  const mammo = c.less_sure.find((i) => i.quote === MAMMO);
+  assert.equal(mammo.action, 'imaging');
+  assert.equal(mammo.filled_by.action, 'rule');
+
+  const out = applyDecisions(c, { text: REPORT, at: AT, decisions: answer(c, { [PERSIST]: null, [MAMMO]: null }) });
+  const ob = out.obligations.find((o) => o.recommendation.text_verbatim === PERSIST);
+  assert.equal(ob.due_date, null, 'no due date from another sentence\'s time');
+  assert.equal(ob.extraction.interval_not_in_sentence, 'in 6 months', 'what was dropped is recorded');
+  assert.equal(out.obligations.find((o) => o.recommendation.text_verbatim === MAMMO).recommendation.action, 'imaging');
 });

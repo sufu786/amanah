@@ -64,6 +64,28 @@ export function modalityCode(text) {
   return best ? best.code : OTHER_MODALITY;
 }
 
+/**
+ * The words naming the test, copied from `text`: the whole word the first-named pattern falls in,
+ * so "repeat chest radiograph" gives "radiograph" and "MRI lumbar spine" gives "MRI". Null when no
+ * test in the list is named. Used where the model left the test empty and the sentence names one.
+ */
+export function modalityWords(text) {
+  if (text == null) return null;
+  const s = String(text);
+  const t = s.toLowerCase();
+  let best = null;
+  for (const [, re] of PATTERNS) {
+    const m = re.exec(t);
+    if (m && (best === null || m.index < best.index)) best = { index: m.index, end: m.index + m[0].length };
+  }
+  if (!best) return null;
+  let a = best.index;
+  let b = best.end;
+  while (a > 0 && /[\w-]/.test(s[a - 1])) a--;
+  while (b < s.length && /[\w-]/.test(s[b])) b++;
+  return s.slice(a, b);
+}
+
 // Words that ask for something finer than a modality code can confirm: a contrast phase, a vessel
 // study, a guided procedure, a diagnostic rather than a screening mammogram, a cardiac echo. A study of
 // the right modality may still not be what was asked for, so section 4.5 never closes on it.

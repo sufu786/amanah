@@ -179,6 +179,18 @@ is answered, a negated item gets the same question as every other, a closed foll
 reopened, a report saved twice is flagged, and the chosen report date stays on the checking screen.
 The app is built. It is not cleared for real reports until the volunteer test has passed.
 
+**After first use, 2026-10-09.** Checking an invented report showed how much was left to the patient:
+a test the sentence named plainly ("repeat chest radiograph") shown as not named, and a less-sure item
+whose details had to be typed in. The aim since is that a patient only answers yes or no. A doubted
+item now has its details read as well, kept outside the result as a suggestion; an empty test or time
+is read from the sentence by a fixed rule that copies only what the sentence says and skips anything
+that reads two ways; each such field is marked on screen and recorded on the follow-up. Run on the
+real model, the same report showed two errors the patient would have had to catch: the conditional
+sentence was given the time of the sentence before it, which the quote check allows because those
+words are in the report, and screening mammography was read as a lab test. A time is now kept only
+when its words are in the sentence itself, and a sentence naming a scan is never a lab test. The yes
+or no stays: the reading is still the model's, and Phase 1 measured how often that is wrong.
+
 ## 6. Out of scope for Phase 2
 
 Photos and OCR. Phones. Any hosted version. SMS or email reminders. Any language but English. FHIR

@@ -22,7 +22,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { proposalsFromExtraction, acceptProposal, NOTHING_FOUND_NOTICE } from '../obligation/from-extraction.mjs';
-import { modalityCode } from '../obligation/modality.mjs';
+import { modalityCode, modalityWords } from '../obligation/modality.mjs';
 
 export const ACTIONS = ['imaging', 'laboratory', 'referral', 'treatment_initiation', 'procedure', 'specialist_review'];
 export const UNITS = ['day', 'week', 'month', 'year'];
@@ -37,6 +37,82 @@ export const INCOMPLETE_NOTICE =
   'The reading stopped partway. Some items below were not fully checked by the app, and are marked.';
 
 const isIsoDate = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+
+// Reading by fixed rule, from the sentence alone. The model sometimes leaves a field empty that the
+// sentence states plainly ("repeat chest radiograph", test not named), and every empty field was
+// work handed to the patient. These rules only copy what the sentence says. They never fill a field
+// the model did fill, never infer a time the sentence does not state, and skip anything that reads
+// two ways, such as a range ("3 to 6 months") or two different times; those stay empty.
+const NUMBER_WORDS = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, eighteen: 18 };
+const NUMBER = `\\d{1,3}|${Object.keys(NUMBER_WORDS).join('|')}`;
+const INTERVAL = new RegExp(`\\b(${NUMBER})[\\s-]*(day|week|month|year)s?\\b`, 'gi');
+const RANGE = new RegExp(`\\b(${NUMBER})\\s*(?:-|to|or)\\s*(${NUMBER})[\\s-]*(day|week|month|year)`, 'i');
+const YEARLY = /\b(annual|annually|yearly)\b/i;
+// Codes a scan or X-ray belongs to. Endoscopy is a procedure and `other` names nothing, so neither
+// tells the rule what kind of request this is.
+const IMAGING_CODES = new Set(['radiograph', 'ct', 'mr', 'ultrasound', 'mammography', 'pet', 'nuclear_medicine', 'fluoroscopy', 'angiography', 'bone_densitometry']);
+
+export function readBySentence(sentence) {
+  const s = String(sentence ?? '');
+  const out = { action: null, modality: null, interval: null, interval_verbatim: null };
+  out.modality = modalityWords(s);
+  if (out.modality && IMAGING_CODES.has(modalityCode(out.modality))) out.action = 'imaging';
+  if (!RANGE.test(s)) {
+    const found = [...s.matchAll(INTERVAL)].map((m) => ({
+      value: NUMBER_WORDS[m[1].toLowerCase()] ?? Number(m[1]), unit: m[2].toLowerCase(), words: m[0],
+    }));
+    const distinct = new Set(found.map((f) => `${f.value} ${f.unit}`));
+    if (found.length && distinct.size === 1 && found[0].value > 0) {
+      out.interval = { value: found[0].value, unit: found[0].unit };
+      out.interval_verbatim = found[0].words;
+    } else if (!found.length && YEARLY.test(s)) {
+      out.interval = { value: 1, unit: 'year' };
+      out.interval_verbatim = s.match(YEARLY)[0];
+    }
+  }
+  return out;
+}
+
+/**
+ * The details an item is shown with, and saved with if the patient changes nothing. The model's
+ * fields come first (for a doubted item, the fields it filled after doubting it); the rule fills only
+ * what is still empty. `by` records where each field came from, so the screen and the saved follow-up
+ * can say so.
+ */
+function prefill(rec, suggested, quote) {
+  const base = suggested ?? rec;
+  const rule = readBySentence(quote);
+  // The quote check (validateRecommendation) only asks that the time's words exist somewhere in the
+  // report. On an invented report the model gave "If symptoms persist, repeat chest radiograph." the
+  // time "in 6 months" from the sentence before it. A time is kept only when its words are in the
+  // sentence itself; otherwise it is dropped, and the follow-up waits for a date rather than carry
+  // another sentence's.
+  const own = base.interval && base.interval_verbatim
+    && String(quote).toLowerCase().includes(String(base.interval_verbatim).toLowerCase());
+  const details = {
+    action: base.action && base.action !== 'unclear' ? base.action : null,
+    modality: base.modality ?? null,
+    interval: own ? base.interval : null,
+    interval_verbatim: own ? base.interval_verbatim : null,
+  };
+  const by = {};
+  for (const k of ['action', 'modality', 'interval']) {
+    if (details[k] != null) by[k] = suggested ? 'model_after_doubt' : 'model';
+    else if (rule[k] != null) {
+      details[k] = rule[k];
+      by[k] = 'rule';
+      if (k === 'interval') details.interval_verbatim = rule.interval_verbatim;
+    }
+  }
+  // A lab test is a blood or tissue test. A sentence that names a scan is not asking for one: the
+  // same report had "Annual screening mammography is advised." read as a lab test. The rule's reading
+  // wins only this one contradiction; a procedure or referral naming a scan is left as the model read it.
+  if (details.action === 'laboratory' && rule.action === 'imaging') {
+    details.action = 'imaging';
+    by.action = 'rule';
+  }
+  return { details, by };
+}
 
 /**
  * The items the patient checks, from a reading (pipeline.mjs) and the report date they confirmed.
@@ -54,15 +130,25 @@ export function prepareCheck({ result, run }, { date, manual = false, makeId = (
   });
 
   const unverified = new Set((run.unverified ?? []).map((s) => s.join(':')));
-  const view = (p, tier) => ({
+  const suggestions = new Map((run.doubted_fields ?? []).map((d) => [d.span.join(':'), d.fields]));
+  const prefilled = {};
+  const view = (p, tier) => {
+    const suggested = tier === 'second' && p.source_span ? suggestions.get(p.source_span.join(':')) : undefined;
+    // An item whose fields are placeholders is read only by rule; its placeholder action is not a reading.
+    const pre = prefill(tier === 'second' ? {} : p.recommendation, suggested, p.recommendation.text_verbatim);
+    prefilled[p.id] = { ...pre, suggested: Boolean(suggested) };
+    return viewOf(p, tier, pre);
+  };
+  const viewOf = (p, tier, pre) => ({
     id: p.id,
     tier,
     quote: p.recommendation.text_verbatim,
     span: p.source_span,
-    action: p.recommendation.action,
-    modality: p.recommendation.modality,
-    interval: p.recommendation.interval,
-    interval_verbatim: p.recommendation.interval_verbatim,
+    action: pre.details.action ?? (tier === 'second' ? null : p.recommendation.action),
+    modality: pre.details.modality,
+    interval: pre.details.interval,
+    interval_verbatim: pre.details.interval_verbatim,
+    filled_by: pre.by,
     // The pipeline flags a condition but does not return its wording on its own, so this is null
     // more often than not; the screen then points at the sentence, which contains the condition.
     conditional: Boolean(p.recommendation.conditional),
@@ -73,7 +159,8 @@ export function prepareCheck({ result, run }, { date, manual = false, makeId = (
     finding_by_nearest_match: p.finding.location === 'nearest_sentence',
     score: tier === 'second' ? null : p.confidence,
     unverified: Boolean(p.source_span && unverified.has(p.source_span.join(':'))),
-    needs_details: tier === 'second',
+    // Only an item nothing could read the request of still needs the patient to say what it asks for.
+    needs_details: tier === 'second' && !pre.details.action,
     doubt_reason: p.doubt_reason ?? null,
   });
 
@@ -97,11 +184,17 @@ export function prepareCheck({ result, run }, { date, manual = false, makeId = (
     // it. It is now asked like every other item, and counts toward the every-item rule.
     not_needed: out.not_indicated_evidence.map((p) => view(p, 'negated')),
     proposals: Object.fromEntries([...out.proposals, ...out.review_queue, ...out.second_tier, ...out.not_indicated_evidence].map((p) => [p.id, p])),
+    prefilled,
   };
 }
 
-function checkDetails(d, where) {
-  if (!ACTIONS.includes(d.action)) throw new Error(`${where}: choose what the report asks for`);
+const sameDetails = (a, b) => a.action === b.action && (a.modality ?? null) === (b.modality ?? null)
+  && JSON.stringify(a.interval ?? null) === JSON.stringify(b.interval ?? null);
+
+// `asShown` is set when the details are the ones the patient was shown and left alone, where the
+// model's own "unclear" may stand; a patient filling details in chooses an action.
+function checkDetails(d, where, { asShown = false } = {}) {
+  if (!ACTIONS.includes(d.action) && !(asShown && d.action === 'unclear')) throw new Error(`${where}: choose what the report asks for`);
   let interval = null;
   if (d.interval != null) {
     const value = Number(d.interval.value);
@@ -134,14 +227,38 @@ export function applyDecisions(check, { text, decisions = [], added = [], at, pa
 
     let proposal = p;
     const corrections = [];
-    if (d.details || second) {
-      if (second && !d.details) throw new Error(`"${p.recommendation.text_verbatim}": the app did not read this one, so its details are needed`);
-      const fixed = checkDetails(d.details, `"${p.recommendation.text_verbatim}"`);
+    // What the item was shown with. A yes with no details given accepts these as shown.
+    const pre = check.prefilled?.[d.id] ?? { details: {}, by: {}, suggested: false };
+    const shown = { ...pre.details, action: pre.details.action ?? p.recommendation.action };
+    // Shown differently from the model's reading: a field read by rule, or a time dropped because
+    // its words were not in the sentence. A yes then saves what was shown, not the model's reading.
+    const adjusted = !second && !sameDetails(shown, p.recommendation);
+    const given = d.details ?? ((second && pre.details.action) || adjusted ? shown : null);
+    let extraction = {};
+    if (given || second) {
+      if (second && !given) throw new Error(`"${p.recommendation.text_verbatim}": the app did not read this one, so its details are needed`);
+      const fixed = checkDetails(given, `"${p.recommendation.text_verbatim}"`, { asShown: given === shown });
+      // A correction is a change the patient made to what they were shown, which is the training
+      // signal section 2 keeps. A field filled by rule and left alone is not a correction.
+      const base = second && !pre.details.action ? {} : shown;
       for (const k of ['action', 'modality', 'interval']) {
-        if (JSON.stringify(p.recommendation[k] ?? null) !== JSON.stringify(fixed[k])) {
-          corrections.push({ field: `recommendation.${k}`, from: p.recommendation[k] ?? null, to: fixed[k] });
+        if (JSON.stringify(base[k] ?? null) !== JSON.stringify(fixed[k])) {
+          corrections.push({ field: `recommendation.${k}`, from: base[k] ?? null, to: fixed[k] });
         }
       }
+      const unchanged = sameDetails(fixed, shown);
+      // The time keeps the report's words it was read from, and loses them once the patient changes it.
+      const sameTime = (x) => JSON.stringify(fixed.interval) === JSON.stringify(x ?? null);
+      fixed.interval_verbatim = sameTime(pre.details.interval) ? pre.details.interval_verbatim ?? null
+        : sameTime(p.recommendation.interval) ? p.recommendation.interval_verbatim ?? null : null;
+      // Recorded on the follow-up: which fields a fixed rule read, and, for a doubted item, whether
+      // the patient accepted the details the model filled or supplied their own.
+      const byRule = unchanged ? Object.keys(pre.by).filter((k) => pre.by[k] === 'rule').map((k) => `recommendation.${k}`) : [];
+      if (byRule.length) extraction.filled_by_rule = byRule;
+      if (p.recommendation.interval && !pre.details.interval && !fixed.interval) {
+        extraction.interval_not_in_sentence = p.recommendation.interval_verbatim ?? null;
+      }
+      if (second) extraction.method = unchanged && pre.details.action ? 'confirmed_after_doubt' : 'patient_completed';
       proposal = {
         ...p,
         fields_filled: true,
@@ -163,9 +280,7 @@ export function applyDecisions(check, { text, decisions = [], added = [], at, pa
       });
       continue;
     }
-    // A second-tier item was never filled by the model; the patient supplied its details. It is
-    // recorded that way rather than carrying a model score it never had.
-    const extraction = second ? { method: 'patient_completed' } : {};
+    // A second-tier item carries no model score; its method says who supplied the details instead.
     obligations.push(acceptProposal(proposal, { subject_ref: patient, owner, actor, at, extraction, corrections }));
   }
 

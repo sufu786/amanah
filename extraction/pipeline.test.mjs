@@ -138,3 +138,23 @@ test('a report with nothing detected says so, and the obligation layer adds the 
   });
   assert.match(out.notice, /does not mean there is not one/);
 });
+
+test('a doubted candidate still has its details read, as a suggestion outside the result', async () => {
+  const filledToo = stages({
+    fill: async (text, sentence) => validateRecommendation({ ...ANSWERS[sentence], ...(sentence === CLINICAL ? { action: 'laboratory' } : {}), recommendation_verbatim: sentence }, text),
+  });
+  const { result, run } = await extractReport(REPORT, { stages: filledToo });
+  assert.deepEqual(result.second_tier.map((r) => r.recommendation_verbatim), [CLINICAL], 'still second tier');
+  assert.deepEqual(run.doubted_fields.map((d) => d.fields.action), ['laboratory']);
+
+  const unclear = await extractReport(REPORT, { stages: stages() });
+  assert.deepEqual(unclear.run.doubted_fields, [], 'an unclear reading is no suggestion');
+
+  const fails = stages({ fill: async (text, sentence) => {
+    if (sentence === CLINICAL) throw new Error('model stopped');
+    return validateRecommendation({ ...ANSWERS[sentence], recommendation_verbatim: sentence }, text);
+  } });
+  const { run: r3 } = await extractReport(REPORT, { stages: fails });
+  assert.deepEqual(r3.doubted_fields, []);
+  assert.equal(r3.incomplete, false, 'a missing suggestion is not an incomplete reading');
+});

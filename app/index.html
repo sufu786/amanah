@@ -338,11 +338,13 @@ function card(item, tier) {
   c.append(el('blockquote', { textContent: item.quote }));
   const dl = el('dl');
   const row = (k, v) => dl.append(el('dt', { textContent: k }), el('dd', { textContent: v }));
-  if (tier === 'first' || tier === 'negated') {
-    row('Asks for', ACTION_WORDS[item.action] ?? item.action);
-    row('Test', item.modality || 'Not named');
-    row('When', whenText(item));
-    row('About', findingText(item));
+  // A field read by the fixed rule says so, because the patient is the check on it.
+  const byRule = (k, v) => (item.filled_by?.[k] === 'rule' ? `${v} (taken from the words of the sentence)` : v);
+  if (tier === 'first' || tier === 'negated' || !item.needs_details) {
+    row('Asks for', byRule('action', ACTION_WORDS[item.action] ?? item.action));
+    row('Test', item.modality ? byRule('modality', item.modality) : 'Not named');
+    row('When', item.interval ? byRule('interval', whenText(item)) : whenText(item));
+    if (tier !== 'second') row('About', findingText(item));
     if (typeof item.score === 'number') row('App\'s own score', `${item.score} (the model's own number, not a measured accuracy)`);
   }
   c.append(dl);
@@ -352,17 +354,21 @@ function card(item, tier) {
   }
   if (item.already_scheduled) c.append(el('div', { className: 'flag', textContent: 'The report says this has already been arranged.' }));
   if (item.unverified) c.append(el('div', { className: 'flag', textContent: 'The app could not finish checking this one.' }));
-  if (tier === 'second') c.append(el('div', { className: 'flag', textContent: 'The app did not fill in the details for this one. If your report asks for it, say yes and fill them in.' }));
+  if (tier === 'second') {
+    c.append(el('div', { className: 'flag', textContent: item.needs_details
+      ? 'The app did not fill in the details for this one. If your report asks for it, say yes and fill them in.'
+      : 'The app was less sure that this asks for anything. If your report asks for it, say yes.' }));
+  }
   if (tier === 'negated') c.append(el('div', { className: 'flag', textContent: 'The app read this as saying no further test or follow-up is needed. If your report does ask for something here, say yes.' }));
 
   const yes = el('input', { type: 'radio', name: `a-${item.id}`, checked: state.answers[item.id] === 'yes' });
   const no = el('input', { type: 'radio', name: `a-${item.id}`, checked: state.answers[item.id] === 'no' });
-  const editor = detailsEditor(item.id, item, tier === 'second' && state.answers[item.id] === 'yes');
-  yes.addEventListener('change', () => { state.answers[item.id] = 'yes'; if (tier === 'second') editor.hidden = false; });
+  const editor = detailsEditor(item.id, item, item.needs_details && state.answers[item.id] === 'yes');
+  yes.addEventListener('change', () => { state.answers[item.id] = 'yes'; if (item.needs_details) editor.hidden = false; });
   no.addEventListener('change', () => { state.answers[item.id] = 'no'; editor.hidden = true; });
   c.append(el('div', { className: 'answer' },
     el('label', {}, yes, ' Yes, my report asks for this'), el('label', {}, no, ' No, it does not')));
-  if (tier === 'first' || tier === 'negated') {
+  if (!item.needs_details) {
     const change = el('button', { className: 'plain', textContent: 'Change the details', type: 'button' });
     change.addEventListener('click', () => { editor.hidden = !editor.hidden; state.answers[item.id] = state.answers[item.id] || 'yes'; if (!editor.hidden) yes.checked = true; state.changed = { ...(state.changed || {}), [item.id]: true }; });
     c.append(el('div', { className: 'row' }, change));

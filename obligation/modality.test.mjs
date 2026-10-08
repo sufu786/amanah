@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  MODALITIES, DICOM_MODALITY, modalityCode, protocolNamed, studyModalityCodes,
+  MODALITIES, DICOM_MODALITY, modalityCode, modalityWords, protocolNamed, studyModalityCodes,
 } from './modality.mjs';
 
 test('words are read into codes by a fixed rule', () => {
@@ -61,4 +61,18 @@ test('a named protocol is recognised, and a bare modality is not', () => {
   for (const bare of ['CT', 'CT chest', 'MRI', 'mammography', 'chest radiograph', null]) {
     assert.equal(protocolNamed(bare), false, String(bare));
   }
+});
+
+test('the words naming the test are copied whole from the sentence', () => {
+  const table = [
+    ['If symptoms persist, repeat chest radiograph.', 'radiograph'],
+    ['Recommend MRI lumbar spine in 3 months.', 'MRI'],
+    ['Annual screening mammography is advised.', 'mammography'],
+    ['Consider PET-CT for staging.', 'PET-CT'],
+    ['Follow-up x-ray in 6 weeks.', 'x-ray'],
+    ['Correlate clinically.', null],
+    [null, null],
+  ];
+  for (const [text, words] of table) assert.equal(modalityWords(text), words, String(text));
+  for (const [text, words] of table) if (words) assert.ok(text.includes(words), 'always the sentence\'s own words');
 });

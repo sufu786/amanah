@@ -57,6 +57,7 @@ export async function extractReport(text, { model = DEFAULT_MODEL, stages = {}, 
     candidates: 0,
     unverified: [],
     unfilled: [],
+    doubted_fields: [],
     incomplete: false,
     seconds: 0,
   };
@@ -97,6 +98,17 @@ export async function extractReport(text, { model = DEFAULT_MODEL, stages = {}, 
     }
     if (!keep) {
       secondTier.push({ ...hit, doubt_reason: 'verification' });
+      // The doubted item stays in the second tier, but its details are still read, so a patient who
+      // says yes is not left to type them. They travel in `run`, not in the result: the result's
+      // second tier keeps placeholder fields (SCHEMA.json, specification section 3.2), and the
+      // checking step decides what to do with a suggestion. A failure here costs only the suggestion.
+      try {
+        const doubted = await fill(source, hit.recommendation_verbatim, { model });
+        if (doubted.ok && doubted.value.action !== 'unclear') {
+          const { action, modality, interval, interval_verbatim } = doubted.value;
+          run.doubted_fields.push({ span: hit.recommendation_span, fields: { action, modality, interval, interval_verbatim } });
+        }
+      } catch { /* no suggestion; the patient is asked for the details */ }
       continue;
     }
     let filled;

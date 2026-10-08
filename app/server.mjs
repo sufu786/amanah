@@ -151,7 +151,7 @@ export function createApp({ extract = extractReport, storePath = DEFAULT_PATH, m
       const job = jobFor(id);
       if (job.status !== 'done') throw new Error('the report has not finished being read');
       job.check = prepareCheck(job.reading, { date, manual: job.manual });
-      const { proposals, ...shown } = job.check;
+      const { proposals, prefilled, ...shown } = job.check;
       // Stage 6 hazard log, H18. The same report saved twice lists its follow-ups twice. The patient
       // is told, and decides; nothing is merged for them.
       const store = loadStore(storePath);
