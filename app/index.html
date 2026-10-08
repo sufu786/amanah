@@ -98,6 +98,7 @@
     <button id="to-check" disabled>Continue</button>
     <button id="fallback" class="plain" hidden>Mark them myself instead</button>
   </div>
+  <p id="continue-why" class="muted"></p>
   <p id="date-error" class="error"></p>
 </section>
 
@@ -232,7 +233,11 @@ function renderDates(dates) {
 }
 
 let status = 'reading';
-function updateContinue() { $('to-check').disabled = !(chosenDate() && status === 'done'); }
+function updateContinue() {
+  $('to-check').disabled = !(chosenDate() && status === 'done');
+  $('continue-why').textContent = status === 'reading' ? 'Continue becomes available when the reading has finished. Please do not reload the page.'
+    : !chosenDate() ? 'Choose the date of the report to continue.' : '';
+}
 $('date-other').addEventListener('input', () => {
   for (const r of document.querySelectorAll('input[name=date]')) r.checked = false;
   updateContinue();
@@ -243,8 +248,13 @@ async function poll() {
   status = s.status;
   $('fallback').hidden = true;
   if (s.status === 'reading') {
-    $('status').textContent = 'Reading your report, one sentence at a time. This can take a few minutes on this computer.'
-      + (s.of ? ` Looked closely at ${s.done} of ${s.of} possible recommendations.` : '');
+    // The longest part of a reading is the first, one question per sentence. Without a count here
+    // the screen looks frozen for a minute or more, and a stuck-looking page invites a reload, which
+    // loses the reading.
+    const step = s.stage === 'checking'
+      ? ` Checking ${Math.min(s.done + 1, s.of)} of ${s.of} possible recommendations.`
+      : s.of ? ` Reading sentence ${Math.min(s.done + 1, s.of)} of ${s.of}.` : '';
+    $('status').textContent = `Reading your report, one sentence at a time. This can take a few minutes on this computer.${step}`;
     setTimeout(poll, 1500);
   } else if (s.status === 'done') {
     $('status').textContent = state.manual

@@ -180,10 +180,15 @@ export { tightSpan };
 /**
  * Detect in one report. `sectionFilter` applies LABELLING.md 7.4 and 7.8 as a rule; passing false
  * disables it, which is how the two rows of the RESULTS.md table were produced.
+ *
+ * `onSentence` is told how many of the sentences to be asked about have been asked, so a screen can
+ * show progress through the longest part of a reading. The sentences, their order and the questions
+ * are exactly as before; the list is only drawn up first so that its length is known.
  */
-export async function detectInReport(text, { model = DEFAULT_MODEL, sectionFilter = true } = {}) {
+export async function detectInReport(text, { model = DEFAULT_MODEL, sectionFilter = true, onSentence = () => {} } = {}) {
   const hits = [];
   let asked = 0;
+  const todo = [];
   for (const seg of splitSentences(text)) {
     // The span is tightened before the model sees anything, so the sentence asked about and the
     // sentence stored are the same string. The heading travels separately, as context.
@@ -191,6 +196,10 @@ export async function detectInReport(text, { model = DEFAULT_MODEL, sectionFilte
     const sentence = text.slice(...span);
     if (sentence.length <= 2) continue;
     if (sectionFilter && sectionCannotRecommend(seg.section)) continue;
+    todo.push({ seg, span, sentence });
+  }
+  for (const { seg, span, sentence } of todo) {
+    onSentence({ done: asked, of: todo.length });
     asked++;
     if (!await detectInSentence(sentence, seg.section, { model })) continue;
     hits.push({
@@ -212,6 +221,7 @@ export async function detectInReport(text, { model = DEFAULT_MODEL, sectionFilte
       already_scheduled: false,
     });
   }
+  onSentence({ done: asked, of: todo.length });
   return { hits: dedupeRepeats(hits), asked };
 }
 

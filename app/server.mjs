@@ -120,12 +120,12 @@ export function createApp({ extract = extractReport, storePath = DEFAULT_PATH, m
       const { text, manual = false } = await readJson(req);
       if (typeof text !== 'string' || !text.trim()) throw new Error('paste the text of a report first');
       const id = randomUUID();
-      const job = { text, manual: Boolean(manual), status: manual ? 'done' : 'reading', done: 0, of: null };
+      const job = { text, manual: Boolean(manual), status: manual ? 'done' : 'reading', stage: null, done: 0, of: null };
       jobs.set(id, job);
       if (manual) {
         job.reading = { result: empty(), run: { unverified: [], incomplete: false } };
       } else {
-        extract(text, { model, onProgress: (p) => { job.done = p.done; job.of = p.of; } })
+        extract(text, { model, onProgress: (p) => { job.stage = p.stage ?? null; job.done = p.done; job.of = p.of; } })
           .then((reading) => { job.reading = reading; job.status = 'done'; })
           .catch((e) => {
             job.status = e instanceof ModelUnavailableError ? 'model_unavailable' : 'error';
@@ -143,7 +143,7 @@ export function createApp({ extract = extractReport, storePath = DEFAULT_PATH, m
 
     if (req.method === 'GET' && url.pathname === '/api/job') {
       const job = jobFor(url.searchParams.get('id'));
-      return send(res, 200, { status: job.status, done: job.done, of: job.of, error: job.error ?? null });
+      return send(res, 200, { status: job.status, stage: job.stage, done: job.done, of: job.of, error: job.error ?? null });
     }
 
     if (req.method === 'POST' && url.pathname === '/api/check') {

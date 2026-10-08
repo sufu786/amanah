@@ -77,7 +77,7 @@ export async function extractReport(text, { model = DEFAULT_MODEL, stages = {}, 
 
   let detected;
   try {
-    detected = await detect(source, { model });
+    detected = await detect(source, { model, onSentence: (p) => onProgress({ stage: 'reading', ...p }) });
   } catch (err) {
     throw new ModelUnavailableError(err);
   }
@@ -88,7 +88,7 @@ export async function extractReport(text, { model = DEFAULT_MODEL, stages = {}, 
   const secondTier = [];
   const rejected = [];
   for (const [i, hit] of detected.hits.entries()) {
-    onProgress({ done: i, of: detected.hits.length });
+    onProgress({ stage: 'checking', done: i, of: detected.hits.length });
     let keep = true;
     try {
       keep = await verify(source, hit.recommendation_verbatim, { model });
@@ -115,7 +115,7 @@ export async function extractReport(text, { model = DEFAULT_MODEL, stages = {}, 
       rejected.push({ reason: filled.reason, quote: hit.recommendation_verbatim });
     }
   }
-  onProgress({ done: detected.hits.length, of: detected.hits.length });
+  onProgress({ stage: 'checking', done: detected.hits.length, of: detected.hits.length });
 
   run.incomplete = run.unverified.length > 0 || run.unfilled.length > 0;
   run.seconds = Math.round((Date.now() - started) / 1000);
