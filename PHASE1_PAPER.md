@@ -531,11 +531,13 @@ Code, prompts, the labelling protocol with all 27 precedents, the sampling plan 
 pre-registered draws, and every result including the reverted experiments are in the project
 repository (https://github.com/sufu786/amanah), code under AGPL-3.0 and documents under CC BY 4.0.
 The full development history, failed experiments included, is in extraction/RESULTS.md. Report text
-cannot be redistributed under the MIMIC-IV data use agreement. The gold labels will be deposited with
-the archived version of this paper, with the quoted text removed. They keep spans, fields and a hash
-of each report's text, so a credentialed reader can rebuild the exact corpus from MIMIC identifiers,
-and the loader will refuse the labels if any report differs. The SHA-256 hashes of both unredacted
-label files are recorded in extraction/CORPUS.md.
+cannot be redistributed under the MIMIC-IV data use agreement. The gold labels are not published:
+PhysioNet was asked whether labels derived from MIMIC may be shared outside it, with the quoted text
+removed, and had not answered when this version was posted. The author will send them to any reader
+who holds PhysioNet access to MIMIC-IV-Note. They keep spans, fields and a hash of each report's text,
+so such a reader can rebuild the exact corpus from MIMIC identifiers, and the loader will refuse the
+labels if any report differs. The SHA-256 hashes of both unredacted label files are recorded in
+extraction/CORPUS.md.
 
 The sampling plan (extraction/CORPUS.md) and the labelling protocol (extraction/LABELLING.md) served
 as the study protocol. The study was not registered in a public registry. Instead each draw, the
@@ -556,7 +558,8 @@ During labelling, excerpts of report text were shown to a general-purpose langua
 third party, to discuss individual calls (section 2.2). PhysioNet's guidance permits such services
 only when they retain none of the data, use none of it for training, and allow no human review [18].
 Those conditions were not confirmed before the excerpts were shared, so the sharing cannot be shown
-to have met them. It is disclosed here so that a reader can weigh it.
+to have met them. It was reported to PhysioNet on 7 October 2026, and is disclosed here so that a
+reader can weigh it. No reply had been received when this version was posted.
 
 The collection of patient information for MIMIC and the creation of the research resource were
 reviewed by the Institutional Review Board at the Beth Israel Deaconess Medical Center, which granted
