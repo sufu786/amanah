@@ -259,3 +259,23 @@ test('a time taken from another sentence is dropped, and a scan read as a lab te
   assert.equal(ob.extraction.interval_not_in_sentence, 'in 6 months', 'what was dropped is recorded');
   assert.equal(out.obligations.find((o) => o.recommendation.text_verbatim === MAMMO).recommendation.action, 'imaging');
 });
+
+test('a sentence that depends on a condition is kept as a question, whether the patient added it or marked it', async () => {
+  const c = await checked();
+  const s = REPORT.indexOf(MAMMO);
+  const out = applyDecisions(c, {
+    text: REPORT, at: AT,
+    decisions: answer(c, { [NODULE]: { action: 'imaging', modality: 'CT', interval: { value: 6, unit: 'month' }, conditional: true } }),
+    added: [{ span: [s, s + MAMMO.length], details: { action: 'imaging', modality: 'mammography', interval: { value: 1, unit: 'year' }, conditional: true } }],
+  });
+  assert.equal(out.obligations.length, 0, 'no due date for either');
+  assert.deepEqual(out.notes.map((n) => n.quote).sort(), [MAMMO, NODULE].sort());
+  assert.ok(out.log.some((l) => l.event === 'marked_conditional' && l.quote === NODULE));
+
+  const kept = applyDecisions(c, {
+    text: REPORT, at: AT,
+    decisions: answer(c, { [PERSIST]: { action: 'imaging', modality: 'radiograph', interval: { value: 6, unit: 'week' }, conditional: false } }),
+  });
+  assert.equal(kept.obligations.length, 0, 'a condition the app saw cannot be removed by unticking it');
+  assert.deepEqual(kept.notes.map((n) => n.quote), [PERSIST]);
+});

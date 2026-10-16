@@ -270,6 +270,12 @@ export function applyDecisions(check, { text, decisions = [], added = [], at, pa
       };
     }
 
+    // The patient can say an item depends on a condition the app did not see. They can never say the
+    // reverse: a condition the app saw stays one, because removing it would give it a due date.
+    if (d.details?.conditional === true && !proposal.flags?.includes('conditional')) {
+      proposal = { ...proposal, flags: [...(proposal.flags ?? []), 'conditional'] };
+      log.push({ at, event: 'marked_conditional', quote: p.recommendation.text_verbatim });
+    }
     if (proposal.flags?.includes('conditional')) {
       notes.push({
         kind: 'conditional',
@@ -292,6 +298,12 @@ export function applyDecisions(check, { text, decisions = [], added = [], at, pa
     const quote = text.slice(s, e).trim();
     const fixed = checkDetails(a.details ?? {}, `"${quote}"`);
     log.push({ at, event: 'added', tier: 'patient', quote });
+    // A sentence the patient adds can depend on a condition too, and is then kept the same way as one
+    // the app found: a question for the doctor, never a due date. Found by the scenario run.
+    if (a.details?.conditional === true) {
+      notes.push({ kind: 'conditional', quote, condition: null, document_date: check.date, at });
+      continue;
+    }
     obligations.push(acceptProposal({
       id: randomUUID(),
       confidence: 1,

@@ -213,3 +213,10 @@ as finding a patient's follow-ups for them.
 
 **No real person has used any of this.** Stage 6 is where that starts, and its findings may change
 stages 2 to 4.
+
+**Without volunteers, 2026-10-17.** No volunteers were available, so the volunteer test was not run
+and the app is published as a research prototype, not for real patients' reports (`PHASE2_SAFETY.md`
+section 4). The five invented reports the protocol names are in `app/scenarios.mjs`, and
+`app/run-scenarios.mjs` takes them through the app with the real model. All 28 of the app's rules
+held. Its dry run found that a sentence the patient adds by hand could not be marked as conditional;
+that is fixed.

@@ -1,7 +1,9 @@
 # Phase 2 safety review: the patient app
 
-**Status:** written 2026-10-08, after stages 1 to 5 of `PHASE2_PLAN.md`. The app is **not yet cleared
-for real reports.** Section 4 says what has to happen first.
+**Status:** written 2026-10-08, after stages 1 to 5 of `PHASE2_PLAN.md`. Revised 2026-10-17: the
+volunteer test in section 3 was not run, because no volunteers were available. The app is published
+as a **research prototype, not for use with real patients' reports**. Section 3a records what was
+checked without people instead, and section 4 says what that does and does not allow.
 
 The concept note gates Phase 2 on a safety review. This is it. It covers the local app in `app/`, in
 which a patient checks the follow-up recommendations in their own report, on their own computer.
@@ -27,7 +29,7 @@ Test files are in `app/` unless named otherwise.
 | H3 | A real recommendation the app doubted is overlooked, or an item is never answered | As H1 | The less-sure items are shown in full under their own heading. The page will not save until every item is answered, and since this review **the server refuses too**, so a faulty page cannot skip them | `checking.test` "refuses to save until every item ... has an answer" | None beyond H1 | **Closed in this review** |
 | H4 | The wrong date is chosen as the report date, such as a date of birth | Every due date wrong, by years | The patient chooses; each candidate date is shown with its surrounding words; dates that read two ways are flagged; two-digit years are not read. Since this review **the chosen date stays on the checking screen**, with a way back to change it | `extraction/dates.test` (all); `server.test` "nothing is saved without a date" | A patient can still choose the wrong date and not notice | Mitigated; section 3 checks it |
 | H5 | A field is invented behind a genuine quote, such as an action or a body part | A follow-up described wrongly | Every field is shown for the patient to correct. A stated interval must be found in the words of the recommendation sentence itself, or it is dropped (since 2026-10-09; before, anywhere in the report was enough). A sentence that names a scan is never read as a lab test. Corrections are recorded on the follow-up | `checking.test` "a correction is applied and recorded"; "a time taken from another sentence is dropped" | Phase 1 found this class of error; the checks above catch two shapes of it, not all | Mitigated |
-| H6 | A conditional recommendation becomes a due date | A duty the report made contingent, asserted as owed | Conditional items are kept as questions for a doctor, never given a due date | `checking.test` "a condition is kept as a question, never a due date" | None | Closed |
+| H6 | A conditional recommendation becomes a due date | A duty the report made contingent, asserted as owed | Conditional items are kept as questions for a doctor, never given a due date. Since 2026-10-17 the patient can also mark a condition the app did not see, on an item it marked or a sentence they added, and cannot unmark one it did see. The added-sentence path had no way to say so until the scenario run in section 3a found it | `checking.test` "a condition is kept as a question, never a due date"; "whether the patient added it or marked it" | A condition the app missed and the patient does not mark still gets a due date | Mitigated |
 | H7 | The condition's wording is missing | The patient cannot see what it depends on | The pipeline does not return the wording separately, so the screen points at the sentence, which contains it, rather than quoting an empty string | Stage 2 in `PHASE2_PLAN.md`; screenshots | The condition is not set apart in the printed summary | Mitigated |
 | H8 | A later report is taken as the follow-up when it is not | A real duty closed silently; the dangerous direction | Nothing closes without the patient's yes. A report is never offered as the follow-up of its own follow-ups. A study of another kind of test is never offered. Doubtful matches show why, in plain words | `stage4.test` (all); `obligation/conformance.test` section 4.5 and v0.6 | A patient may say yes to the wrong report | Mitigated; H9 is the undo |
 | H9 | A follow-up closed by mistake cannot be reopened | A real duty stays closed | Since this review **a closed follow-up can be reopened** by the patient. The closure stays in its history (specification sections 3.1 and 4.3) | `stage4.test` "closed by mistake can be reopened" | None | **Closed in this review** |
@@ -75,6 +77,10 @@ says nothing about whether the report is the follow-up, which the patient decide
 
 ## 3. Volunteer test, with invented reports
 
+**Not run.** No volunteers were available to the project. The protocol is kept as written, with the
+pass criteria fixed before any result, so that anyone who later runs it is held to the same test. The
+five reports it names are written out in `app/scenarios.mjs`.
+
 The open hazards, H1, H4, H20 and H25, are about what people do. Only people can answer them.
 
 **Who.** Six to eight adults with no clinical training, including at least two over 65 and at least
@@ -105,6 +111,82 @@ again on the changed screen.
 stuck for two minutes, which is recorded as a failure on that task. Consent in writing, for taking part
 and for notes being kept without names.
 
+## 3a. Checked without people: the five reports, run through the app
+
+`node app/run-scenarios.mjs` takes the five reports through the server the page talks to, with the
+real model, answering as a careful patient who already knows the answers. It checks the app's own
+rules, which must hold whatever the model reads, and records what the model read, which is an
+observation on five invented reports and not a measurement. `--dry` runs it without a model.
+
+The dry run found one defect before the model was involved: a sentence the patient added by hand
+could not be marked as depending on a condition, so a conditional recommendation added that way
+became an ordinary follow-up. Fixed; see H6.
+
+Model qwen2.5:7b-instruct-q4_K_M. Run 2026-10-17.
+
+**The app's rules.**
+
+| Report | Rule | Held |
+|---|---|---|
+| 1 | the report date is offered | yes |
+| 1 | the may-have-missed notice is shown | yes |
+| 1 | a save with an item unanswered is refused | yes |
+| 1 | "Recommend CT chest in 3 months." is saved with the right due date (due 2026-05-10) | yes |
+| 1 | a report is not asked about as the follow-up of its own follow-ups | yes |
+| 2 | the report date is offered | yes |
+| 2 | the may-have-missed notice is shown | yes |
+| 2 | a save with an item unanswered is refused | yes |
+| 2 | "MRI of the liver in 6 months is suggested." is saved with the right due date (due 2026-09-03) | yes |
+| 2 | "a dedicated thyroid ultrasound would be appropriate" is saved with the right due date (due null) | yes |
+| 2 | a report is not asked about as the follow-up of its own follow-ups | yes |
+| 3 | the report date is offered | yes |
+| 3 | the date of birth is listed too, with its words, and nothing is chosen for the patient | yes |
+| 3 | the may-have-missed notice is shown | yes |
+| 3 | a save with an item unanswered is refused | yes |
+| 3 | "Repeat ultrasound in 12 months." is saved with the right due date (due 2027-04-15) | yes |
+| 3 | a report is not asked about as the follow-up of its own follow-ups | yes |
+| 4 | the report date is offered | yes |
+| 4 | the may-have-missed notice is shown | yes |
+| 4 | a save with an item unanswered is refused | yes |
+| 4 | a conditional recommendation is kept as a question, with no due date | yes |
+| 4 | "a follow-up chest radiograph in 8 weeks is recommended to confirm resolution." is saved with the right due date (due 2026-07-15) | yes |
+| 4 | a report is not asked about as the follow-up of its own follow-ups | yes |
+| 5 | the report date is offered | yes |
+| 5 | the may-have-missed notice is shown | yes |
+| 5 | the earlier follow-up is asked about, not closed | yes |
+| 5 | after the patient says yes, it is closed, and can be reopened | yes |
+| 5 | a scanned PDF is refused by name, never read as a report with nothing in it | yes |
+
+**The model's reading.**
+
+| Report | Recommendation | What the app did | Details right as shown | Typed by the patient | Read by rule |
+|---|---|---|---|---|---|
+| 1 | Recommend CT chest in 3 months. | marked, less sure | yes | no | modality |
+| 2 | a dedicated thyroid ultrasound would be appropriate | marked, less sure | no | no |  |
+| 2 | MRI of the liver in 6 months is suggested. | marked, less sure | yes | no | modality |
+| 3 | Repeat ultrasound in 12 months. | marked | yes | no |  |
+| 4 | If symptoms do not settle with treatment, a repeat chest radiograph is advised. | marked | yes | no |  |
+| 4 | a follow-up chest radiograph in 8 weeks is recommended to confirm resolution. | marked, less sure | yes | no |  |
+| 5 | (none in this report) | | | | |
+
+| Report | Items shown that ask for nothing | Seconds to read |
+|---|---|---|
+| 1 | 0 | 147 |
+| 2 | 0 | 183 |
+| 3 | 0 | 177 |
+| 4 | 0 | 189 |
+| 5 | 0 | 69 |
+
+What this shows: on these reports the app keeps its rules, the date of birth is listed beside the
+report date and not chosen, and nothing a patient answers yes to is saved with another sentence's time.
+The model found all six recommendations and marked nothing false, but its own check doubted four of
+the six, the weakness Phase 1 measured. Since 2026-10-09 those arrive with their details, so the
+patient typed none; one of the six still had a detail wrong as shown.
+
+What it cannot show: whether a person notices a recommendation the app missed (none was missed here,
+and the script knows the answers), chooses the right date without being told, or understands the
+notices. H1, H4 and H25 are unchanged by it.
+
 ## 4. The gate
 
 A real report may go through the app when all of the following hold:
@@ -117,4 +199,12 @@ A real report may go through the app when all of the following hold:
    remind anyone who does not open it or use the calendar file.
 4. Every test passes on the version being released.
 
-None of these holds yet except the last.
+Condition 2 cannot be met without volunteers, and none were available. The gate is therefore not
+passed, and is not lowered to fit. What follows from that, decided 2026-10-17:
+
+- The app is published as a research prototype for others to inspect, run on invented reports, and
+  test with people. The README and the paper say it is not for real patients' reports.
+- Section 3a stands in for the parts of the test that need no person. It shows the app keeps its own
+  rules on the five reports. It says nothing about H1 or H25, which stay open.
+- Anyone who runs the section 3 protocol and passes it, with conditions 1 and 3 met, has met this gate.
+  Nothing else meets it.

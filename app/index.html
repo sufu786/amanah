@@ -311,6 +311,7 @@ function detailsEditor(key, item, open) {
     action: item.action && item.action !== 'unclear' ? item.action : '',
     modality: item.modality ?? '',
     interval: item.interval ? { ...item.interval } : null,
+    conditional: Boolean(item.conditional),
   };
   state.details[key] = d;
   const wrap = el('div', { className: 'details', hidden: !open });
@@ -325,10 +326,14 @@ function detailsEditor(key, item, open) {
   const syncInterval = () => { d.interval = value.value && unit.value ? { value: Number(value.value), unit: unit.value } : null; };
   value.addEventListener('input', syncInterval);
   unit.addEventListener('change', syncInterval);
+  // A condition the app saw cannot be unticked: that would give it a due date.
+  const cond = el('input', { type: 'checkbox', checked: d.conditional, disabled: Boolean(item.conditional) });
+  cond.addEventListener('change', () => { d.conditional = cond.checked; });
   wrap.append(
     el('label', {}, 'What the report asks for: ', action),
     el('label', {}, 'Which test, in the report\'s words: ', modality),
     el('label', {}, 'When, as the report says: ', value, ' ', unit),
+    el('label', {}, cond, ' It depends on something, for example "if symptoms persist". It is then kept as a question for your doctor.'),
   );
   return wrap;
 }

@@ -97,7 +97,7 @@ and no deployment. Nothing here is fit for clinical use by anyone.
 |---|---|---|
 | 0 | Specification, public repository, DOI | Complete |
 | 1 | Extractor validated on a public corpus | Measured; rule failed, see below |
-| 2 | Upload-a-report path, patient verification, reminders, prepared summary | Built as a local app in `app/`; safety review written, volunteer test not yet run |
+| 2 | Upload-a-report path, patient verification, reminders, prepared summary | Built as a local app in `app/`; research prototype, not tested with users |
 | 3 | Locale packs | Mechanism built, only English exists |
 | 4 | Patient FHIR connect (US Cures Act APIs, NHS App) | Not started |
 | 5 | TB and hepatitis B linkage deployment with a national programme partner | Not started |
@@ -121,8 +121,10 @@ with the reasoning already done.
 computer: paste a report or choose a PDF, check every item beside the highlighted text, keep a list,
 print the prepared summary, add due dates to a calendar, and confirm when a later report was the
 follow-up. Nothing leaves the machine. See [`PHASE2_PLAN.md`](PHASE2_PLAN.md) for how it was built and
-[`PHASE2_SAFETY.md`](PHASE2_SAFETY.md) for the safety review. **It is not cleared for real reports**
-until the volunteer test in that review has passed.
+[`PHASE2_SAFETY.md`](PHASE2_SAFETY.md) for the safety review. **It is a research prototype and is not
+for use with real patients' reports.** It has been run on five invented reports, but no person other
+than its author has used it, so whether people notice what it misses and understand what it says is
+not known. The user study that would show this is written out in the safety review for anyone to run.
 
 ### What is not
 

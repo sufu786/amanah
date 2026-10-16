@@ -16,10 +16,12 @@ themselves. Without `npm install`, everything works except reading PDFs, and the
 Everything stays on the computer. The server answers only requests addressed to 127.0.0.1, the page
 loads nothing from outside, and the report text is dropped once the patient has saved.
 
-**Status:** all six stages built. Tested on invented reports only. **Not cleared for real reports**
-until the volunteer test in `PHASE2_SAFETY.md` has passed; that file is the safety review and the
-gate.
+**Status:** a research prototype, **not for use with real patients' reports.** All six stages are
+built and tested on invented reports only. The volunteer test in `PHASE2_SAFETY.md`, which is the
+safety review and the gate, has not been run, so the gate is not passed.
 
 ```
 node --test app/
+node app/run-scenarios.mjs        the five invented reports, with the real model (about 15 minutes)
+node app/run-scenarios.mjs --dry  the same, without a model
 ```
