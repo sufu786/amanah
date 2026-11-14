@@ -71,13 +71,12 @@ including typographical errors. Do not tidy. Spans are offsets into the extracte
 round-trip: `text[start:end]` has to equal the verbatim string, or the label is invalid.
 
 **How much to select.** The span has to contain the words that state the action. "She prefers
-excision" is not a sufficient span for a `referral`: the sentence continues "and was given
-information to schedule an appointment", and the duty is in the second half. Section 6 matches an
+excision" is not a sufficient span for a `referral`: the sentence continues "[report wording removed]", and the duty is in the second half. Section 6 matches an
 extractor's output against the gold standard by span, so a gold span that omits the action
 penalises an extractor for quoting the right words.
 
 The span does not have to exclude the finding. Reports often state both in one sentence, as in
-"11-mm lesion in the left thyroid lobe for which recommend correlation with ultrasound", and cutting
+"[report wording removed]", and cutting
 that in two would quote the clinician less faithfully than leaving it whole. `finding_span` is set
 separately whenever the report names a finding, and the two spans are allowed to overlap.
 
@@ -279,8 +278,7 @@ fact that the pattern was written by the person who knew that did not help.
 
 **The text.** From a portable chest radiograph:
 
-> "Given the extensive changes described above, it would be impossible to exclude superimposed
-> aspiration/pneumonia in the appropriate clinical setting."
+> "[report wording removed]."
 
 **The decision.** Not a recommendation.
 
@@ -318,7 +316,7 @@ action.
 
 **The text.** From an MRI of the cervical spine:
 
-> "11-mm lesion in the left thyroid lobe for which recommend correlation with ultrasound."
+> "[report wording removed]."
 
 **The decision.** A recommendation.
 
@@ -365,8 +363,7 @@ occurrence belongs to the instance that quoted it, so an occurrence landing on a
 canonical span is dropped rather than claimed by both.
 
 **This fixes exact repeats and not near ones, including the example above.** The thyroid
-recommendation this precedent was written from reads "11-mm rounded lesion in the left lobe of the
-thyroid" in the findings and "11-mm lesion in the left thyroid lobe" in the impression. Same duty,
+recommendation this precedent was written from reads "[report wording removed]" in the findings and "[report wording removed]" in the impression. Same duty,
 reworded. The search is exact once whitespace is collapsed, so it finds nothing, and an extractor
 quoting the findings copy of a reworded recommendation is still scored as a miss and a false
 positive.
@@ -382,8 +379,7 @@ rather than repeated, and that number decides whether this is worth solving and 
 
 **The text.** From a diagnostic mammogram reported as BI-RADS 2, benign:
 
-> "Findings reviewed with the patient. She prefers excision and was given information to schedule
-> an appointment at the Breast ___."
+> "[report wording removed] ___."
 
 **The decision.** A recommendation. Action `referral`, `already_scheduled` not set.
 
@@ -413,15 +409,11 @@ the pilot rather than mid-corpus.
 **The text.** Four of the fifty pilot reports end with a notification block. Two shapes appeared.
 From a screening mammogram reported BI-RADS 0:
 
-> "NOTIFICATION: The mammography department will attempt to contact the patient to arrange for
-> additional evaluation; the patient will be sent a letter requesting her return and her clinician
-> will be sent a copy of this report."
+> "[report wording removed]."
 
 From a renal transplant ultrasound whose impression lists three findings and asks for nothing:
 
-> "NOTIFICATION: The impression and recommendation above was entered by Dr. ___ on ___ at 14:23
-> into the Department of Radiology critical communications system for direct communication to the
-> referring provider."
+> "[report wording removed]."
 
 **The decision.** Neither is an instance. The mammogram carries one, taken from its recommendation
 line. The ultrasound is labelled as having none.
@@ -442,10 +434,7 @@ attempt to arrange is an open obligation, and the flag stays clear.
 
 ### 7.9 A recommendation whose wording is damaged
 
-**The text.** From the impression of a CT abdomen and pelvis:
-
-> "A soft tissue density and filling defect is noted in the right posterior lateral bladder may
-> represent a blood clot or a bladder polyp. Recommend lateral some for further evaluation."
+**The text.** From the impression of a CT abdomen and [report wording removed]."
 
 **The decision.** A recommendation. Action `unclear`, finding `other`, modality and interval empty.
 
@@ -467,9 +456,7 @@ choosing between them here would be a guess wearing the clothes of a label.
 
 **The text.** From a CT chest, in two places:
 
-> "Sequential scanning of the abdomen and pelvis will be reported separately."
-
-> "For abdominal findings please refer to CT abdomen report."
+> "[report wording removed]."
 
 **The decision.** No instance.
 
@@ -486,10 +473,7 @@ scheduled or deferred. Compare 7.7, where following the instruction means bookin
 
 **The text.** From a portable chest radiograph, impression items 2 and 3:
 
-> "2. Patchy right base opacity and left mid lung opacification could be due to multifocal
-> infection, aspiration or malignant process not excluded. Recommend followup to resolution.
-> 3. Prominence of the right mediastinum is similar compared to ___ scout image from CT, which may
-> in part relate to prominent ascending aorta. Continue follow-up."
+> "[report wording removed]."
 
 **The decision.** Two instances. "Recommend followup to resolution" against the lung opacities, and
 "Continue follow-up" against the mediastinal prominence. Both action `imaging`, both finding
@@ -566,8 +550,7 @@ eleven instances. Agreeing an enum is worth doing once the full stratum A shows 
 
 **The text.** From an abdominal radiograph taken during a contrast transit study:
 
-> "INDICATION: ___ year old man with SBO// evaluate transit of contrast through small bowel,
-> please obtain at 24 hours after drinking contrast (3PM today)"
+> "[report wording removed])"
 
 **The decision.** No instance.
 
@@ -638,8 +621,7 @@ from memory.
 
 > "Attention on followup exams is recommended."
 > "Close attention on follow-up is recommended."
-> "Micro nodules in the right lower lobe are nonspecific attention in followup studies is
-> recommended."
+> "[report wording removed]."
 
 **The decision.** A recommendation in each case. Action `imaging`, no modality, no interval.
 
@@ -714,10 +696,8 @@ is whether a duty exists and is unreadable, or does not exist in the document.
 
 **The text.** Four shapes, each seen more than once across the full draw:
 
-> "There is unchanged pes planus deformity (not well assessed on non weight-bearing views)."
-> "No displaced labral tear is seen on this non-arthrographic study."
-> "Scattered small sclerotic foci ... are better evaluated on the recent bone scan."
-> "The breast tissue is extremely dense which lowers the sensitivity of mammography."
+> "[report wording removed]."
+> "Scattered small sclerotic foci ... [report wording removed]."
 
 **The decision.** No instance in any of them.
 
@@ -728,9 +708,8 @@ become the label. "Better evaluated on the recent bone scan" is the 7.10 pointer
 the study it names exists, so nothing is outstanding once it has been read.
 
 **Where the line moves.** A limitation followed by a request is an instance, and the request is what
-gets labelled. "The distal phalanx of the fifth toe is poorly visualized ... If there is concern for
-osteomyelitis ... recommend repeat coned-down views" is one. So is "No CT evidence of tamponade
-physiology, however if there is clinical concern, an echocardiogram would further assess", which
+gets labelled. "[report wording removed] ... If there is concern for
+osteomyelitis ... recommend repeat coned-down views" is one. So is "[report wording removed]", which
 sounds like a statement of capability but names a test for this patient's finding under a condition.
 The test is whether the sentence tells someone to do something, not whether it mentions a better
 test.
@@ -740,11 +719,8 @@ test.
 **The text.** Seven forms of the same construction from the full draw:
 
 > "Correlate clinically for risk factors."
-> "Correlation with any history of instrumentation is recommended"
-> "Recommended ... correlation with prior outside imaging studies for change of these lesions."
-> "Correlate clinically and with labs and follow up if necessary."
-> "Correlate with hematology labs for anemia, systemic disease, myeloproliferative or infiltrative
-> changes."
+> "[report wording removed]"
+> "Recommended ... [report wording removed]."
 > "Correlate with LFTs."
 > "Recommend correlation with dental examination."
 
@@ -772,12 +748,7 @@ candidate, and that expansion is a scope decision rather than a labelling one.
 
 **The text.**
 
-> "If there is concern for obstruction, CT should be obtained."
-> "Ultrasound could be obtained for confirmation if clinically indicated."
-> "If there is clinical symptomatology related to this area, this could represent an acute
-> fracture."
-> "This finding could be related to degenerative disease, but suspicious metastasis should be
-> considered, given the clinical scenario of breast cancer."
+> "[report wording removed] clinical scenario of breast cancer."
 
 **The decision.** The first two are instances with `conditional` true. The last two are not
 instances.
@@ -791,7 +762,7 @@ mind and names nothing to do about it.
 "If clinically indicated" is a weak condition, closer to a hedge than a trigger, and it still sets the
 flag. It does not remove the instance, because the sentence names a specific test.
 
-**Timing is not a condition.** "Follow-up CT is recommended after treatment/acute process has resolved"
+**Timing is not a condition.** "[report wording removed]"
 says when, not whether. `conditional` stays false and the interval is empty, because the timing is
 tied to an event and not to a number of units. The same holds for "Consideration for repeat
 tomosynthesis" once pathology returns: the wait is for a result, and the consideration is promised
@@ -801,16 +772,8 @@ either way.
 
 **The text.**
 
-> "the left PICC line continues to be malpositioned in the jugular vein. Urgent revision is
-> required."
-> "NG tube positioned with its tip just beyond the GE junction. Consider advancement for more
-> optimal positioning."
-> "Tip of the endotracheal tube ... is no less than 5 cm from the carina and could be advanced 2 cm
-> for more secured seating."
-> "The tip of a right internal jugular central venous catheter projects over the upper right atrium,
-> approximately 2 cm beyond the cavoatrial junction."
-> "Low position of IUD in lower uterine segment, with 1 arm of the crossbar extending anteriorly into
-> the myometrium by 4 mm"
+> "[report wording removed]."
+> "Tip of the endotracheal tube ... [report wording removed]"
 
 **The decision.** The first three are instances, action `procedure`, modality empty. The last two are
 not instances.
@@ -832,14 +795,10 @@ an argument about what the registry is for rather than about what the report say
 
 **The text.**
 
-> "Correlation with real-time findings and, when appropriate, conventional radiographs is recommended
-> for further assessment." (intraoperative fluoroscopy acquired without a radiologist present)
-> "These findings are so common in asymptomatic persons that they must be interpreted with caution
-> and in context of the clinical situation." (a lumbar prevalence table on a cervical spine MRI)
-> "For high risk patients, recommend follow-up at 12 months and if no change, no further imaging
-> needed." (a pulmonary nodule guideline table under RECOMMENDATION(S))
-> "Once the pathology report is available and concordance is established an addendum will be
-> generated to this report, and the patient will be contacted ..." (a breast biopsy)
+> "[report wording removed]." (intraoperative fluoroscopy acquired without a radiologist present)
+> "[report wording removed]." (a lumbar prevalence table on a cervical spine MRI)
+> "[report wording removed]." (a pulmonary nodule guideline table under RECOMMENDATION(S))
+> "[report wording removed] ..." (a breast biopsy)
 
 **The decision.** No instance in any of them.
 
@@ -848,22 +807,18 @@ It appeared twice, one word apart, on two intraoperative studies whose images sh
 things. A sentence that does not depend on the findings has not been caused by them, so the report
 has created no duty. This is 7.8's template reasoning applied outside a notification block.
 
-The test is not whether a sentence is common. "If there is concern for obstruction, CT should be
-obtained" may appear word for word on many abdominal films, and it is still an instance, because it
+The test is not whether a sentence is common. "[report wording removed]" may appear word for word on many abdominal films, and it is still an instance, because it
 is only written when the gas pattern is nonspecific. Commonness is not boilerplate. Independence
 from the findings is.
 
 **Guideline tables.** A table listing every size and risk band is not a set of instances, and its
 branches are not labelled as negated or as intervals. The report's own sentence pointing into the
-table is the instance: "Recommend correlation with patient risk factors and a follow up CT chest
-imaging, as below." Its interval is null, because it depends on a risk the report does not know.
+table is the instance: "[report wording removed]." Its interval is null, because it depends on a risk the report does not know.
 Choosing the low-risk branch would be choosing for the patient. It is not conditional where every
 branch that applies to the finding's size calls for follow-up, because only the timing depends on
 the risk.
 
-**The template sentence can carry a real one.** The biopsy report's next sentence, "This will
-include consideration for repeat tomosynthesis image of the left breast to confirm that the
-ultrasound finding corresponds to the questioned architectural distortion", follows from a clip that
+**The template sentence can carry a real one.** The biopsy report's next sentence, "[report wording removed]", follows from a clip that
 this report found may be misplaced. That sentence is an instance even though the one before it is
 not.
 
@@ -871,8 +826,7 @@ not.
 
 **The text.**
 
-> "1.0 cm left thyroid lobe nodule. No further follow-up is recommended."
-> "There are no thyroid abnormalities warranting further imaging evaluation."
+> "[report wording removed]."
 
 **The decision.** The first is an instance with `negated` true, finding `thyroid_nodule`. The second
 is not an instance.
@@ -890,13 +844,7 @@ is three instances, one negated.
 
 **The text.**
 
-> "correlation with PET-CT may be helpful to rib alternatively, these nodes may be reassessed at
-> future surveillance CT."
-> "Further evaluation with MRA/CTA is recommended for better assessment"
-> "Continued evaluation of hCG and followup ultrasound should be performed to assess for fetal
-> viability."
-> "Followup imaging with mammography and ultrasound in six months does represent a reasonable
-> approach at this time."
+> "[report wording removed]."
 
 **The decision.** The first two are one instance each, with the first-named test as the modality:
 `PET-CT`, `MRA`. The last two are two instances each, one per test, sharing the recommendation span.
@@ -914,8 +862,7 @@ Two instances with identical spans are permitted. Check after saving that both w
 **The text.**
 
 > "RECOMMENDATION(S): Annual mammography."
-> "RECOMMENDATION(S): The patient can resume annual screening mammography."
-> "At that time, patient will be due annual mammography of the left breast."
+> "[report wording removed]."
 
 **The decision.** An instance in each case, action `imaging`, finding `other`, finding span empty.
 The first two have interval 1 year and anatomy null. The third has anatomy `breast`, laterality
@@ -945,11 +892,7 @@ line on a clearer test, and two tests for the same sentence would give two answe
 
 **The text.**
 
-> "Paracentesis not performed due to supratherapeutic INR. Patient rescheduled for therapeutic
-> paracentesis."
-> "Incomplete MRI examination due to claustrophobia. The patient will be rescheduled for the MRI
-> using a large-bore magnet to allow completion of examination."
-> "Ultrasound guided core biopsy is recommended to confirm benignity." with, in the notification
+> "[report wording removed]." with, in the notification
 > block, "She is scheduled for biopsy on ___."
 
 **The decision.** An instance in each case. `already_scheduled` is true for the paracentesis and the
@@ -964,8 +907,7 @@ The flag follows 7.7 and 7.8. "Rescheduled" and "is scheduled for biopsy" report
 rescheduled" reports an intention, and a department that intends to book has booked nothing.
 
 A notification block cannot create an instance under 7.8, and it can still supply a flag for one the
-impression created. The paracentesis report also confirms "rescheduling of patient for paracentesis
-with rechecking of INR" in its notification block, which would be a `laboratory` instance anywhere
+impression created. The paracentesis report also confirms "[report wording removed]" in its notification block, which would be a `laboratory` instance anywhere
 else in the report. The section filter in `sentences.mjs` suppresses notification text, so any
 detector will miss it; see `CORPUS.md` section 8.
 
@@ -973,11 +915,9 @@ detector will miss it; see `CORPUS.md` section 8.
 
 **The text.**
 
-> "Attention to this finding should be made on subsequent follow up."
-> "There is minimal left apical pneumothorax that should be followed on the subsequent study."
+> "[report wording removed]."
 > "These bear continued surveillance on followup exams."
-> "However, a small focus of subarachnoid hemorrhage may appear similar and close follow-up is
-> recommended."
+> "[report wording removed]."
 
 **The decision.** An instance in each case, under 7.16. Action `imaging`, modality empty, interval
 empty.
@@ -990,7 +930,7 @@ A recommendation may sit only in the findings, with the impression pointing back
 above regarding further workup"). It is labelled where the request is written. The pointer is 7.10
 and adds nothing.
 
-A request written as a relative clause, "that should be followed on the subsequent study", has no
+A request written as a relative clause, "[report wording removed]", has no
 subject of its own. The recommendation span is then the whole sentence, and the finding span overlaps
 it, which section 4 permits.
 

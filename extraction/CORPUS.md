@@ -299,11 +299,7 @@ Two cases to watch, offered as questions rather than predictions:
 Two of the eleven instances attach to no abnormality. Both are negative studies that ask for a
 further test if clinical concern persists.
 
-> "No acute intracranial hemorrhage. If there is continued clinical concern for infarct or vascular
-> causes given the nature of symptoms, further evaluation with MRI is recommended."
-
-> "No sequela of acute trauma visualized. If there is continued concern for rib fracture, dedicated
-> radiographs can be obtained."
+> "[report wording removed]."
 
 There is nothing to quote as the finding. The study found none, and the recommendation is contingent
 on something the clinician cannot see in the images.
@@ -597,9 +593,9 @@ is a direction rather than noise. Resolved by the labeller:
 | Report | The sentence | Resolution |
 |---|---|---|
 | `12862888-RR-107` | "Consider advancement for more optimal positioning" | Pass one stands. 7.21: a written device adjustment is an instance |
-| `19711702-RR-73` | "If the patient has persistent symptoms, then consider repeat film in five to seven days" | Pass one stands. 7.20: a condition followed by an action |
-| `16287567-RR-61` | "If clinically indicated, consider correlation with dedicated chest imaging" | Pass one stands. 7.20 again |
-| `15607310-RR-20` | "This could, however, be better evaluated with multi phasic CT or MR" | **Pass two stands.** 7.18: a statement of what another test would show better, with nothing asked |
+| `19711702-RR-73` | "[report wording removed]" | Pass one stands. 7.20: a condition followed by an action |
+| `16287567-RR-61` | "[report wording removed]" | Pass one stands. 7.20 again |
+| `15607310-RR-20` | "[report wording removed]" | **Pass two stands.** 7.18: a statement of what another test would show better, with nothing asked |
 
 Three of the four are the second pass missing a rule the protocol already carries, which is what an
 intra-rater figure is for: it measures the labeller, and the labeller was less consistent than the
@@ -610,8 +606,7 @@ first pass could not have applied it, and this is step 4 working as designed.
 evaluated", "better assessed", "better seen" and the like was reread against 7.18. Four exist. Two
 carry a condition and stay, because 7.18 itself says a limitation under a condition is a request:
 `19005505-RR-31` ("as needed") and `14006785-RR-53` ("if clinically warranted"). Two are bare
-capability statements and were removed: `15607310-RR-20`, and `17218141-RR-47` ("this would be
-better evaluated on a formal ankle radiograph").
+capability statements and were removed: `15607310-RR-20`, and `17218141-RR-47` ("[report wording removed]").
 
 The corpus therefore holds 130 instances rather than 132. One removal is in the stratum B
 development split and one in the stratum B test split. The development figures in `RESULTS.md`
@@ -716,12 +711,11 @@ recorded in `LABELLING.md` section 7 with how it was encoded instead.
 
 - *Time in hours.* "Repeat chest radiograph in 10 hours" has no unit to go in. Interval null.
 - *Ranges and recurrence.* "In 3 to 6 months", "every few years". Interval null, verbatim kept.
-- *Timing by reference or by event.* "At that time, patient will be due annual mammography", "after
+- *Timing by reference or by event.* "[report wording removed]", "after
   treatment/acute process has resolved". Interval null (7.20, 7.25).
 - *Urgency.* "Urgent revision is required", "nonemergent ultrasound", "close follow-up". There is no
   field, and urgency is not an interval (7.21).
-- *More than one finding per instance.* "Followup in 3 months for assessment of the above described
-  findings" covers three findings and quotes one.
+- *More than one finding per instance.* "[report wording removed]" covers three findings and quotes one.
 - *Alternatives.* "PET-CT ... alternatively ... surveillance CT" stores the first-named test (7.24).
 - *Body parts outside the anatomy list.* Tooth, trachea, bronchus, foot and ankle. Anatomy null, or
   `extremity` where that is honest.

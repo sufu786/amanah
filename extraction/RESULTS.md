@@ -204,7 +204,7 @@ The model is.
 | `12889749-RR-9` | "non of which requires followup imaging" | Negated. The smoke suite predicted this. |
 | `18018980-RR-60` | "Recommend lateral some for further evaluation" | Dictation error. Carries the verb even so. |
 | `10840861-RR-25` | "dedicated radiographs can be obtained" | Permission, not instruction. |
-| `12286776-RR-17` | "this could be further evaluated with MRI lumbar spine" | Permission, not instruction. |
+| `12286776-RR-17` | "[report wording removed]" | Permission, not instruction. |
 | `19303239-RR-45` | "Continue follow-up" | Second duty in the report. The first was found. |
 | `13789201-RR-12` | "RECOMMENDATION: Additional imaging is needed." | A bare need, under its own header. |
 
@@ -437,8 +437,7 @@ again in the impression, in different words. The equivalent-span mechanism added
 exact repeats and deliberately stops there, so the findings copy scores as a miss. This is the known
 downward bias on recall already recorded above, appearing from the other direction.
 
-**Genuine over-reads.** Hedges taken as requests, and one instance of "clinical correlation with
-patient's symptoms is recommended", which the prompt excludes by name as boilerplate with no test
+**Genuine over-reads.** Hedges taken as requests, and one instance of "[report wording removed]", which the prompt excludes by name as boilerplate with no test
 named.
 
 Only the third group is a defect. The first two are scoring artefacts of decisions taken for good
@@ -496,8 +495,7 @@ The first verified run scored 0 of 40 and 81.8% recall, which passes the rule. I
 partly by deleting `19376441-RR-36`: BI-RADS 5, highly suggestive of malignancy, tissue diagnosis
 recommended. The most serious obligation in the pilot.
 
-The first explanation was that the report's notification block, which records that findings and
-recommendations were reviewed with the patient, read as evidence the duty had been discharged. That
+The first explanation was that the report's notification block, which records that [report wording removed], read as evidence the duty had been discharged. That
 explanation was tested by removing the block and asking again. It was wrong: the candidate was kept
 either way.
 
@@ -533,7 +531,7 @@ every true positive and asking what a whole-report check would do to each. Witho
 pass would have removed all four.
 
 One false positive remains. `13789201-RR-12` states its recommendation twice, once under a
-RECOMMENDATION heading and once as `BI-RADS: 0 Incomplete - Need Additional Imaging Evaluation`.
+RECOMMENDATION heading and once as `[report wording removed]`.
 Both are real and both name the same duty. Deduplication does not catch it because the wordings
 differ, which is the same boundary equivalent spans draw in labels.mjs, and for the same reason: two
 differently worded sentences may be two duties, and deciding they are not is a judgement rather than
@@ -756,7 +754,7 @@ string. Six of eleven instances carry a location the report states and the gold 
 | `18018980-RR-60` | `bladder`, no side | "right posterior lateral bladder" |
 | `10840861-RR-25` | none | "rib fracture", with no side anywhere |
 | `12286776-RR-17` | `spine_lumbar`, no side | "right eccentric disc bulge", "right S1 nerve root" |
-| `19303239-RR-45` | none | "right base opacity and left mid lung opacification", so `lung` bilateral |
+| `19303239-RR-45` | none | "[report wording removed]", so `lung` bilateral |
 | `19303239-RR-45` | none | "Prominence of the right mediastinum" |
 
 So the 30% is not a measurement of the extractor. It is a measurement of a gold standard that was
@@ -880,13 +878,12 @@ Thirteen of the 40 development instances are lost. Detection is no longer where 
 **Verification removes more true instances than detection misses.** It removed 39 candidates across
 both strata, and seven of them were labelled instances:
 
-- "There is minimal left apical pneumothorax that should be followed on the subsequent study"
+- "[report wording removed]"
 - "Continued surveillance is suggested"
 - "Patient rescheduled for therapeutic paracentesis"
 - "Annual mammography"
 - "Right lower lobe bronchoscopy", the whole of a RECOMMENDATION(S) section
-- "This could, however, be better evaluated with multi phasic CT or MR"
-- "a dedicated MR is recommended for further evaluation"
+- "[report wording removed]"
 
 Four of these are shapes the labelling protocol settled after the verification prompt was written:
 follow-up tied to a finding whatever the verb (7.27), a rescheduled procedure (7.26), annual screening
@@ -894,8 +891,7 @@ naming its test and interval (7.25). The verifier is applying an older reading o
 gold standard. That is a mismatch between two versions of the protocol, not evidence the model
 cannot judge.
 
-Two are harder calls. The bronchoscopy line is a heading's whole content with no verb, and "could be
-better evaluated with multi phasic CT or MR" sits on the line 7.18 draws between a statement of what
+Two are harder calls. The bronchoscopy line is a heading's whole content with no verb, and "could [report wording removed]" sits on the line 7.18 draws between a statement of what
 a test can show and a request for it. The last item is neither. It is an explicit recommendation
 removed by a model that was shown it, and it is the kind of error the verification stage was built to
 be conservative about.
@@ -986,10 +982,7 @@ cost nothing and the added NO categories removed six candidates that were never 
 
 Verification 0.2 deleted six instances that 0.1 had kept, and the shape is consistent:
 
-- "If there are no contraindications, this could be further evaluated with MRI lumbar spine"
-- "A transthoracic echo is recommended if clinically necessary"
-- "If this is of clinical concern, MRI of the orbits can be performed"
-- "Recommend correlation with patient risk factors and a follow up CT chest imaging"
+- "If there are [report wording removed]"
 
 Two rules added to the NO list did the damage. "Correlation with something that is not a test" fires
 on sentences that name a test and mention risk factors as well. "A condition followed by a diagnosis"
@@ -1015,7 +1008,7 @@ Four experiments, in order.
 | Same candidates, reverse order | 1 of 29 |
 | One candidate alone, versus after two others from its report | the verdict changes |
 
-The last is the explanation. "The patient will be rescheduled for the MRI using a large-bore magnet"
+The last is the explanation. "[report wording removed]"
 is removed when it is the only candidate for its report and kept when the two candidates detection
 0.1 also produced are judged first. Same prompt, same sentence, same report, different answer. The
 server reuses cached state across requests that share a long prefix, and the requests here share an
@@ -1164,8 +1157,7 @@ candidates in total, of which 21 are real.
 This is the same trade RESULTS.md recorded on the pilot, now measured held-out and much worse. The
 pass exists because detection per sentence cannot see tense, and it does catch that: among what it
 removed are a procedure report's own title and an examination name, exactly the shape it was built
-for. It also removes requests it should keep, including "Correlate with hematology labs for anemia,
-systemic disease, myeloproliferative or infiltrative changes", which precedent 7.19 counts and which
+for. It also removes requests it should keep, including "[report wording removed]", which precedent 7.19 counts and which
 the frozen verify 0.1 prompt predates.
 
 The verify 0.2 attempt recorded above was worse still, for different reasons, and was reverted. What
@@ -1287,8 +1279,7 @@ prompt predates, and three plain errors on explicit requests ("Recommend CT ches
 evaluate"). Specification section 12.1 F has the breakdown.
 
 **A label to recheck, not changed.** Among candidates verification removed and the gold standard
-marks as not an instance is "Endotracheal tube has been withdrawn, now terminating about 7.5 cm above
-the carina, and could be advanced". Under precedent 7.21, a written device adjustment is an
+marks as not an instance is "[report wording removed]". Under precedent 7.21, a written device adjustment is an
 instance. The label may be wrong. It is recorded here and left as it is, because the test split is
 spent and a gold label changed after scoring is a number changed after scoring; it belongs in the
 next relabelling pass with the reason attached.
