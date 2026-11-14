@@ -183,6 +183,11 @@ The model found all six recommendations and marked nothing false, but its own ch
 the six, the weakness Phase 1 measured. Since 2026-10-09 those arrive with their details, so the
 patient typed none; one of the six still had a detail wrong as shown.
 
+Run again 2026-11-15 after the detection prompt went from v0.2 to v0.2.1, which replaced four example
+sentences taken from corpus reports (extraction/PROMPT.md, 2026-11-15 entry). All 28 rules held, and
+the model's reading was the same as above in every row. Only the reading times differ, 82 to 227
+seconds per report.
+
 What it cannot show: whether a person notices a recommendation the app missed (none was missed here,
 and the script knows the answers), chooses the right date without being told, or understands the
 notices. H1, H4 and H25 are unchanged by it.

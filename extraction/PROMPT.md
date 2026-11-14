@@ -1,4 +1,7 @@
-# Extraction prompt v0.2
+# Extraction prompt v0.2.1
+
+v0.2.1 is v0.2 with two example sentences replaced, and was never measured. See the 2026-11-15
+entry under "Corrections to this document".
 
 The prompt is versioned and treated as part of the system, not as a tuning knob. Any change to it
 invalidates previously measured metrics, so the version string is recorded in every extraction
@@ -110,7 +113,7 @@ Many reports never use it. Every one of these leaves a duty outstanding and ever
 counts:
   - "Additional imaging is needed."
   - "Dedicated radiographs can be obtained."
-  - "This could be further evaluated with MRI lumbar spine."
+  - "A further view of the left wrist would be useful."
   - "Continue follow-up."
   - "The patient was given information to schedule an appointment."
   - "Tissue diagnosis is warranted."
@@ -129,8 +132,8 @@ Exclude:
     bleeding", under any header. That is why this study was done, not what to do next.
   - Hedges about what a finding is, for example "cannot exclude", "may represent",
     "is likely", "suggestive of". Uncertainty about a finding asks for nothing.
-  - Statements of what this examination could not show, for example "CT is not able to
-    provide intrathecal detail comparable to MRI". A limitation is not a request, even when
+  - Statements of what this examination could not show, for example "the pancreas is
+    obscured by bowel gas and is not well assessed". A limitation is not a request, even when
     it names another test.
   - Notification or communication blocks describing how this report was delivered, even
     when they contain the word "recommendation".
@@ -256,6 +259,20 @@ The sync comment on `SYSTEM_PROMPT` is what failed here, because a comment canno
 violation. It has been replaced with a check: `smoke.mjs` compares the fenced block above against
 `SYSTEM_PROMPT` and exits non-zero on any difference, before it makes a single model call. Same
 principle as the fabrication check, applied to the document instead of the output.
+
+**2026-11-15 - example sentences replaced, version bumped to 0.2.1.**
+
+Two example sentences in the prompt were taken from corpus reports: the fourth item in the list
+under `THE WORD "RECOMMEND" IS NOT THE TEST`, and the example of a statement of what an
+examination could not show. The MIMIC data use agreement does not allow report text to be
+redistributed, so both were replaced with sentences written for the prompt, each standing for the
+same kind of wording. The detection prompt in `detect.mjs` had four such sentences and was changed
+the same way, from detect 0.2 to 0.2.1.
+
+This time the version is bumped, unlike the 2026-08-03 entry, because the prompt that runs has
+changed. Every number in `RESULTS.md` was measured with v0.2 and detect 0.2, and none was measured
+with v0.2.1 or detect 0.2.1. The measured prompts differ from these only in those six sentences,
+and are sent with the labels to readers who have their own MIMIC-IV-Note access.
 
 ## Model plan
 

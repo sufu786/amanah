@@ -26,7 +26,7 @@ import {
   splitSentences, sectionCannotRecommend, tightSpan, SECTION_FILTER_VERSION,
 } from './sentences.mjs';
 
-export const DETECT_VERSION = '0.2';
+export const DETECT_VERSION = '0.2.1';
 
 const OLLAMA = process.env.OLLAMA_HOST || 'http://127.0.0.1:11434';
 const DEFAULT_MODEL = 'qwen2.5:7b-instruct-q4_K_M';
@@ -42,7 +42,7 @@ many ways, and all of these are YES:
   - "Recommend CT follow-up in 6 months."
   - "Additional imaging is needed."
   - "Dedicated radiographs can be obtained."
-  - "This could be further evaluated with MRI lumbar spine."
+  - "A further view of the left wrist would be useful."
   - "Continue follow-up."
   - "Tissue diagnosis is recommended."
   - "The patient was given information to schedule an appointment."
@@ -60,8 +60,8 @@ Seven kinds that are also YES. Each is a real duty and each is easy to read past
      as such. Answer YES.
 
   3. An examination or procedure that is being rescheduled or booked. "Patient rescheduled for
-     therapeutic paracentesis", "she is scheduled for biopsy", "the patient will be rescheduled for
-     the MRI". Something still has to happen, whoever arranged it.
+     therapeutic paracentesis", "she is scheduled for biopsy", "a repeat MRI has been booked for
+     next week". Something still has to happen, whoever arranged it.
 
   4. Routine screening that names a test and an interval. "Annual mammography", "the patient can
      resume annual screening mammography". Compare the NO list: screening described in general terms
@@ -75,7 +75,7 @@ Seven kinds that are also YES. Each is a real duty and each is easy to read past
      thyroid ultrasound is recommended", "correlate with LFTs", "recommend correlation with dental
      examination".
 
-  7. A condition followed by an action. "If there is concern for obstruction, CT should be obtained",
+  7. A condition followed by an action. "If the pain persists, MRI of the knee may be performed",
      "ultrasound could be obtained if clinically indicated". Whether the condition holds is for a
      clinician to judge later.
 
@@ -92,8 +92,8 @@ Answer NO for:
     this could represent an acute fracture" asks for nothing. Nor does "metastasis should be
     considered": what is to be considered is what the finding might be, not something to do.
   - What this study could not show, or what another test would show better, with nothing asked for:
-    "not well assessed on non weight-bearing views", "better evaluated with MRI". A limitation is
-    not a request, even when it names another test.
+    "the pancreas is obscured by bowel gas and is not well assessed", "better evaluated with MRI".
+    A limitation is not a request, even when it names another test.
   - A study that has already been done: "better evaluated on the recent bone scan", "this is better
     seen on the prior CT". The study it names exists.
   - Correlation with something that is NOT a test: "correlate clinically", "correlation with any

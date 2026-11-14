@@ -26,7 +26,7 @@ import { pathToFileURL } from 'node:url';
 
 import { splitSentences, sectionCannotRecommend, tightSpan } from './sentences.mjs';
 
-export const PROMPT_VERSION = '0.2';
+export const PROMPT_VERSION = '0.2.1';
 
 // The 7B is the model selected in extraction/RESULTS.md: zero false positives and zero
 // fabrications on 50 real reports, against 2 false positives and 6 fabrication rejections for
@@ -141,7 +141,7 @@ Many reports never use it. Every one of these leaves a duty outstanding and ever
 counts:
   - "Additional imaging is needed."
   - "Dedicated radiographs can be obtained."
-  - "This could be further evaluated with MRI lumbar spine."
+  - "A further view of the left wrist would be useful."
   - "Continue follow-up."
   - "The patient was given information to schedule an appointment."
   - "Tissue diagnosis is warranted."
@@ -160,8 +160,8 @@ Exclude:
     bleeding", under any header. That is why this study was done, not what to do next.
   - Hedges about what a finding is, for example "cannot exclude", "may represent",
     "is likely", "suggestive of". Uncertainty about a finding asks for nothing.
-  - Statements of what this examination could not show, for example "CT is not able to
-    provide intrathecal detail comparable to MRI". A limitation is not a request, even when
+  - Statements of what this examination could not show, for example "the pancreas is
+    obscured by bowel gas and is not well assessed". A limitation is not a request, even when
     it names another test.
   - Notification or communication blocks describing how this report was delivered, even
     when they contain the word "recommendation".

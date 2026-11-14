@@ -1077,6 +1077,13 @@ The prompt hashes are of the prompt strings themselves rather than of the files,
 to a comment does not read as a changed prompt, and a changed prompt cannot hide inside an unrelated
 commit.
 
+**Added 2026-11-15, after the study.** Four example sentences in the detect v0.2 prompt were taken
+from corpus reports. The data use agreement does not allow report text to be redistributed, so they
+were replaced with sentences written for the prompt, and the result is detect v0.2.1, prompt sha256
+a29bde41ae4e06e5732f604c2c020664. Nothing in this file was measured with v0.2.1. The measured v0.2
+prompt is sent with the labels to readers who hold MIMIC-IV-Note access, and can be checked against
+the hash above. Verify v0.1 and fields v0.1 are unchanged.
+
 **Verification is run in the pipeline's ordinary mode**, candidates in detection order, with no
 isolation between calls. The ordering sensitivity measured above, about 3% of verdicts, therefore
 applies to the test figures and is published with them. Isolating each candidate was considered and

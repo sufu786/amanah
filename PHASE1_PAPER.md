@@ -537,7 +537,11 @@ removed, and had not answered when this version was posted. The author will send
 who holds PhysioNet access to MIMIC-IV-Note. They keep spans, fields and a hash of each report's text,
 so such a reader can rebuild the exact corpus from MIMIC identifiers, and the loader will refuse the
 labels if any report differs. The SHA-256 hashes of both unredacted label files are recorded in
-extraction/CORPUS.md.
+extraction/CORPUS.md. For the same reason, report wording was removed from the repository's documents
+after the study, and four example sentences in the detection prompt that came from corpus reports
+were replaced with invented ones. The released detection prompt (v0.2.1) was therefore not the one
+measured. The measured prompt (v0.2) differs only in those four sentences, is sent with the labels,
+and can be checked against the hash recorded at the freeze.
 
 The sampling plan (extraction/CORPUS.md) and the labelling protocol (extraction/LABELLING.md) served
 as the study protocol. The study was not registered in a public registry. Instead each draw, the
