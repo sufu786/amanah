@@ -55,7 +55,7 @@ describe('what must not be split', () => {
   };
 
   test('decimal measurements', () => {
-    oneSegment('FINDINGS:  A 4.9 x 3.0 x 4.4 cm mass is seen.\n', '4.9 x 3.0 x 4.4');
+    oneSegment('FINDINGS:  A 3.7 x 2.9 x 1.6 cm cyst arises from the upper pole.\n', '3.7 x 2.9 x 1.6');
   });
 
   test('unit abbreviations', () => {

@@ -44,9 +44,9 @@ describe('the candidate span is the sentence, not the label above it', () => {
   });
 
   test('the span still round-trips to the stored quote', () => {
-    const text = 'BI-RADS:  0 Incomplete - Need Additional Imaging Evaluation.\n';
-    const span = tightSpan(text, at(text, 'BI-RADS:  0 Incomplete - Need Additional Imaging Evaluation.'));
-    assert.equal(text.slice(...span), '0 Incomplete - Need Additional Imaging Evaluation.');
+    const text = 'FOLLOW-UP:  1 suggestion - repeat ankle radiograph in six weeks once weight bearing.\n';
+    const span = tightSpan(text, at(text, 'FOLLOW-UP:  1 suggestion - repeat ankle radiograph in six weeks once weight bearing.'));
+    assert.equal(text.slice(...span), '1 suggestion - repeat ankle radiograph in six weeks once weight bearing.');
   });
 });
 
